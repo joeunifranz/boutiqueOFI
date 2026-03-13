@@ -1,6 +1,11 @@
 <div class="container is-fluid mb-6">
 	<h1 class="title">Clientes</h1>
 	<h2 class="subtitle"><i class="fas fa-clipboard-list fa-fw"></i> &nbsp; Lista de clientes</h2>
+	<p class="has-text-right mt-3">
+		<a class="button is-link is-light is-rounded" href="<?php echo APP_URL; ?>exportarClientes/">
+			<i class="fas fa-file-pdf"></i> &nbsp; Exportar PDF
+		</a>
+	</p>
 </div>
 <div class="container pb-6 pt-6">
 

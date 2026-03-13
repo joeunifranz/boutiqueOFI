@@ -3,6 +3,15 @@
 <div class="main-container">
 
     <form class="box login" action="" method="POST" autocomplete="off" >
+		<?php
+			$redirect = "";
+			if(isset($_GET['redirect'])){
+				$redirect = (string)$_GET['redirect'];
+			}
+			if($redirect!=""){
+				echo '<input type="hidden" name="redirect_to" value="'.htmlspecialchars($redirect,ENT_QUOTES,'UTF-8').'">';
+			}
+		?>
     	<p class="has-text-centered">
             <i class="fas fa-user-circle fa-5x"></i>
         </p>

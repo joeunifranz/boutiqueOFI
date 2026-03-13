@@ -30,7 +30,7 @@
 				  	<div class="select">
 					  	<select name="cliente_tipo_documento">
 	                        <?php
-	                        	echo $insLogin->generarSelect(DOCUMENTOS_USUARIOS,$datos['cliente_tipo_documento']);
+		                        	echo $insLogin->generarSelect(DOCUMENTOS_CLIENTE,$datos['cliente_tipo_documento']);
 	                        ?>
 					  	</select>
 					</div>

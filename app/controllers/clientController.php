@@ -8,6 +8,12 @@
 		/*----------  Controlador registrar cliente  ----------*/
 		public function registrarClienteControlador(){
 
+			$esAdmin = (isset($_SESSION['usuario']) && $_SESSION['usuario']!="");
+			$redirect_to = $this->limpiarCadena($_POST['redirect_to'] ?? "");
+			if($redirect_to!="" && !preg_match('/^[a-zA-Z0-9_\/-]{1,200}$/', $redirect_to)){
+				$redirect_to = "";
+			}
+
 			# Almacenando datos#
 		    $tipo_documento=$this->limpiarCadena($_POST['cliente_tipo_documento']);
 		    $numero_documento=$this->limpiarCadena($_POST['cliente_numero_documento']);
@@ -103,7 +109,7 @@
 		    }
 
 		    # Comprobando tipo de documento #
-			if(!in_array($tipo_documento, DOCUMENTOS_USUARIOS)){
+			if(!in_array($tipo_documento, DOCUMENTOS_CLIENTE)){
 				$alerta=[
 					"tipo"=>"simple",
 					"titulo"=>"Ocurrió un error inesperado",
@@ -115,6 +121,16 @@
 			}
 
 		    # Verificando email #
+		    if(!$esAdmin && $email==""){
+		    	$alerta=[
+					"tipo"=>"simple",
+					"titulo"=>"Ocurrió un error inesperado",
+					"texto"=>"Debes ingresar un email para registrarte",
+					"icono"=>"error"
+				];
+				return json_encode($alerta);
+				exit();
+		    }
 		    if($email!=""){
 				if(filter_var($email, FILTER_VALIDATE_EMAIL)){
 					$check_email=$this->ejecutarConsulta("SELECT cliente_email FROM cliente WHERE cliente_email='$email'");
@@ -200,12 +216,64 @@
 			$registrar_cliente=$this->guardarDatos("cliente",$cliente_datos_reg);
 
 			if($registrar_cliente->rowCount()==1){
-				$alerta=[
-					"tipo"=>"limpiar",
-					"titulo"=>"Cliente registrado",
-					"texto"=>"El cliente ".$nombre." ".$apellido." se registro con exito",
-					"icono"=>"success"
-				];
+				$this->registrarLogAccion("Alta de cliente: ".$nombre." ".$apellido." (Email: ".$email.")");
+
+				/* 
+				 * Si el registro viene del flujo de Google (correo coincide con el de sesión),
+				 * iniciamos sesión de cliente automáticamente y redirigimos a productosCliente.
+				 */
+				if(isset($_SESSION['google_cliente_email']) && $_SESSION['google_cliente_email']==$email){
+
+					$nuevo_cliente = $this->ejecutarConsulta("SELECT * FROM cliente WHERE cliente_email='$email' LIMIT 1");
+					if($nuevo_cliente->rowCount()==1){
+						$nuevo_cliente = $nuevo_cliente->fetch();
+
+						$_SESSION['cliente_id']       = $nuevo_cliente['cliente_id'];
+						$_SESSION['cliente_nombre']   = $nuevo_cliente['cliente_nombre'];
+						$_SESSION['cliente_apellido'] = $nuevo_cliente['cliente_apellido'];
+						$_SESSION['cliente_email']    = $nuevo_cliente['cliente_email'];
+					}
+
+					unset($_SESSION['google_cliente_email'], $_SESSION['google_cliente_nombre'], $_SESSION['google_cliente_apellido']);
+
+					$alerta=[
+						"tipo"=>"redireccionar",
+						"titulo"=>"Cliente registrado",
+						"texto"=>"Tu cuenta se creó y tu sesión se inició correctamente.",
+						"icono"=>"success",
+						"url"=>((!$esAdmin && $redirect_to!="") ? (APP_URL.$redirect_to) : (APP_URL."productosCliente/"))
+					];
+
+				}else{
+					// Flujo público: iniciar sesión automáticamente y redirigir.
+					if(!$esAdmin && $email!=""){
+						$nuevo_cliente = $this->ejecutarConsulta("SELECT * FROM cliente WHERE cliente_email='$email' LIMIT 1");
+						if($nuevo_cliente->rowCount()==1){
+							$nuevo_cliente = $nuevo_cliente->fetch();
+							$_SESSION['cliente_id']       = $nuevo_cliente['cliente_id'];
+							$_SESSION['cliente_nombre']   = $nuevo_cliente['cliente_nombre'];
+							$_SESSION['cliente_apellido'] = $nuevo_cliente['cliente_apellido'];
+							$_SESSION['cliente_email']    = $nuevo_cliente['cliente_email'];
+						}
+
+						$destino = ($redirect_to!="") ? (APP_URL.$redirect_to) : (APP_URL."productosCliente/");
+						$alerta=[
+							"tipo"=>"redireccionar",
+							"titulo"=>"Cliente registrado",
+							"texto"=>"Tu cuenta se creó y tu sesión se inició correctamente.",
+							"icono"=>"success",
+							"url"=>$destino
+						];
+					}else{
+						$alerta=[
+							"tipo"=>"limpiar",
+							"titulo"=>"Cliente registrado",
+							"texto"=>"El cliente ".$nombre." ".$apellido." se registró con éxito",
+							"icono"=>"success"
+						];
+					}
+				}
+
 			}else{
 				$alerta=[
 					"tipo"=>"simple",
@@ -338,6 +406,64 @@
 		}
 
 
+		/*----------  Exportar clientes a PDF  ----------*/
+		public function exportarClientesPDF($busqueda=""){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+			$busqueda = $this->limpiarCadena($busqueda);
+
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT cliente_tipo_documento, cliente_numero_documento, cliente_nombre, cliente_apellido, cliente_email, cliente_telefono, cliente_ciudad, cliente_direccion FROM cliente WHERE cliente_id!='1' AND (cliente_tipo_documento LIKE '%$busqueda%' OR cliente_numero_documento LIKE '%$busqueda%' OR cliente_nombre LIKE '%$busqueda%' OR cliente_apellido LIKE '%$busqueda%' OR cliente_email LIKE '%$busqueda%' OR cliente_telefono LIKE '%$busqueda%' OR cliente_ciudad LIKE '%$busqueda%' OR cliente_direccion LIKE '%$busqueda%') ORDER BY cliente_nombre ASC";
+			}else{
+				$consulta = "SELECT cliente_tipo_documento, cliente_numero_documento, cliente_nombre, cliente_apellido, cliente_email, cliente_telefono, cliente_ciudad, cliente_direccion FROM cliente WHERE cliente_id!='1' ORDER BY cliente_nombre ASC";
+			}
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('L','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Clientes';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(
+				['Documento','Nombre','Email','Teléfono','Ciudad','Dirección'],
+				[40,50,65,35,40,47],
+				['L','L','L','L','L','L']
+			);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$doc = trim((string)($r['cliente_tipo_documento'] ?? '').': '.(string)($r['cliente_numero_documento'] ?? ''));
+				$nombre = trim((string)($r['cliente_nombre'] ?? '').' '.(string)($r['cliente_apellido'] ?? ''));
+				$pdf->addRow([
+					$doc,
+					$nombre,
+					(string)($r['cliente_email'] ?? ''),
+					(string)($r['cliente_telefono'] ?? ''),
+					(string)($r['cliente_ciudad'] ?? ''),
+					(string)($r['cliente_direccion'] ?? ''),
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_clientes_'.date('Ymd').'.pdf');
+			exit();
+		}
+
+
 		/*----------  Controlador eliminar cliente  ----------*/
 		public function eliminarClienteControlador(){
 
@@ -385,6 +511,7 @@
 		    $eliminarCliente=$this->eliminarRegistro("cliente","cliente_id",$id);
 
 		    if($eliminarCliente->rowCount()==1){
+				$this->registrarLogAccion("Eliminó cliente: ".$datos['cliente_nombre']." ".$datos['cliente_apellido']." (ID: ".$id.")");
 
 		        $alerta=[
 					"tipo"=>"recargar",
@@ -521,7 +648,7 @@
 		    }
 
 		    # Comprobando tipo de documento #
-			if(!in_array($tipo_documento, DOCUMENTOS_USUARIOS)){
+			if(!in_array($tipo_documento, DOCUMENTOS_CLIENTE)){
 				$alerta=[
 					"tipo"=>"simple",
 					"titulo"=>"Ocurrió un error inesperado",
@@ -623,6 +750,7 @@
 			];
 
 			if($this->actualizarDatos("cliente",$cliente_datos_up,$condicion)){
+				$this->registrarLogAccion("Modificó cliente: ".$datos['cliente_nombre']." ".$datos['cliente_apellido']." (ID: ".$id.")");
 				$alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Cliente actualizado",

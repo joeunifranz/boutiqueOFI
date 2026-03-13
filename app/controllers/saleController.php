@@ -870,6 +870,58 @@
             unset($_SESSION['datos_producto_venta']);
 
             $_SESSION['venta_codigo_factura']=$codigo_venta;
+			$this->registrarLogAccion("Alta de venta: ".$codigo_venta);
+
+			// Enviar ticket por correo al cliente (best-effort)
+			try{
+				$clienteId = (int)($_SESSION['datos_cliente_venta']['cliente_id'] ?? 0);
+				if($clienteId > 0){
+					$checkEmail = $this->ejecutarConsulta("SELECT cliente_nombre, cliente_apellido, cliente_email FROM cliente WHERE cliente_id='".$clienteId."' LIMIT 1");
+					if($checkEmail && $checkEmail->rowCount() === 1){
+						$cli = $checkEmail->fetch();
+						$email = trim((string)($cli['cliente_email'] ?? ''));
+						if($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)){
+							$cliente = trim((string)($cli['cliente_nombre'] ?? '').' '.(string)($cli['cliente_apellido'] ?? ''));
+							if($cliente===''){
+								$cliente = 'Cliente';
+							}
+
+							$subject = 'Comprobante de compra - '.(defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE');
+							$linkPdf = (defined('APP_URL') ? (string)APP_URL : '').'app/pdf/ticket.php?code='.urlencode($codigo_venta);
+							$html = "
+								<div style=\"font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111;\">
+									<p>Hola <strong>".htmlspecialchars($cliente,ENT_QUOTES,'UTF-8')."</strong>,</p>
+									<p>Te enviamos tu ticket de compra en PDF.</p>
+									<p>Puedes abrirlo aquí: <a href=\"".htmlspecialchars($linkPdf,ENT_QUOTES,'UTF-8')."\" target=\"_blank\" rel=\"noopener\">Ticket</a></p>
+									<p>Gracias,<br>".htmlspecialchars((defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE'),ENT_QUOTES,'UTF-8')."</p>
+								</div>
+							";
+
+							$pdfSvc = new \app\services\TicketPdfService();
+							$pdf = $pdfSvc->generarTicketVenta($codigo_venta);
+							$mailer = new \app\services\MailService();
+							$ok = false;
+							if(is_string($pdf) && $pdf !== ''){
+								$ok = $mailer->sendHtmlWithAttachments($email, $subject, $html, [[
+									'filename' => 'Ticket_'.$codigo_venta.'.pdf',
+									'contentType' => 'application/pdf',
+									'data' => $pdf,
+								]]);
+							}else{
+								$ok = $mailer->sendHtml($email, $subject, $html);
+							}
+
+							if(!$ok){
+								$err = $mailer->getLastError() ?: 'Falló envío (sin detalle)';
+								error_log('[BOUTIQUE][MAIL] Fallo ticket venta codigo='.$codigo_venta.' to='.$email.' :: '.$err);
+							}
+						}
+					}
+				}
+			}catch(\Throwable $e){
+				// No interrumpir el flujo por error de correo
+				error_log('[BOUTIQUE][MAIL] Excepción ticket venta codigo='.$codigo_venta.' :: '.$e->getMessage());
+			}
 
             $alerta=[
 				"tipo"=>"recargar",
@@ -1015,6 +1067,74 @@
 		}
 
 
+		/*----------  Exportar ventas a PDF  ----------*/
+		public function exportarVentasPDF($busqueda=""){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+			$busqueda = $this->limpiarCadena($busqueda);
+
+			$campos = "v.venta_id, v.venta_codigo, v.venta_fecha, v.venta_hora, v.venta_total, u.usuario_nombre, u.usuario_apellido, c.cliente_nombre, c.cliente_apellido";
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT $campos FROM venta v INNER JOIN cliente c ON v.cliente_id=c.cliente_id INNER JOIN usuario u ON v.usuario_id=u.usuario_id WHERE (v.venta_codigo='$busqueda') ORDER BY v.venta_id DESC";
+			}else{
+				$consulta = "SELECT $campos FROM venta v INNER JOIN cliente c ON v.cliente_id=c.cliente_id INNER JOIN usuario u ON v.usuario_id=u.usuario_id ORDER BY v.venta_id DESC";
+			}
+
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('L','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Ventas';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(
+				['Nro.','Código','Fecha','Cliente','Vendedor','Total'],
+				[15,55,35,70,70,32],
+				['C','L','L','L','L','R']
+			);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$cliente = trim((string)($r['cliente_nombre'] ?? '').' '.(string)($r['cliente_apellido'] ?? ''));
+				$vendedor = trim((string)($r['usuario_nombre'] ?? '').' '.(string)($r['usuario_apellido'] ?? ''));
+				$fecha = '';
+				try{
+					$fecha = date('d-m-Y', strtotime((string)($r['venta_fecha'] ?? ''))).' '.(string)($r['venta_hora'] ?? '');
+				}catch(\Throwable $e){
+					$fecha = (string)($r['venta_fecha'] ?? '').' '.(string)($r['venta_hora'] ?? '');
+				}
+				$total = $r['venta_total'] ?? '';
+				$total = is_numeric($total) ? (MONEDA_SIMBOLO.number_format((float)$total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE) : (string)$total;
+				$pdf->addRow([
+					(string)($r['venta_id'] ?? ''),
+					(string)($r['venta_codigo'] ?? ''),
+					$fecha,
+					$cliente,
+					$vendedor,
+					$total,
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_ventas_'.date('Ymd').'.pdf');
+			exit();
+		}
+
+
 		/*----------  Controlador eliminar venta  ----------*/
 		public function eliminarVentaControlador(){
 
@@ -1060,6 +1180,7 @@
 		    $eliminarVenta=$this->eliminarRegistro("venta","venta_id",$id);
 
 		    if($eliminarVenta->rowCount()==1){
+				$this->registrarLogAccion("Eliminó venta: ".$datos['venta_codigo']." (ID: ".$id.")");
 
 		        $alerta=[
 					"tipo"=>"recargar",

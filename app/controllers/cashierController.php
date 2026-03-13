@@ -120,6 +120,7 @@
 			$registrar_caja=$this->guardarDatos("caja",$caja_datos_reg);
 
 			if($registrar_caja->rowCount()==1){
+				$this->registrarLogAccion("Alta de caja: ".$nombre." #".$numero);
 				$alerta=[
 					"tipo"=>"limpiar",
 					"titulo"=>"Caja registrada",
@@ -184,6 +185,7 @@
 		                    <th class="has-text-centered">Numero</th>
 		                    <th class="has-text-centered">Nombre</th>
 		                    <th class="has-text-centered">Efectivo</th>
+		                    <th class="has-text-centered">Entregar</th>
 		                    <th class="has-text-centered">Actualizar</th>
 		                    <th class="has-text-centered">Eliminar</th>
 		                </tr>
@@ -195,11 +197,26 @@
 				$contador=$inicio+1;
 				$pag_inicio=$inicio+1;
 				foreach($datos as $rows){
+					$btnEntregar = '<span class="has-text-grey">-</span>';
+					$esAdmin = $this->sessionEsAdmin();
+					$cajaId = (int)($rows['caja_id'] ?? 0);
+					if($esAdmin && ($cajaId===2 || $cajaId===3)){
+						$btnEntregar = '
+							<form class="FormularioAjax" action="'.APP_URL.'app/ajax/cajaAjax.php" method="POST" autocomplete="off" style="display:inline-block;">
+								<input type="hidden" name="modulo_caja" value="entregar">
+								<input type="hidden" name="caja_id" value="'.$cajaId.'">
+								<button type="submit" class="button is-warning is-light is-rounded is-small" title="Transferir efectivo a la Caja Principal">
+									<i class="fas fa-hand-holding-usd"></i> &nbsp; Entregar caja
+								</button>
+							</form>
+						';
+					}
 					$tabla.='
 						<tr class="has-text-centered" >
 							<td>'.$rows['caja_numero'].'</td>
 							<td>'.$rows['caja_nombre'].'</td>
 							<td>'.$rows['caja_efectivo'].'</td>
+							<td>'.$btnEntregar.'</td>
 			                <td>
 			                    <a href="'.APP_URL.'cashierUpdate/'.$rows['caja_id'].'/" class="button is-success is-rounded is-small">
 			                    	<i class="fas fa-sync fa-fw"></i>
@@ -225,7 +242,7 @@
 				if($total>=1){
 					$tabla.='
 						<tr class="has-text-centered" >
-			                <td colspan="5">
+			                <td colspan="6">
 			                    <a href="'.$url.'1/" class="button is-link is-rounded is-small mt-4 mb-4">
 			                        Haga clic acá para recargar el listado
 			                    </a>
@@ -235,7 +252,7 @@
 				}else{
 					$tabla.='
 						<tr class="has-text-centered" >
-			                <td colspan="5">
+			                <td colspan="6">
 			                    No hay registros en el sistema
 			                </td>
 			            </tr>
@@ -253,6 +270,170 @@
 			}
 
 			return $tabla;
+		}
+
+
+		/*----------  Exportar cajas a PDF  ----------*/
+		public function exportarCajasPDF($busqueda=""){
+			// Requiere sesión admin
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+
+			$busqueda = $this->limpiarCadena($busqueda);
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT caja_numero, caja_nombre, caja_efectivo FROM caja WHERE caja_numero LIKE '%$busqueda%' OR caja_nombre LIKE '%$busqueda%' ORDER BY caja_numero ASC";
+			}else{
+				$consulta = "SELECT caja_numero, caja_nombre, caja_efectivo FROM caja ORDER BY caja_numero ASC";
+			}
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('P','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Cajas';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(['Número','Nombre','Efectivo'], [25,105,60], ['C','L','R']);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$ef = $r['caja_efectivo'] ?? '';
+				$ef = is_numeric($ef) ? number_format((float)$ef, 2, '.', '') : (string)$ef;
+				$pdf->addRow([
+					(string)($r['caja_numero'] ?? ''),
+					(string)($r['caja_nombre'] ?? ''),
+					$ef,
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_cajas_'.date('Ymd').'.pdf');
+			exit();
+		}
+
+
+		/*----------  Entregar caja (transferir efectivo a Caja Principal)  ----------*/
+		public function entregarCajaControlador(){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				$alerta=[
+					"tipo"=>"redireccionar",
+					"url"=>APP_URL."adminLogin/"
+				];
+				return json_encode($alerta);
+			}
+
+			if(!$this->sessionEsAdmin()){
+				$alerta=[
+					"tipo"=>"simple",
+					"titulo"=>"Acceso restringido",
+					"texto"=>"Solo el administrador puede entregar cajas.",
+					"icono"=>"error"
+				];
+				return json_encode($alerta);
+			}
+
+			$cajaId = (int)$this->limpiarCadena($_POST['caja_id'] ?? '0');
+			if(!in_array($cajaId,[2,3],true)){
+				$alerta=[
+					"tipo"=>"simple",
+					"titulo"=>"Operación inválida",
+					"texto"=>"Solo se puede entregar la Caja 2 o la Caja 3 hacia la Caja Principal.",
+					"icono"=>"error"
+				];
+				return json_encode($alerta);
+			}
+
+			try{
+				$pdo = $this->conectar();
+				$pdo->beginTransaction();
+
+				// Bloquear Caja Principal
+				$stmt1 = $pdo->prepare("SELECT caja_id, caja_numero, caja_nombre, caja_efectivo FROM caja WHERE caja_id=1 FOR UPDATE");
+				$stmt1->execute();
+				$caja1 = $stmt1->fetch();
+
+				// Bloquear Caja origen
+				$stmt2 = $pdo->prepare("SELECT caja_id, caja_numero, caja_nombre, caja_efectivo FROM caja WHERE caja_id=:id FOR UPDATE");
+				$stmt2->bindValue(':id', $cajaId, \PDO::PARAM_INT);
+				$stmt2->execute();
+				$cajaOrigen = $stmt2->fetch();
+
+				if(!$caja1 || !$cajaOrigen){
+					$pdo->rollBack();
+					$alerta=[
+						"tipo"=>"simple",
+						"titulo"=>"No encontrado",
+						"texto"=>"No encontramos la caja principal o la caja indicada.",
+						"icono"=>"error"
+					];
+					return json_encode($alerta);
+				}
+
+				$monto = (float)($cajaOrigen['caja_efectivo'] ?? 0);
+				$monto = (float)number_format($monto, 2, '.', '');
+
+				if($monto<=0){
+					$pdo->rollBack();
+					$alerta=[
+						"tipo"=>"simple",
+						"titulo"=>"Sin efectivo",
+						"texto"=>"La caja seleccionada no tiene efectivo para entregar.",
+						"icono"=>"warning"
+					];
+					return json_encode($alerta);
+				}
+
+				$up1 = $pdo->prepare("UPDATE caja SET caja_efectivo = caja_efectivo + :monto WHERE caja_id=1");
+				$up1->bindValue(':monto', $monto);
+				$up1->execute();
+
+				$up2 = $pdo->prepare("UPDATE caja SET caja_efectivo = 0 WHERE caja_id=:id");
+				$up2->bindValue(':id', $cajaId, \PDO::PARAM_INT);
+				$up2->execute();
+
+				$pdo->commit();
+
+				$nombreOrigen = (string)($cajaOrigen['caja_nombre'] ?? '');
+				$numeroOrigen = (string)($cajaOrigen['caja_numero'] ?? $cajaId);
+				$this->registrarLogAccion("Entregó caja: ".$nombreOrigen." #".$numeroOrigen." -> Caja Principal | Monto: ".$monto);
+
+				$alerta=[
+					"tipo"=>"recargar",
+					"titulo"=>"Caja entregada",
+					"texto"=>"Se transfirió ".MONEDA_SIMBOLO.number_format($monto, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE." a la Caja Principal.",
+					"icono"=>"success"
+				];
+				return json_encode($alerta);
+			}catch(\Throwable $e){
+				try{
+					if(isset($pdo) && $pdo->inTransaction()){
+						$pdo->rollBack();
+					}
+				}catch(\Throwable $e2){
+					// ignore
+				}
+
+				$alerta=[
+					"tipo"=>"simple",
+					"titulo"=>"Error",
+					"texto"=>"No se pudo entregar la caja. Intenta nuevamente.",
+					"icono"=>"error"
+				];
+				return json_encode($alerta);
+			}
 		}
 
 
@@ -316,6 +497,7 @@
 		    $eliminarCaja=$this->eliminarRegistro("caja","caja_id",$id);
 
 		    if($eliminarCaja->rowCount()==1){
+				$this->registrarLogAccion("Eliminó caja: ".$datos['caja_nombre']." #".$datos['caja_numero']." (ID: ".$id.")");
 		        $alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Caja eliminada",
@@ -474,6 +656,7 @@
 			];
 
 			if($this->actualizarDatos("caja",$caja_datos_up,$condicion)){
+				$this->registrarLogAccion("Modificó caja: ".$datos['caja_nombre']." #".$datos['caja_numero']." (ID: ".$id.")");
 				$alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Caja actualizada",

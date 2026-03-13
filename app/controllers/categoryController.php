@@ -10,7 +10,6 @@
 
 			# Almacenando datos#
 		    $nombre=$this->limpiarCadena($_POST['categoria_nombre']);
-		    $ubicacion=$this->limpiarCadena($_POST['categoria_ubicacion']);
 
 		    # Verificando campos obligatorios #
             if($nombre==""){
@@ -36,19 +35,6 @@
 		        exit();
 		    }
 
-		    if($ubicacion!=""){
-		    	if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]{5,150}",$ubicacion)){
-			    	$alerta=[
-						"tipo"=>"simple",
-						"titulo"=>"Ocurrió un error inesperado",
-						"texto"=>"La UBICACION no coincide con el formato solicitado",
-						"icono"=>"error"
-					];
-					return json_encode($alerta);
-			        exit();
-			    }
-		    }
-
 		    # Verificando nombre #
 		    $check_nombre=$this->ejecutarConsulta("SELECT categoria_nombre FROM categoria WHERE categoria_nombre='$nombre'");
 		    if($check_nombre->rowCount()>0){
@@ -68,17 +54,23 @@
 					"campo_nombre"=>"categoria_nombre",
 					"campo_marcador"=>":Nombre",
 					"campo_valor"=>$nombre
-				],
-				[
-					"campo_nombre"=>"categoria_ubicacion",
-					"campo_marcador"=>":Ubicacion",
-					"campo_valor"=>$ubicacion
 				]
 			];
+
+			# Compatibilidad hacia atrás: si la columna existe, guardamos vacío.
+			$check_col_ubicacion = $this->ejecutarConsulta("SHOW COLUMNS FROM categoria LIKE 'categoria_ubicacion'");
+			if($check_col_ubicacion && $check_col_ubicacion->rowCount() > 0){
+				$categoria_datos_reg[] = [
+					"campo_nombre"=>"categoria_ubicacion",
+					"campo_marcador"=>":Ubicacion",
+					"campo_valor"=>""
+				];
+			}
 
 			$registrar_categoria=$this->guardarDatos("categoria",$categoria_datos_reg);
 
 			if($registrar_categoria->rowCount()==1){
+				$this->registrarLogAccion("Alta de categoría: ".$nombre);
 				$alerta=[
 					"tipo"=>"limpiar",
 					"titulo"=>"Categoría registrada",
@@ -115,9 +107,9 @@
 
 			if(isset($busqueda) && $busqueda!=""){
 
-				$consulta_datos="SELECT * FROM categoria WHERE categoria_nombre LIKE '%$busqueda%' OR categoria_ubicacion LIKE '%$busqueda%' ORDER BY categoria_nombre ASC LIMIT $inicio,$registros";
+				$consulta_datos="SELECT * FROM categoria WHERE categoria_nombre LIKE '%$busqueda%' ORDER BY categoria_nombre ASC LIMIT $inicio,$registros";
 
-				$consulta_total="SELECT COUNT(categoria_id) FROM categoria WHERE categoria_nombre LIKE '%$busqueda%' OR categoria_ubicacion LIKE '%$busqueda%'";
+				$consulta_total="SELECT COUNT(categoria_id) FROM categoria WHERE categoria_nombre LIKE '%$busqueda%'";
 
 			}else{
 
@@ -142,7 +134,6 @@
 		                <tr>
 		                    <th class="has-text-centered">#</th>
 		                    <th class="has-text-centered">Nombre</th>
-		                    <th class="has-text-centered">Ubicacion</th>
 		                    <th class="has-text-centered">Productos</th>
 		                    <th class="has-text-centered">Actualizar</th>
 		                    <th class="has-text-centered">Eliminar</th>
@@ -159,7 +150,6 @@
 						<tr class="has-text-centered" >
 							<td>'.$contador.'</td>
 							<td>'.$rows['categoria_nombre'].'</td>
-							<td>'.$rows['categoria_ubicacion'].'</td>
 							<td>
 			                    <a href="'.APP_URL.'productCategory/'.$rows['categoria_id'].'/" class="button is-info is-rounded is-small">
 			                    	<i class="fas fa-boxes fa-fw"></i>
@@ -190,7 +180,7 @@
 				if($total>=1){
 					$tabla.='
 						<tr class="has-text-centered" >
-			                <td colspan="6">
+			                <td colspan="5">
 			                    <a href="'.$url.'1/" class="button is-link is-rounded is-small mt-4 mb-4">
 			                        Haga clic acá para recargar el listado
 			                    </a>
@@ -200,7 +190,7 @@
 				}else{
 					$tabla.='
 						<tr class="has-text-centered" >
-			                <td colspan="6">
+			                <td colspan="5">
 			                    No hay registros en el sistema
 			                </td>
 			            </tr>
@@ -218,6 +208,54 @@
 			}
 
 			return $tabla;
+		}
+
+
+		/*----------  Exportar categorías a PDF  ----------*/
+		public function exportarCategoriasPDF($busqueda=""){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+			$busqueda = $this->limpiarCadena($busqueda);
+
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT categoria_id, categoria_nombre FROM categoria WHERE categoria_nombre LIKE '%$busqueda%' ORDER BY categoria_nombre ASC";
+			}else{
+				$consulta = "SELECT categoria_id, categoria_nombre FROM categoria ORDER BY categoria_nombre ASC";
+			}
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('P','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Categorías';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(['ID','Nombre'], [20,170], ['C','L']);
+			$pdf->AddPage();			
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$pdf->addRow([
+					(string)($r['categoria_id'] ?? ''),
+					(string)($r['categoria_nombre'] ?? ''),
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_categorias_'.date('Ymd').'.pdf');
+			exit();
 		}
 
 
@@ -257,6 +295,7 @@
 		    $eliminarCategoria=$this->eliminarRegistro("categoria","categoria_id",$id);
 
 		    if($eliminarCategoria->rowCount()==1){
+				$this->registrarLogAccion("Eliminó categoría: ".$datos['categoria_nombre']." (ID: ".$id.")");
 
 		        $alerta=[
 					"tipo"=>"recargar",
@@ -300,7 +339,7 @@
 
 		    # Almacenando datos#
 		    $nombre=$this->limpiarCadena($_POST['categoria_nombre']);
-		    $ubicacion=$this->limpiarCadena($_POST['categoria_ubicacion']);
+		    $ubicacion="";
 
 		    # Verificando campos obligatorios #
             if($nombre==""){
@@ -326,19 +365,6 @@
 		        exit();
 		    }
 
-		    if($ubicacion!=""){
-		    	if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ ]{5,150}",$ubicacion)){
-			    	$alerta=[
-						"tipo"=>"simple",
-						"titulo"=>"Ocurrió un error inesperado",
-						"texto"=>"La UBICACION no coincide con el formato solicitado",
-						"icono"=>"error"
-					];
-					return json_encode($alerta);
-			        exit();
-			    }
-		    }
-
 		    # Verificando nombre #
 		    if($datos['categoria_nombre']!=$nombre){
 			    $check_nombre=$this->ejecutarConsulta("SELECT categoria_nombre FROM categoria WHERE categoria_nombre='$nombre'");
@@ -360,11 +386,6 @@
 					"campo_nombre"=>"categoria_nombre",
 					"campo_marcador"=>":Nombre",
 					"campo_valor"=>$nombre
-				],
-				[
-					"campo_nombre"=>"categoria_ubicacion",
-					"campo_marcador"=>":Ubicacion",
-					"campo_valor"=>$ubicacion
 				]
 			];
 
@@ -375,6 +396,7 @@
 			];
 
 			if($this->actualizarDatos("categoria",$categoria_datos_up,$condicion)){
+				$this->registrarLogAccion("Modificó categoría: ".$datos['categoria_nombre']." (ID: ".$id.")");
 				$alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Categoría actualizada",
@@ -392,5 +414,26 @@
 
 			return json_encode($alerta);
 		}
+		/*----------  Listar categorías para inicio (Frontend)  ----------*/
+		public function listarCategoriasInicio(){
 
+			$html = '<ul class="inicio-categorias-list">';
+		
+			$categorias = $this->ejecutarConsulta("SELECT categoria_id, categoria_nombre FROM categoria ORDER BY categoria_nombre ASC");
+			$categorias = $categorias->fetchAll();
+		
+			foreach($categorias as $cat){
+				$html .= '
+					<li>
+						<a href="'.APP_URL.'productosCliente/'.$cat['categoria_id'].'/">
+							'.$cat['categoria_nombre'].'
+						</a>
+					</li>
+				';
+			}
+		
+			$html .= '</ul>';
+		
+			return $html;
+		}
 	}

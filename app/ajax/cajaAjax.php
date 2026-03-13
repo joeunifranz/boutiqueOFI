@@ -21,6 +21,10 @@
 		if($_POST['modulo_caja']=="actualizar"){
 			echo $insCaja->actualizarCajaControlador();
 		}
+
+		if($_POST['modulo_caja']=="entregar"){
+			echo $insCaja->entregarCajaControlador();
+		}
 		
 	}else{
 		session_destroy();

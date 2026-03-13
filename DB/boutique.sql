@@ -49,8 +49,7 @@ INSERT INTO `caja` (`caja_id`, `caja_numero`, `caja_nombre`, `caja_efectivo`) VA
 
 CREATE TABLE `categoria` (
   `categoria_id` int(7) NOT NULL,
-  `categoria_nombre` varchar(50) COLLATE utf8_spanish2_ci NOT NULL,
-  `categoria_ubicacion` varchar(150) COLLATE utf8_spanish2_ci NOT NULL
+  `categoria_nombre` varchar(50) COLLATE utf8_spanish2_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_spanish2_ci;
 
 -- --------------------------------------------------------

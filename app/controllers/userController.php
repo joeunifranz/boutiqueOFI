@@ -261,6 +261,7 @@
 			$registrar_usuario=$this->guardarDatos("usuario",$usuario_datos_reg);
 
 			if($registrar_usuario->rowCount()==1){
+				$this->registrarLogAccion("Alta de usuario: ".$nombre." ".$apellido." (Usuario: ".$usuario.")");
 				$alerta=[
 					"tipo"=>"limpiar",
 					"titulo"=>"Usuario registrado",
@@ -412,6 +413,61 @@
 		}
 
 
+		/*----------  Exportar usuarios a PDF  ----------*/
+		public function exportarUsuariosPDF($busqueda=""){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+			$busqueda = $this->limpiarCadena($busqueda);
+
+			$excludeSelf = (int)($_SESSION['id'] ?? 0);
+			$condBase = "(usuario_id!='{$excludeSelf}' AND usuario_id!='1')";
+
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT usuario_id, usuario_nombre, usuario_apellido, usuario_usuario, usuario_email FROM usuario WHERE ($condBase) AND (usuario_nombre LIKE '%$busqueda%' OR usuario_apellido LIKE '%$busqueda%' OR usuario_email LIKE '%$busqueda%' OR usuario_usuario LIKE '%$busqueda%') ORDER BY usuario_nombre ASC";
+			}else{
+				$consulta = "SELECT usuario_id, usuario_nombre, usuario_apellido, usuario_usuario, usuario_email FROM usuario WHERE $condBase ORDER BY usuario_nombre ASC";
+			}
+
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('P','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Usuarios';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(['ID','Nombre','Usuario','Email'], [15,80,45,50], ['C','L','L','L']);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$nombre = trim((string)($r['usuario_nombre'] ?? '').' '.(string)($r['usuario_apellido'] ?? ''));
+				$pdf->addRow([
+					(string)($r['usuario_id'] ?? ''),
+					$nombre,
+					(string)($r['usuario_usuario'] ?? ''),
+					(string)($r['usuario_email'] ?? ''),
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_usuarios_'.date('Ymd').'.pdf');
+			exit();
+		}
+
+
 		/*----------  Controlador eliminar usuario  ----------*/
 		public function eliminarUsuarioControlador(){
 
@@ -464,6 +520,8 @@
 		            chmod("../views/fotos/".$datos['usuario_foto'],0777);
 		            unlink("../views/fotos/".$datos['usuario_foto']);
 		        }
+
+				$this->registrarLogAccion("Eliminó usuario: ".$datos['usuario_nombre']." ".$datos['usuario_apellido']." (ID: ".$id.")");
 
 		        $alerta=[
 					"tipo"=>"recargar",
@@ -761,6 +819,8 @@
 					$_SESSION['apellido']=$apellido;
 					$_SESSION['usuario']=$usuario;
 				}
+
+				$this->registrarLogAccion("Modificó usuario: ".$datos['usuario_nombre']." ".$datos['usuario_apellido']." (ID: ".$id.")");
 
 				$alerta=[
 					"tipo"=>"recargar",

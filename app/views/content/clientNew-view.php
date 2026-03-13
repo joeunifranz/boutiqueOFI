@@ -17,7 +17,7 @@
 					  	<select name="cliente_tipo_documento">
 					    	<option value="" selected="" >Seleccione una opción</option>
 	                        <?php
-	                        	echo $insLogin->generarSelect(DOCUMENTOS_USUARIOS,"VACIO");
+		                        	echo $insLogin->generarSelect(DOCUMENTOS_CLIENTE,"VACIO");
 	                        ?>
 					  	</select>
 					</div>

@@ -37,6 +37,11 @@
                 <br>
                 <button type="submit" class="button is-danger is-rounded"><i class="fas fa-trash-restore"></i> &nbsp; Eliminar busqueda</button>
             </form>
+            <p class="has-text-right mt-3">
+                <a class="button is-link is-light is-rounded" href="<?php echo APP_URL; ?>exportarClientes/?busqueda=<?php echo urlencode($_SESSION[$url[0]]); ?>">
+                    <i class="fas fa-file-pdf"></i> &nbsp; Exportar PDF
+                </a>
+            </p>
         </div>
     </div>
     <?php

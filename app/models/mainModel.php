@@ -9,6 +9,9 @@
 
 	class mainModel{
 
+		protected static $logTablaDisponible = null;
+		protected static $logAccionDisponible = null;
+
 		private $server=DB_SERVER;
 		private $db=DB_NAME;
 		private $user=DB_USER;
@@ -28,6 +31,99 @@
 			$sql=$this->conectar()->prepare($consulta);
 			$sql->execute();
 			return $sql;
+		}
+
+
+		/*----------  Helper: validar si la sesión es de administrador  ----------*/
+		public function sessionEsAdmin(){
+			if(isset($_SESSION['rol']) && $_SESSION['rol']=="Administrador"){
+				return true;
+			}
+			if(isset($_SESSION['usuario']) && $_SESSION['usuario']=="Administrador"){
+				return true;
+			}
+			if(isset($_SESSION['id']) && (int)$_SESSION['id']===1){
+				return true;
+			}
+			return false;
+		}
+
+
+		/*---------- Registrar acción en log_acceso (si existe) ----------*/
+		protected function registrarLogAccion($accion){
+			try{
+				// Cache rápido: si ya sabemos que no hay tabla, no insistir
+				if(self::$logTablaDisponible === false){
+					return false;
+				}
+
+				$usuarioId = $_SESSION['id'] ?? 0;
+				$usuarioNombre = trim(($_SESSION['nombre'] ?? '').' '.($_SESSION['apellido'] ?? ''));
+				$usuarioUser = $_SESSION['usuario'] ?? 'N/A';
+				$logIp = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+				$logFecha = date('Y-m-d');
+				$logHora = date('H:i:s');
+
+				// Detectar si la columna log_accion existe (solo una vez)
+				if(self::$logAccionDisponible === null){
+					try{
+						$check = $this->conectar()->prepare("SHOW COLUMNS FROM log_acceso LIKE 'log_accion'");
+						$check->execute();
+						self::$logAccionDisponible = ($check->rowCount() >= 1);
+					}catch(\Exception $e){
+						self::$logAccionDisponible = false;
+					}
+				}
+
+				$logDatos=[
+					[
+						"campo_nombre"=>"usuario_id",
+						"campo_marcador"=>":UsuarioID",
+						"campo_valor"=>$usuarioId
+					],
+					[
+						"campo_nombre"=>"usuario_nombre",
+						"campo_marcador"=>":UsuarioNombre",
+						"campo_valor"=>($usuarioNombre!=='' ? $usuarioNombre : 'N/A')
+					],
+					[
+						"campo_nombre"=>"usuario_usuario",
+						"campo_marcador"=>":UsuarioUsuario",
+						"campo_valor"=>$usuarioUser
+					],
+					[
+						"campo_nombre"=>"log_fecha",
+						"campo_marcador"=>":Fecha",
+						"campo_valor"=>$logFecha
+					],
+					[
+						"campo_nombre"=>"log_hora",
+						"campo_marcador"=>":Hora",
+						"campo_valor"=>$logHora
+					],
+					[
+						"campo_nombre"=>"log_ip",
+						"campo_marcador"=>":IP",
+						"campo_valor"=>$logIp
+					]
+				];
+
+				if(self::$logAccionDisponible){
+					$logDatos[] = [
+						"campo_nombre"=>"log_accion",
+						"campo_marcador"=>":Accion",
+						"campo_valor"=>$accion
+					];
+				}
+
+				$this->guardarDatos("log_acceso", $logDatos);
+				self::$logTablaDisponible = true;
+				return true;
+			}catch(\Exception $e){
+				// Si no existe la tabla (o falla), no bloquear el flujo principal
+				self::$logTablaDisponible = false;
+				return false;
+			}
 		}
 
 

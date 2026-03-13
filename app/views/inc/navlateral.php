@@ -24,15 +24,25 @@
 			<i class="fas fa-th-large fa-fw"></i> &nbsp; <?php echo APP_NAME; ?>
 		</div>
 		<nav class="full-width">
+			<?php
+				$esAdmin = false;
+				if(isset($_SESSION['rol']) && $_SESSION['rol']=="Administrador"){
+					$esAdmin = true;
+				}elseif(isset($_SESSION['usuario']) && $_SESSION['usuario']=="Administrador"){
+					$esAdmin = true;
+				}elseif(isset($_SESSION['id']) && (int)$_SESSION['id']==1){
+					$esAdmin = true;
+				}
+			?>
 			<ul class="full-width list-unstyle menu-principal">
 
 				<li class="full-width">
-					<a href="<?php echo APP_URL; ?>dashboard/" class="full-width">
+					<a href="<?php echo APP_URL.($esAdmin ? 'dashboard/' : 'saleNew/'); ?>" class="full-width">
 						<div class="navLateral-body-cl">
 							<i class="fab fa-dashcube fa-fw"></i>
 						</div>
 						<div class="navLateral-body-cr">
-							Inicio
+							<?php echo $esAdmin ? 'Dashboard' : 'Inicio'; ?>
 						</div>
 					</a>
 				</li>
@@ -279,6 +289,64 @@
 
 				<li class="full-width divider-menu-h"></li>
 
+				<?php if($esAdmin){ ?>
+				<li class="full-width">
+					<a href="#" class="full-width btn-subMenu">
+						<div class="navLateral-body-cl">
+							<i class="fas fa-clipboard-check fa-fw"></i>
+						</div>
+						<div class="navLateral-body-cr">
+							RESERVAS
+						</div>
+						<span class="fas fa-chevron-down"></span>
+					</a>
+					<ul class="full-width menu-principal sub-menu-options">
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>reservaHoy/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-calendar-day fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Citas de hoy
+								</div>
+							</a>
+						</li>
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>reservaAprobar/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-clipboard-list fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Pendientes / Aprobar
+								</div>
+							</a>
+						</li>
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>reservaHorarios/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-clock fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Horarios disponibles
+								</div>
+							</a>
+						</li>
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>reservaList/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-clipboard-list fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Lista de reservas
+								</div>
+							</a>
+						</li>
+					</ul>
+				</li>
+
+				<li class="full-width divider-menu-h"></li>
+				<?php } ?>
+
 				<li class="full-width">
 					<a href="#" class="full-width btn-subMenu">
 						<div class="navLateral-body-cl">
@@ -346,6 +414,21 @@
 								</div>
 							</a>
 						</li>
+						<?php
+							# Mostrar opciones solo para administradores #
+							if($esAdmin){
+								echo '<li class="full-width">
+									<a href="'.APP_URL.'logList/" class="full-width">
+										<div class="navLateral-body-cl">
+											<i class="fas fa-eye fa-fw"></i>
+										</div>
+										<div class="navLateral-body-cr">
+											Logs de acceso
+										</div>
+									</a>
+								</li>';
+							}
+						?>
 						<li class="full-width">
 							<a href="<?php echo APP_URL."userUpdate/".$_SESSION['id']."/"; ?>" class="full-width">
 								<div class="navLateral-body-cl">

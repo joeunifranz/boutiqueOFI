@@ -1,0 +1,22 @@
+<div class="container is-fluid mb-6">
+	<h1 class="title">Logs de Acceso</h1>
+	<h2 class="subtitle"><i class="fas fa-eye fa-fw"></i> &nbsp; Registro de accesos al sistema</h2>
+	<p class="has-text-right mt-3">
+		<a class="button is-link is-light is-rounded" href="<?php echo APP_URL; ?>exportarLogs/">
+			<i class="fas fa-file-pdf"></i> &nbsp; Exportar PDF
+		</a>
+	</p>
+</div>
+<div class="container pb-6 pt-6">
+
+	<div class="form-rest mb-6 mt-6"></div>
+
+	<?php
+		use app\controllers\logController;
+
+		$insLog = new logController();
+
+		echo $insLog->listarLogControlador($url[1],10,$url[0],"");
+	?>
+</div>
+

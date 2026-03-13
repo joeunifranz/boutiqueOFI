@@ -352,6 +352,7 @@
 			$registrar_producto=$this->guardarDatos("producto",$producto_datos_reg);
 
 			if($registrar_producto->rowCount()==1){
+				$this->registrarLogAccion("Alta de producto: ".$nombre." (Código: ".$codigo.")");
 				$alerta=[
 					"tipo"=>"limpiar",
 					"titulo"=>"Producto registrado",
@@ -447,7 +448,7 @@
 		                        <p>
 		                            <strong>'.$contador.' - '.$rows['producto_nombre'].'</strong><br>
 		                            <strong>CODIGO:</strong> '.$rows['producto_codigo'].', 
-		                            <strong>PRECIO:</strong> $'.$rows['producto_precio_venta'].', 
+		                            <strong>PRECIO:</strong> '.MONEDA_SIMBOLO.number_format($rows['producto_precio_venta'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).', 
 		                            <strong>STOCK:</strong> '.$rows['producto_stock_total'].',
 									<strong>TALLA:</strong> '.$rows['producto_talla'].', 
 		                            <strong>CATEGORIA:</strong> '.$rows['categoria_nombre'].'
@@ -510,6 +511,264 @@
 		}
 
 
+		/*----------  Exportar productos a PDF  ----------*/
+		public function exportarProductosPDF($busqueda="", $categoria=0){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/TableReportPDF.php';
+			$busqueda = $this->limpiarCadena($busqueda);
+			$categoria = (int)$this->limpiarCadena($categoria);
+
+			$campos = "p.producto_codigo, p.producto_nombre, p.producto_talla, c.categoria_nombre, p.producto_precio_venta, p.producto_stock_total";
+			if(isset($busqueda) && $busqueda!=""){
+				$consulta = "SELECT $campos FROM producto p INNER JOIN categoria c ON p.categoria_id=c.categoria_id WHERE p.producto_codigo LIKE '%$busqueda%' OR p.producto_nombre LIKE '%$busqueda%' OR p.producto_talla LIKE '%$busqueda%' OR p.producto_modelo LIKE '%$busqueda%' ORDER BY p.producto_nombre ASC";
+			}elseif($categoria>0){
+				$consulta = "SELECT $campos FROM producto p INNER JOIN categoria c ON p.categoria_id=c.categoria_id WHERE p.categoria_id='$categoria' ORDER BY p.producto_nombre ASC";
+			}else{
+				$consulta = "SELECT $campos FROM producto p INNER JOIN categoria c ON p.categoria_id=c.categoria_id ORDER BY p.producto_nombre ASC";
+			}
+
+			$datos = $this->ejecutarConsulta($consulta);
+			$rows = $datos ? $datos->fetchAll() : [];
+
+			$pdf = new \TableReportPDF('L','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte de Productos';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Total registros: '.count($rows);
+			$pdf->setTable(
+				['Código','Nombre','Talla','Categoría','Precio','Stock'],
+				[35,100,20,55,30,37],
+				['L','L','C','L','R','C']
+			);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			$fill = false;
+			foreach($rows as $r){
+				$precio = $r['producto_precio_venta'] ?? '';
+				$precio = is_numeric($precio) ? (MONEDA_SIMBOLO.number_format((float)$precio, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)) : (string)$precio;
+				$pdf->addRow([
+					(string)($r['producto_codigo'] ?? ''),
+					(string)($r['producto_nombre'] ?? ''),
+					(string)($r['producto_talla'] ?? ''),
+					(string)($r['categoria_nombre'] ?? ''),
+					$precio,
+					(string)($r['producto_stock_total'] ?? ''),
+				], $fill);
+				$fill = !$fill;
+			}
+
+			$pdf->Output('D', 'reporte_productos_'.date('Ymd').'.pdf');
+			exit();
+		}
+
+
+		/*----------  Listado público de productos para clientes (solo disponibles)  ----------*/
+		public function listarProductoPublicoControlador($pagina,$registros,$url,$busqueda,$categoria){
+
+			$pagina=$this->limpiarCadena($pagina);
+			$registros=$this->limpiarCadena($registros);
+			$categoria=$this->limpiarCadena($categoria);
+
+			$url=$this->limpiarCadena($url);
+			if($categoria>0){
+				$url=APP_URL.$url."/".$categoria."/";
+			}else{
+				$url=APP_URL.$url."/";
+			}
+
+			$busqueda=$this->limpiarCadena($busqueda);
+			$tabla="";
+
+			$pagina = (isset($pagina) && $pagina>0) ? (int) $pagina : 1;
+			$inicio = ($pagina>0) ? (($pagina * $registros)-$registros) : 0;
+
+			$campos="producto.producto_id,producto.producto_codigo,producto.producto_nombre,producto_stock_total,producto.producto_talla,producto.producto_precio_venta,producto.producto_foto,categoria.categoria_nombre";
+
+			$condicion_base="producto.producto_estado='Habilitado' AND producto.producto_stock_total>0";
+
+			if(isset($busqueda) && $busqueda!=""){
+
+				$consulta_datos="SELECT $campos FROM producto INNER JOIN categoria ON producto.categoria_id=categoria.categoria_id WHERE $condicion_base AND (producto_codigo LIKE '%$busqueda%' OR producto_nombre LIKE '%$busqueda%' OR producto_talla LIKE '%$busqueda%' OR producto_modelo LIKE '%$busqueda%') ORDER BY producto_nombre ASC LIMIT $inicio,$registros";
+
+				$consulta_total="SELECT COUNT(producto_id) FROM producto WHERE $condicion_base AND (producto_codigo LIKE '%$busqueda%' OR producto_nombre LIKE '%$busqueda%' OR producto_talla LIKE '%$busqueda%' OR producto_modelo LIKE '%$busqueda%')";
+
+			}elseif($categoria>0){
+
+				$consulta_datos="SELECT $campos FROM producto INNER JOIN categoria ON producto.categoria_id=categoria.categoria_id WHERE $condicion_base AND producto.categoria_id='$categoria' ORDER BY producto.producto_nombre ASC LIMIT $inicio,$registros";
+
+				$consulta_total="SELECT COUNT(producto_id) FROM producto WHERE $condicion_base AND categoria_id='$categoria'";
+
+			}else{
+
+				$consulta_datos="SELECT $campos FROM producto INNER JOIN categoria ON producto.categoria_id=categoria.categoria_id WHERE $condicion_base ORDER BY producto_nombre ASC LIMIT $inicio,$registros";
+
+				$consulta_total="SELECT COUNT(producto_id) FROM producto WHERE $condicion_base";
+
+			}
+
+			$datos = $this->ejecutarConsulta($consulta_datos);
+			$datos = $datos->fetchAll();
+
+			$total = $this->ejecutarConsulta($consulta_total);
+			$total = (int) $total->fetchColumn();
+
+			$numeroPaginas =ceil($total/$registros);
+
+			if($total>=1 && $pagina<=$numeroPaginas){
+				$contador=$inicio+1;
+				$pag_inicio=$inicio+1;
+				$tabla.='<div class="columns is-multiline productos-publicos-grid">';
+				foreach($datos as $rows){
+					$tabla.='
+						<div class="column is-4 productos-publicos-item">
+							<div class="card productos-publicos-card">
+								<div class="card-image">
+									<figure class="image is-4by5">';
+										if(is_file("./app/views/productos/".$rows['producto_foto'])){
+											$tabla.='<img src="'.APP_URL.'app/views/productos/'.$rows['producto_foto'].'" alt="'.$rows['producto_nombre'].'">';
+										}else{
+											$tabla.='<img src="'.APP_URL.'app/views/productos/default.png" alt="Sin imagen">';
+										}
+					$tabla.='			</figure>
+								</div>
+								<div class="card-content">
+									<p class="title is-6 mb-2">'.$rows['producto_nombre'].'</p>
+									<p class="subtitle is-7 mb-2">'.$rows['categoria_nombre'].' • Talla '.$rows['producto_talla'].'</p>
+									<p class="has-text-weight-semibold mb-1">'.MONEDA_SIMBOLO.number_format($rows['producto_precio_venta'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).'</p>
+									<p class="is-size-7 has-text-grey">Stock disponible: '.$rows['producto_stock_total'].'</p>
+								</div>
+							</div>
+						</div>
+					';
+					$contador++;
+				}
+				$tabla.='</div>';
+				$pag_final=$contador-1;
+			}else{
+				if($total>=1){
+					$tabla.='
+						<p class="has-text-centered pb-6"><i class="far fa-hand-point-down fa-5x"></i></p>
+						<p class="has-text-centered">
+							<a href="'.$url.'1/" class="button is-link is-rounded is-small mt-4 mb-4">
+								Haga clic acá para recargar el listado
+							</a>
+						</p>
+					';
+				}else{
+					$tabla.='
+						<p class="has-text-centered pb-6"><i class="far fa-grin-beam-sweat fa-5x"></i></p>
+						<p class="has-text-centered">No hay productos disponibles en este momento</p>
+					';
+				}
+			}
+
+			### Paginacion ###
+			if($total>0 && $pagina<=$numeroPaginas){
+				$tabla.='<p class="has-text-right">Mostrando productos <strong>'.$pag_inicio.'</strong> al <strong>'.$pag_final.'</strong> de un <strong>total de '.$total.'</strong></p>';
+
+				$tabla.=$this->paginadorTablas($pagina,$numeroPaginas,$url,7);
+			}
+
+			return $tabla;
+		}
+
+		/*----------  Catálogo de inicio agrupado por categoría (público)  ----------*/
+		public function catalogoInicioHTMLControlador($limite=30){
+
+			$limite = (int)$limite;
+			if($limite<=0){
+				$limite = 30;
+			}
+		
+			$campos_producto="producto_id,producto_nombre,producto_precio_venta,producto_talla,producto_foto,producto_stock_total";
+			$condicion_base="producto_estado='Habilitado' AND producto_stock_total>0";
+		
+			$consulta_productos = "SELECT $campos_producto 
+								   FROM producto 
+								   WHERE $condicion_base 
+								   ORDER BY producto_nombre ASC 
+								   LIMIT $limite";
+		
+			$productos = $this->ejecutarConsulta($consulta_productos);
+			$productos = $productos->fetchAll();
+		
+			if(!$productos){
+				return '<p class="has-text-centered has-text-grey-lighter mt-5">No hay productos disponibles en este momento.</p>';
+			}
+		
+			$html='
+			<section class="inicio-catalogo-categoria">
+				<div class="level inicio-catalogo-header">
+					<div class="level-left">
+						<h3 class="title is-4 has-text-white">Nuestros Vestidos Tendencias</h3>
+					</div>
+				</div>
+				<div class="inicio-catalogo-row-wrapper">
+					<div class="inicio-catalogo-row" data-autoscroll="true">
+			';
+		
+			foreach($productos as $prod){
+		
+				if(is_file("./app/views/productos/".$prod['producto_foto'])){
+					$foto_html = '<img src="'.APP_URL.'app/views/productos/'.$prod['producto_foto'].'" alt="'.htmlspecialchars($prod['producto_nombre'],ENT_QUOTES,'UTF-8').'">';
+				}else{
+					$foto_html = '<img src="'.APP_URL.'app/views/productos/default.png" alt="Sin imagen">';
+				}
+		
+				$html.='
+					<div class="inicio-catalogo-item">
+						<div class="card inicio-catalogo-card">
+							<div class="card-image">
+								<figure class="image is-3by4">
+									'.$foto_html.'
+								</figure>
+							</div>
+							<div class="card-content">
+								<p class="title is-6 mb-1">'.htmlspecialchars($prod['producto_nombre'],ENT_QUOTES,'UTF-8').'</p>
+								<p class="is-size-7 has-text-grey-light mb-1">Talla '.$prod['producto_talla'].'</p>
+								<p class="has-text-weight-semibold mb-1">'.MONEDA_SIMBOLO.number_format($prod['producto_precio_venta'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).'</p>
+							</div>
+						</div>
+					</div>
+				';
+			}
+		
+			$html.='
+					</div>
+				</div>
+			</section>
+			';
+		
+			return $html;
+		}
+		public function obtenerProductoPorIdControlador($id){
+
+			$id = (int)$id;
+
+			$sql = "SELECT * FROM producto 
+					WHERE producto_id = :id 
+					AND producto_estado = 'Habilitado'
+					LIMIT 1";
+
+			$stmt = $this->conectar()->prepare($sql);
+			$stmt->bindParam(":id", $id, \PDO::PARAM_INT);
+			$stmt->execute();
+
+			return $stmt->fetch();
+		}
+
 		/*----------  Controlador eliminar producto  ----------*/
 		public function eliminarProductoControlador(){
 
@@ -552,6 +811,8 @@
 		            unlink("../views/productos/".$datos['producto_foto']);
 		        }
 
+				$this->registrarLogAccion("Eliminó producto: ".$datos['producto_nombre']." (ID: ".$id.")");
+
 		        $alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Producto eliminado",
@@ -570,7 +831,42 @@
 
 		    return json_encode($alerta);
 		}
+		public function listarCategoriasInicio(){
 
+			$categorias = $this->ejecutarConsulta(
+				"SELECT categoria_id, categoria_nombre 
+				 FROM categoria 
+				 ORDER BY categoria_nombre ASC"
+			);
+		
+			$categorias = $categorias->fetchAll();
+		
+			$html = '';
+		
+			foreach($categorias as $cat){
+				$html .= '
+				<a href="'.APP_URL.'productosCliente/'.$cat['categoria_id'].'/" 
+				   class="dropdown-item">
+				   '.$cat['categoria_nombre'].'
+				</a>';
+			}
+		
+			return $html;
+		}
+
+		public function obtenerNombreCategoriaPorIdControlador($categoria_id){
+			$categoria_id = (int)$this->limpiarCadena($categoria_id);
+			if($categoria_id<=0){
+				return "";
+			}
+
+			$sql = "SELECT categoria_nombre FROM categoria WHERE categoria_id = :id LIMIT 1";
+			$stmt = $this->conectar()->prepare($sql);
+			$stmt->bindParam(":id", $categoria_id, \PDO::PARAM_INT);
+			$stmt->execute();
+			$row = $stmt->fetch();
+			return $row["categoria_nombre"] ?? "";
+		}
 
 		/*----------  Controlador actualizar producto  ----------*/
 		public function actualizarProductoControlador(){
@@ -861,6 +1157,7 @@
 			];
 
 			if($this->actualizarDatos("producto",$producto_datos_up,$condicion)){
+				$this->registrarLogAccion("Modificó producto: ".$datos['producto_nombre']." (ID: ".$id.")");
 				$alerta=[
 					"tipo"=>"recargar",
 					"titulo"=>"Producto actualizado",
@@ -1057,7 +1354,7 @@
 	        }
 
 	        chmod($img_dir,0777);
-
+			
 	        # Moviendo imagen al directorio #
 	        if(!move_uploaded_file($_FILES['producto_foto']['tmp_name'],$img_dir.$foto)){
 	            $alerta=[
@@ -1108,5 +1405,31 @@
 			}
 
 			return json_encode($alerta);
+		}
+		/*----------  Productos por categoría  ----------*/
+		public function productosPorCategoriaControlador($categoria_id){
+
+			$categoria_id = (int)$this->limpiarCadena($categoria_id);
+
+			$condicion_categoria = "";
+			if($categoria_id>0){
+				$condicion_categoria = "AND p.categoria_id = '".$categoria_id."'";
+			}
+
+			$consulta = "
+				SELECT p.*, c.categoria_nombre 
+				FROM producto p
+				INNER JOIN categoria c 
+					ON p.categoria_id = c.categoria_id
+				WHERE p.producto_estado = 'Habilitado'
+					AND p.producto_stock_total > 0
+					$condicion_categoria
+				ORDER BY p.producto_nombre ASC
+			";
+
+			$datos = $this->ejecutarConsulta($consulta);
+			$productos = $datos->fetchAll();
+
+			return $productos;
 		}
 	}

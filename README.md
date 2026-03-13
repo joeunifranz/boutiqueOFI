@@ -15,3 +15,14 @@ Importante no olvide colocar en la URL si es http o https</p>
 # CUENTA POR DEFECTO
 <p>Usuario: Administrador</p>
 <p>Clave: Administrador</p>
+
+# RESERVAS CON QR (ANTICIPO 50%)
+
+<p>Este proyecto incluye un flujo de <strong>reserva de producto con QR</strong> para clientes.</p>
+
+<p><strong>1)</strong> Cree la tabla <code>reserva</code> ejecutando en el navegador:</p>
+<p><code>http://localhost/BOUTIQUE/install_reserva_table.php</code></p>
+
+<p><strong>2)</strong> Como cliente: tienda &rarr; detalle del producto &rarr; <strong>Reservar con 50%</strong>. Se genera un QR.</p>
+
+<p><strong>3)</strong> En caja/personal: escanee el QR (abre <code>reservaConfirmar/&lt;codigo&gt;/</code>) y registre el abono (m&iacute;nimo 50%).</p>

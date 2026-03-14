@@ -48,6 +48,24 @@ if(!$producto){
             </p>
 
             <?php
+                $tallasRaw = isset($producto['producto_talla']) ? trim((string)$producto['producto_talla']) : '';
+                if($tallasRaw !== ''){
+                    $tallasParts = preg_split('/[,;]+/', $tallasRaw);
+                    $tallas = [];
+                    if(is_array($tallasParts)){
+                        foreach($tallasParts as $t){
+                            $t = trim((string)$t);
+                            if($t !== ''){ $tallas[] = $t; }
+                        }
+                    }
+                    $tallas = array_values(array_unique($tallas));
+                }
+            ?>
+            <?php if(!empty($tallas ?? [])){ ?>
+                <p class="mb-4"><strong>Tallas disponibles:</strong> <?php echo htmlspecialchars(implode(', ', $tallas),ENT_QUOTES,'UTF-8'); ?></p>
+            <?php } ?>
+
+            <?php
                 $clienteLogueado = (isset($_SESSION['cliente_id']) && !empty($_SESSION['cliente_id']));
             ?>
             <?php if($clienteLogueado){ ?>

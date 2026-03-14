@@ -72,8 +72,8 @@
 		<div class="columns">
 		  	<div class="column">
 		    	<div class="control">
-					<label>Talla</label>
-				  	<input class="input" type="text" name="producto_talla" value="<?php echo $datos['producto_talla']; ?>" pattern="[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,30}" maxlength="30" >
+					<label>Tallas (separadas por coma)</label>
+				  	<input class="input" type="text" name="producto_talla" value="<?php echo $datos['producto_talla']; ?>" placeholder="Ej: XS, S, M, L" pattern="[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,255}" maxlength="255" >
 				</div>
 		  	</div>
 		  	<div class="column">

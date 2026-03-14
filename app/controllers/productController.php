@@ -89,8 +89,8 @@
 		        exit();
 		    }
 
-		    if($talla!=""){
-		    	if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,30}",$talla)){
+			if($talla!=""){
+				if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,255}",$talla)){
 			    	$alerta=[
 						"tipo"=>"simple",
 						"titulo"=>"Ocurrió un error inesperado",
@@ -968,8 +968,8 @@
 		        exit();
 		    }
 
-		    if($talla!=""){
-		    	if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,30}",$talla)){
+			if($talla!=""){
+				if($this->verificarDatos("[a-zA-Z0-9áéíóúÁÉÍÓÚñÑ().,#\- ]{1,255}",$talla)){
 			    	$alerta=[
 						"tipo"=>"simple",
 						"titulo"=>"Ocurrió un error inesperado",

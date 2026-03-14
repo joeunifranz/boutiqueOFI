@@ -107,6 +107,10 @@ $urlAprobar = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo']).
 
                     <p><strong>Producto:</strong> <?php echo htmlspecialchars((string)$reserva['producto_nombre'],ENT_QUOTES,'UTF-8'); ?></p>
 
+                    <?php if(isset($reserva['reserva_talla']) && trim((string)$reserva['reserva_talla'])!==""){ ?>
+                        <p><strong>Talla:</strong> <?php echo htmlspecialchars((string)$reserva['reserva_talla'],ENT_QUOTES,'UTF-8'); ?></p>
+                    <?php } ?>
+
                     <p><strong>Total:</strong> <?php echo MONEDA_SIMBOLO.number_format($total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>
                     <p><strong>Abono mínimo (50%):</strong> <?php echo MONEDA_SIMBOLO.number_format($minimo, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>
                     <p><strong>Abono registrado:</strong> <?php echo MONEDA_SIMBOLO.number_format($abono, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>

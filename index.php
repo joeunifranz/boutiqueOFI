@@ -68,6 +68,12 @@
         exit();
     }
 
+    if(isset($url[0]) && $url[0]=="exportarDashboard"){
+        $ins = new \app\controllers\dashboardController();
+        $ins->exportarDashboardPDF($_GET['yw'] ?? "");
+        exit();
+    }
+
     /*---------- BISA QR: generar QR dinámico ----------*/
     if(isset($url[0]) && $url[0]=="pagoBisaQR"){
         $insReserva = new \app\controllers\reservationController();

@@ -44,6 +44,21 @@ if(!$producto){
 $total = (float)$producto['producto_precio_venta'];
 $minimo = $total * 0.50;
 
+$tallasRaw = isset($producto['producto_talla']) ? (string)$producto['producto_talla'] : '';
+$tallas = [];
+if(trim($tallasRaw) !== ''){
+    $parts = preg_split('/[,;]+/', $tallasRaw);
+    if(is_array($parts)){
+        foreach($parts as $p){
+            $p = trim((string)$p);
+            if($p !== ''){ $tallas[] = $p; }
+        }
+    }
+}
+if(!empty($tallas)){
+    $tallas = array_values(array_unique($tallas));
+}
+
 $feriados = [];
 $rutaFeriados = "./config/feriados.php";
 if(is_file($rutaFeriados)){
@@ -83,6 +98,27 @@ if(is_file($rutaFeriados)){
             <form class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
                 <input type="hidden" name="modulo_reserva" value="crear">
                 <input type="hidden" name="producto_id" value="<?php echo (int)$producto['producto_id']; ?>">
+
+                <?php if(!empty($tallas)){ ?>
+                    <div class="field">
+                        <label class="label">Talla</label>
+                        <div class="control">
+                            <?php if(count($tallas)===1){ ?>
+                                <input type="hidden" name="reserva_talla" value="<?php echo htmlspecialchars((string)$tallas[0],ENT_QUOTES,'UTF-8'); ?>">
+                                <p class="help">Talla seleccionada: <strong><?php echo htmlspecialchars((string)$tallas[0],ENT_QUOTES,'UTF-8'); ?></strong></p>
+                            <?php }else{ ?>
+                                <div class="select is-fullwidth">
+                                    <select id="reserva_talla" name="reserva_talla" required>
+                                        <option value="">Selecciona una talla</option>
+                                        <?php foreach($tallas as $t){ ?>
+                                            <option value="<?php echo htmlspecialchars((string)$t,ENT_QUOTES,'UTF-8'); ?>"><?php echo htmlspecialchars((string)$t,ENT_QUOTES,'UTF-8'); ?></option>
+                                        <?php } ?>
+                                    </select>
+                                </div>
+                            <?php } ?>
+                        </div>
+                    </div>
+                <?php } ?>
 
                 <div class="columns is-multiline">
                     <div class="column is-6">
@@ -142,6 +178,7 @@ if(is_file($rutaFeriados)){
     const timeSelect = document.getElementById('cita_hora');
     const help = document.getElementById('cita_help');
     const btn = document.getElementById('btnReservaQR');
+    const sizeSelect = document.getElementById('reserva_talla');
 
     if(!dateInput || !timeSelect || !help || !btn){
         return;
@@ -220,9 +257,20 @@ if(is_file($rutaFeriados)){
     };
 
     dateInput.addEventListener('change', loadTimes);
+    const canSubmit = () => {
+        const hasSize = (!sizeSelect) ? true : !!sizeSelect.value;
+        return !!(dateInput.value && timeSelect.value && hasSize);
+    };
+
     timeSelect.addEventListener('change', () => {
-        btn.disabled = !(dateInput.value && timeSelect.value);
+        btn.disabled = !canSubmit();
     });
+
+    if(sizeSelect){
+        sizeSelect.addEventListener('change', () => {
+            btn.disabled = !canSubmit();
+        });
+    }
 
 })();
 </script>

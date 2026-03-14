@@ -8,6 +8,41 @@ use app\services\BisaQrService;
 
 class reservationController extends mainModel{
 
+    private static $reservaTallaColDisponible = null;
+
+    private function columnaReservaTallaDisponible(): bool{
+        if(self::$reservaTallaColDisponible !== null){
+            return (bool)self::$reservaTallaColDisponible;
+        }
+        try{
+            $check = $this->conectar()->prepare("SHOW COLUMNS FROM `reserva` LIKE 'reserva_talla'");
+            $check->execute();
+            self::$reservaTallaColDisponible = ($check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            self::$reservaTallaColDisponible = false;
+        }
+        return (bool)self::$reservaTallaColDisponible;
+    }
+
+    private function parseTallasProducto(?string $raw): array{
+        $raw = trim((string)$raw);
+        if($raw===''){
+            return [];
+        }
+        $parts = preg_split('/[,;]+/', $raw);
+        $out = [];
+        if(is_array($parts)){
+            foreach($parts as $p){
+                $p = trim((string)$p);
+                if($p !== ''){ $out[] = $p; }
+            }
+        }
+        if(empty($out)){
+            return [];
+        }
+        return array_values(array_unique($out));
+    }
+
     private function enviarTicketReservaPorCorreo(string $codigo): void{
         try{
             $reserva = $this->obtenerReservaPorCodigo($codigo);
@@ -2111,7 +2146,7 @@ class reservationController extends mainModel{
             return json_encode($alerta);
         }
 
-        $check_producto = $this->conectar()->prepare("SELECT producto_id, producto_nombre, producto_precio_venta, producto_stock_total, producto_estado FROM producto WHERE producto_id=:id LIMIT 1");
+        $check_producto = $this->conectar()->prepare("SELECT producto_id, producto_nombre, producto_precio_venta, producto_stock_total, producto_estado, producto_talla FROM producto WHERE producto_id=:id LIMIT 1");
         $check_producto->bindParam(":id", $producto_id, \PDO::PARAM_INT);
         $check_producto->execute();
 
@@ -2126,6 +2161,36 @@ class reservationController extends mainModel{
         }
 
         $producto = $check_producto->fetch();
+
+        $tallasDisponibles = $this->parseTallasProducto(isset($producto['producto_talla']) ? (string)$producto['producto_talla'] : '');
+        $reserva_talla = $this->limpiarCadena($_POST['reserva_talla'] ?? '');
+        $reserva_talla = trim((string)$reserva_talla);
+
+        if(!empty($tallasDisponibles)){
+            if($reserva_talla===''){
+                if(count($tallasDisponibles)===1){
+                    $reserva_talla = (string)$tallasDisponibles[0];
+                }else{
+                    $alerta=[
+                        "tipo"=>"simple",
+                        "titulo"=>"Talla requerida",
+                        "texto"=>"Debes seleccionar una talla para continuar",
+                        "icono"=>"error"
+                    ];
+                    return json_encode($alerta);
+                }
+            }
+
+            if(!in_array($reserva_talla, $tallasDisponibles, true)){
+                $alerta=[
+                    "tipo"=>"simple",
+                    "titulo"=>"Talla no válida",
+                    "texto"=>"La talla seleccionada no está disponible para este producto",
+                    "icono"=>"error"
+                ];
+                return json_encode($alerta);
+            }
+        }
 
         if(($producto['producto_estado'] ?? '')!="Habilitado"){
             $alerta=[
@@ -2339,6 +2404,14 @@ class reservationController extends mainModel{
                 "campo_valor"=>$producto_id
             ]
         ];
+
+        if($this->columnaReservaTallaDisponible() && $reserva_talla !== ''){
+            $datos_reserva[] = [
+                "campo_nombre"=>"reserva_talla",
+                "campo_marcador"=>":Talla",
+                "campo_valor"=>$reserva_talla
+            ];
+        }
 
         $guardar = $this->guardarDatos("reserva", $datos_reserva);
 

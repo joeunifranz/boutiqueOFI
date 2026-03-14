@@ -298,4 +298,218 @@
 
 			return $rows;
 		}
+
+
+		/*----------  Exportar reporte general del dashboard a PDF  ----------*/
+		public function exportarDashboardPDF($yw=""){
+			if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+				if(!headers_sent()){
+					header('Location: '.APP_URL.'adminLogin/');
+				}
+				exit();
+			}
+
+			if(ob_get_length()){
+				@ob_end_clean();
+			}
+
+			require_once __DIR__ . '/../pdf/DashboardReportPDF.php';
+
+			$yw = $this->limpiarCadena((string)$yw);
+			$ywSeleccionado = preg_match('/^[0-9]{6}$/', $yw) ? (int)$yw : 0;
+
+			$totales = $this->obtenerTotales();
+			$ingresosTotales = $this->obtenerIngresosTotales();
+
+			$anio = (int)date('Y');
+			$ventasPorMes = $this->obtenerVentasPorMes($anio);
+			$productosMasVendidos = $this->obtenerProductosMasVendidosPorCategoria($anio, 8);
+			$ultimasVentas = $this->obtenerUltimasVentas(8);
+			$stockBajo = $this->obtenerStockBajo(10, 8);
+
+			$semanasPeriodo = 8;
+			if($ywSeleccionado > 0){
+				$resumenSemanal = $this->obtenerCostoYGananciaNetaSemana($ywSeleccionado);
+				$detalleProductosPeriodo = $this->obtenerDetalleProductosCostoYGananciaSemana($ywSeleccionado, 0);
+				$tituloPeriodo = 'Semana seleccionada';
+			}else{
+				$resumenSemanal = $this->obtenerCostoYGananciaNetaPorSemana($semanasPeriodo);
+				$detalleProductosPeriodo = $this->obtenerDetalleProductosCostoYGananciaPeriodo($semanasPeriodo, 0);
+				$tituloPeriodo = 'Últimas '.$semanasPeriodo.' semanas';
+			}
+
+			$pdf = new \DashboardReportPDF('P','mm','A4');
+			$pdf->AliasNbPages();
+			$pdf->SetMargins(10, 12, 10);
+			$pdf->SetAutoPageBreak(true, 15);
+			$pdf->titulo = APP_NAME.' - Reporte General del Dashboard';
+			$pdf->subtitulo = 'Generado: '.date('d/m/Y H:i:s').'  |  Año: '.$anio.'  |  Período: '.$tituloPeriodo;
+			$pdf->AddPage();
+			$lm = $pdf->getLeftMargin();
+			$rm = $pdf->getRightMargin();
+			$pageW = $pdf->getPageWidth();
+
+			$pdf->sectionTitle('Totales');
+			$pdf->drawStatBoxes([
+				['label'=>'Cajas', 'value'=>(string)(int)($totales['cajas'] ?? 0)],
+				['label'=>'Reservas', 'value'=>(string)(int)($totales['reservas'] ?? 0)],
+				['label'=>'Usuarios', 'value'=>(string)(int)($totales['usuarios'] ?? 0)],
+				['label'=>'Clientes', 'value'=>(string)(int)($totales['clientes'] ?? 0)],
+				['label'=>'Categorías', 'value'=>(string)(int)($totales['categorias'] ?? 0)],
+				['label'=>'Productos', 'value'=>(string)(int)($totales['productos'] ?? 0)],
+				['label'=>'Ventas', 'value'=>(string)(int)($totales['ventas'] ?? 0)],
+			], 3);
+
+			$pdf->SetFont('Arial','B',10);
+			$pdf->Cell(0, 6, $pdf->encode('Ingresos totales: Bs'.number_format((float)$ingresosTotales, 2)), 0, 1, 'L');
+			$pdf->Ln(2);
+
+			$pdf->sectionTitle('Ventas por mes ('.$anio.')');
+			$pdf->drawBarChart(
+				$lm,
+				$pdf->GetY(),
+				$pageW - $lm - $rm,
+				55,
+				['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
+				array_values($ventasPorMes),
+				[50, 115, 220]
+			);
+			$pdf->Ln(60);
+
+			$pdf->sectionTitle('Más vendidos por categoría ('.$anio.')');
+			if(empty($productosMasVendidos)){
+				$pdf->SetFont('Arial','',9);
+				$pdf->SetTextColor(120,120,120);
+				$pdf->Cell(0, 6, $pdf->encode('Sin datos suficientes para graficar.'), 0, 1, 'L');
+				$pdf->SetTextColor(0,0,0);
+			}else{
+				$labels = array_map(fn($r) => (string)($r['categoria'] ?? ''), $productosMasVendidos);
+				$vals = array_map(fn($r) => (float)($r['cantidad'] ?? 0), $productosMasVendidos);
+				$y0 = $pdf->GetY();
+				$hUsed = $pdf->drawHorizontalBars(
+					$lm,
+					$y0,
+					$pageW - $lm - $rm,
+					$labels,
+					$vals,
+					[0, 209, 178]
+				);
+				$pdf->Ln($hUsed + 2);
+			}
+
+			$pdf->AddPage();
+			$pdf->sectionTitle('Costo elaboración vs ganancia neta ('.$tituloPeriodo.')');
+			if(empty($resumenSemanal['labels'])){
+				$pdf->SetFont('Arial','',9);
+				$pdf->SetTextColor(120,120,120);
+				$pdf->Cell(0, 6, $pdf->encode('Sin datos suficientes para este período.'), 0, 1, 'L');
+				$pdf->SetTextColor(0,0,0);
+			}else{
+				$pdf->SetFont('Arial','',8);
+				$pdf->Cell(0, 5, $pdf->encode('Leyenda: Costo (amarillo) | Ganancia neta (verde) | Ganancia negativa (rojo)'), 0, 1, 'L');
+				$pdf->drawGroupedBarChart(
+					$lm,
+					$pdf->GetY(),
+					$pageW - $lm - $rm,
+					70,
+					(array)($resumenSemanal['labels'] ?? []),
+					(array)($resumenSemanal['costos'] ?? []),
+					(array)($resumenSemanal['ganancias'] ?? [])
+				);
+				$pdf->Ln(75);
+			}
+
+			$pdf->sectionTitle('Alertas de stock bajo');
+			if(empty($stockBajo)){
+				$pdf->SetFont('Arial','',9);
+				$pdf->SetTextColor(120,120,120);
+				$pdf->Cell(0, 6, $pdf->encode('No hay productos con stock bajo.'), 0, 1, 'L');
+				$pdf->SetTextColor(0,0,0);
+			}else{
+				$rows = [];
+				foreach($stockBajo as $r){
+					$rows[] = [
+						(string)($r['nombre'] ?? ''),
+						(string)(int)($r['stock'] ?? 0)
+					];
+				}
+				$pdf->drawSimpleTable($lm, $pdf->GetY(), ['Producto','Stock'], $rows, [140, 40]);
+				$pdf->Ln(2);
+			}
+
+			$pdf->sectionTitle('Últimas ventas');
+			if(empty($ultimasVentas)){
+				$pdf->SetFont('Arial','',9);
+				$pdf->SetTextColor(120,120,120);
+				$pdf->Cell(0, 6, $pdf->encode('Sin ventas registradas.'), 0, 1, 'L');
+				$pdf->SetTextColor(0,0,0);
+			}else{
+				$rows = [];
+				foreach($ultimasVentas as $r){
+					$monto = (float)($r['monto'] ?? 0);
+					$rows[] = [
+						(string)($r['fecha'] ?? ''),
+						(string)($r['cliente'] ?? ''),
+						(string)($r['producto'] ?? ''),
+						'Bs'.number_format($monto, 2)
+					];
+				}
+				$pdf->drawSimpleTable($lm, $pdf->GetY(), ['Fecha','Cliente','Producto','Monto'], $rows, [28, 58, 78, 26]);
+			}
+
+			$pdf->titulo = APP_NAME.' - Reporte General del Dashboard';
+			$pdf->subtitulo = 'Productos vendidos ('.$tituloPeriodo.')  |  Generado: '.date('d/m/Y H:i:s');
+			$pdf->setTable(
+				['Producto','Unidades','Ingresos','Costo elaboración','Ganancia neta'],
+				[80, 20, 30, 30, 30],
+				['L','R','R','R','R']
+			);
+			$pdf->AddPage();
+			$pdf->SetFont('Arial','',8);
+
+			if(empty($detalleProductosPeriodo)){
+				$pdf->SetTextColor(120,120,120);
+				$pdf->Cell(0, 6, $pdf->encode('Sin datos de productos para este período.'), 0, 1, 'L');
+				$pdf->SetTextColor(0,0,0);
+			}else{
+				$totalUnidadesProductos = 0;
+				$totalIngresosProductos = 0.0;
+				$totalCostoProductos = 0.0;
+				$totalGananciaProductos = 0.0;
+
+				$fill = false;
+				foreach($detalleProductosPeriodo as $row){
+					$unidades = (int)($row['unidades'] ?? 0);
+					$ingresos = (float)($row['ingresos'] ?? 0);
+					$costo = (float)($row['costo'] ?? 0);
+					$ganancia = (float)($row['ganancia'] ?? ($ingresos - $costo));
+
+					$totalUnidadesProductos += $unidades;
+					$totalIngresosProductos += $ingresos;
+					$totalCostoProductos += $costo;
+					$totalGananciaProductos += $ganancia;
+
+					$pdf->addRow([
+						(string)($row['producto'] ?? ''),
+						(string)$unidades,
+						'Bs'.number_format($ingresos, 2),
+						'Bs'.number_format($costo, 2),
+						'Bs'.number_format($ganancia, 2)
+					], $fill);
+					$fill = !$fill;
+				}
+
+				$pdf->SetFont('Arial','B',8);
+				$pdf->addRow([
+					'TOTAL',
+					(string)$totalUnidadesProductos,
+					'Bs'.number_format($totalIngresosProductos, 2),
+					'Bs'.number_format($totalCostoProductos, 2),
+					'Bs'.number_format($totalGananciaProductos, 2)
+				], true);
+			}
+
+			$pdf->Output('D', 'reporte_dashboard_'.date('Ymd').'.pdf');
+			exit();
+		}
 	}

@@ -25,6 +25,10 @@
 	$semanasPeriodo = 8;
 	$ywSeleccionado = $insLogin->limpiarCadena($_GET['yw'] ?? "");
 	$ywSeleccionado = preg_match('/^[0-9]{6}$/', $ywSeleccionado) ? (int)$ywSeleccionado : 0;
+	$exportUrl = APP_URL."exportarDashboard/";
+	if($ywSeleccionado>0){
+		$exportUrl .= "?yw=".urlencode((string)$ywSeleccionado);
+	}
 
 	if($ywSeleccionado>0){
 		$resumenSemanal = $insDash->obtenerCostoYGananciaNetaSemana($ywSeleccionado);
@@ -76,6 +80,10 @@
 			</div>
 		</div>
 		<div class="level-right">
+			<a href="<?php echo htmlspecialchars($exportUrl,ENT_QUOTES,'UTF-8'); ?>" class="button is-small is-link is-rounded" title="Descargar reporte general del dashboard en PDF">
+				<span class="icon"><i class="fas fa-file-pdf"></i></span>
+				<span>Reporte PDF</span>
+			</a>
 			<a href="<?php echo APP_URL; ?>logList/" class="button is-small is-light is-rounded" title="Ver logs de acceso">
 				<span class="icon"><i class="fas fa-eye"></i></span>
 				<span>Logs</span>

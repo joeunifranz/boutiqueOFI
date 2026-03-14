@@ -348,8 +348,17 @@
 			$lm = $pdf->getLeftMargin();
 			$rm = $pdf->getRightMargin();
 			$pageW = $pdf->getPageWidth();
+			$usableW = $pageW - $lm - $rm;
+			$printNote = function(string $text) use ($pdf, $usableW): void{
+				$pdf->SetFont('Arial','',8);
+				$pdf->SetTextColor(110,110,110);
+				$pdf->MultiCell($usableW, 4, $pdf->encode($text), 0, 'L');
+				$pdf->SetTextColor(0,0,0);
+				$pdf->Ln(1);
+			};
 
 			$pdf->sectionTitle('Totales');
+			$printNote('Conteo general de registros del sistema (cajas, reservas, usuarios, clientes, categorías, productos y ventas).');
 			$pdf->drawStatBoxes([
 				['label'=>'Cajas', 'value'=>(string)(int)($totales['cajas'] ?? 0)],
 				['label'=>'Reservas', 'value'=>(string)(int)($totales['reservas'] ?? 0)],
@@ -362,13 +371,15 @@
 
 			$pdf->SetFont('Arial','B',10);
 			$pdf->Cell(0, 6, $pdf->encode('Ingresos totales: Bs'.number_format((float)$ingresosTotales, 2)), 0, 1, 'L');
+			$printNote('Suma histórica de las ventas registradas (no es un valor mensual, es acumulado).');
 			$pdf->Ln(2);
 
 			$pdf->sectionTitle('Ventas por mes ('.$anio.')');
+			$printNote('Gráfico de barras que muestra el total vendido por cada mes del año seleccionado.');
 			$pdf->drawBarChart(
 				$lm,
 				$pdf->GetY(),
-				$pageW - $lm - $rm,
+				$usableW,
 				55,
 				['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
 				array_values($ventasPorMes),
@@ -377,6 +388,7 @@
 			$pdf->Ln(60);
 
 			$pdf->sectionTitle('Más vendidos por categoría ('.$anio.')');
+			$printNote('Ranking de categorías según unidades vendidas (suma de cantidades en los detalles de venta).');
 			if(empty($productosMasVendidos)){
 				$pdf->SetFont('Arial','',9);
 				$pdf->SetTextColor(120,120,120);
@@ -389,7 +401,7 @@
 				$hUsed = $pdf->drawHorizontalBars(
 					$lm,
 					$y0,
-					$pageW - $lm - $rm,
+					$usableW,
 					$labels,
 					$vals,
 					[0, 209, 178]
@@ -399,6 +411,7 @@
 
 			$pdf->AddPage();
 			$pdf->sectionTitle('Costo elaboración vs ganancia neta ('.$tituloPeriodo.')');
+			$printNote('Comparación por semana: costo de elaboración (amarillo) vs ganancia neta (verde). Si hay ganancia negativa, se marca en rojo.');
 			if(empty($resumenSemanal['labels'])){
 				$pdf->SetFont('Arial','',9);
 				$pdf->SetTextColor(120,120,120);
@@ -410,7 +423,7 @@
 				$pdf->drawGroupedBarChart(
 					$lm,
 					$pdf->GetY(),
-					$pageW - $lm - $rm,
+					$usableW,
 					70,
 					(array)($resumenSemanal['labels'] ?? []),
 					(array)($resumenSemanal['costos'] ?? []),
@@ -420,6 +433,7 @@
 			}
 
 			$pdf->sectionTitle('Alertas de stock bajo');
+			$printNote('Lista de productos cuyo stock total está por debajo del umbral configurado en el dashboard (por defecto: 10).');
 			if(empty($stockBajo)){
 				$pdf->SetFont('Arial','',9);
 				$pdf->SetTextColor(120,120,120);
@@ -438,6 +452,7 @@
 			}
 
 			$pdf->sectionTitle('Últimas ventas');
+			$printNote('Muestra un resumen de las últimas ventas registradas (fecha, cliente, producto y monto).');
 			if(empty($ultimasVentas)){
 				$pdf->SetFont('Arial','',9);
 				$pdf->SetTextColor(120,120,120);
@@ -466,6 +481,7 @@
 			);
 			$pdf->AddPage();
 			$pdf->SetFont('Arial','',8);
+			$printNote('Tabla detallada por producto para el período: Unidades (cantidad vendida), Ingresos (precio venta*cantidad), Costo (precio compra*cantidad) y Ganancia neta (Ingresos - Costo).');
 
 			if(empty($detalleProductosPeriodo)){
 				$pdf->SetTextColor(120,120,120);

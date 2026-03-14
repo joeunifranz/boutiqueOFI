@@ -727,20 +727,23 @@
 					$foto_html = '<img src="'.APP_URL.'app/views/productos/default.png" alt="Sin imagen">';
 				}
 		
+				$productoUrl = APP_URL.'productoDetalle/'.$prod['producto_id'].'/';
 				$html.='
 					<div class="inicio-catalogo-item">
-						<div class="card inicio-catalogo-card">
-							<div class="card-image">
-								<figure class="image is-3by4">
-									'.$foto_html.'
-								</figure>
+						<a class="inicio-catalogo-link" href="'.htmlspecialchars($productoUrl,ENT_QUOTES,'UTF-8').'" aria-label="Ver producto '.htmlspecialchars($prod['producto_nombre'],ENT_QUOTES,'UTF-8').'">
+							<div class="card inicio-catalogo-card">
+								<div class="card-image">
+									<figure class="image is-3by4">
+										'.$foto_html.'
+									</figure>
+								</div>
+								<div class="card-content">
+									<p class="title is-6 mb-1">'.htmlspecialchars($prod['producto_nombre'],ENT_QUOTES,'UTF-8').'</p>
+									<p class="is-size-7 has-text-grey-light mb-1">Talla '.$prod['producto_talla'].'</p>
+									<p class="has-text-weight-semibold mb-1">'.MONEDA_SIMBOLO.number_format($prod['producto_precio_venta'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).'</p>
+								</div>
 							</div>
-							<div class="card-content">
-								<p class="title is-6 mb-1">'.htmlspecialchars($prod['producto_nombre'],ENT_QUOTES,'UTF-8').'</p>
-								<p class="is-size-7 has-text-grey-light mb-1">Talla '.$prod['producto_talla'].'</p>
-								<p class="has-text-weight-semibold mb-1">'.MONEDA_SIMBOLO.number_format($prod['producto_precio_venta'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).'</p>
-							</div>
-						</div>
+						</a>
 					</div>
 				';
 			}

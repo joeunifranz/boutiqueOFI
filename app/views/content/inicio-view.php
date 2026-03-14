@@ -492,6 +492,11 @@
 	width: 220px;
 	max-width: 240px;
 }
+.inicio-catalogo-link{
+	display: block;
+	color: inherit;
+	text-decoration: none;
+}
 .inicio-catalogo-card{
 	height: 100%;
 	border-radius: 14px;

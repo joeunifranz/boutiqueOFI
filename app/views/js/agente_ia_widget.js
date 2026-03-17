@@ -73,6 +73,19 @@
 			#rag-chat-widget { width: calc(100vw - 30px); height: calc(100vh - 90px); right: 15px; bottom: 75px; }
 			#rag-chat-toggle { right: 15px; bottom: 15px; }
 		}
+		/* Botón-link dentro de mensajes */
+		.rag-bubble a.rag-link-btn{
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			padding: 6px 10px;
+			border-radius: 999px;
+			text-decoration: none;
+			font-weight: 600;
+			border: 1px solid rgba(0,0,0,0.08);
+			box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+		}
+		.rag-bubble a.rag-link-btn:focus{ outline: 2px solid rgba(50,115,220,0.35); outline-offset: 2px; }
 	`;
 	document.head.appendChild(style);
 
@@ -135,8 +148,26 @@
 	function simpleMarkdownToHtml(text){
 		// Mínimo: líneas + **negrita** + enlaces http(s)
 		var safe = escapeHtml(String(text));
+
+		// 1) Convertir enlaces Markdown a placeholders para que el linkificador no los rompa
+		var mdLinks = [];
+		safe = safe.replace(/\[([^\]]+?)\]\((https?:\/\/[^\s)]+)\)/g, function(_, label, url){
+			var idx = mdLinks.length;
+			mdLinks.push('<a class="rag-link-btn button is-small is-link is-light is-rounded" href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>');
+			return '@@MDLINK_' + idx + '@@';
+		});
+
+		// 2) Negrita
 		safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-		safe = safe.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+		// 3) Linkificar URLs sueltas (solo fuera de los placeholders)
+		safe = safe.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+		// 4) Restaurar enlaces Markdown
+		for(var i = 0; i < mdLinks.length; i++){
+			safe = safe.replace('@@MDLINK_' + i + '@@', mdLinks[i]);
+		}
+
 		safe = safe.replace(/\n/g, '<br/>');
 		return safe;
 	}
@@ -172,7 +203,7 @@
 			var resp = await fetch(API_URL, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-				body: JSON.stringify({ message: text })
+				body: JSON.stringify({ message: text, page: (window.location ? (window.location.pathname + window.location.search) : '') })
 			});
 
 			var data = null;

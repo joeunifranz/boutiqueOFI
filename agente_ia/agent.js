@@ -93,6 +93,30 @@
         /* --- FORMATO RECETA (ESTILO LIMPIO) --- */
         .bot-msg h3 { margin: 8px 0 12px 0; color: #111827; font-size: 18px; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
         .bot-msg strong { color: #8b5cf6; font-weight: 600; }
+
+        /* Links como botón (Click aquí) */
+        .bot-msg a.rag-link-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(139, 92, 246, 0.12);
+            color: #7c3aed;
+            border: 1px solid rgba(139, 92, 246, 0.28);
+            font-weight: 700;
+            text-decoration: none;
+            box-shadow: 0 10px 22px rgba(139, 92, 246, 0.10), 0 6px 12px rgba(0,0,0,0.06);
+            user-select: none;
+        }
+        .bot-msg a.rag-link-btn:hover{ filter: brightness(0.98); transform: translateY(-1px); }
+        .bot-msg a.rag-link-btn:active{ transform: translateY(0px); }
+        .bot-msg a.rag-link-btn:focus{ outline: 3px solid rgba(139, 92, 246, 0.22); outline-offset: 2px; }
+
+        .bot-msg a.rag-link{
+            color: #2563eb;
+            text-decoration: underline;
+        }
         
         /* Listas de Ingredientes (Bullets) */
         .bot-msg ul { list-style-type: none; padding: 0; margin: 8px 0 16px 0; }
@@ -151,15 +175,40 @@
     // ============================================
     // 3. PARSER DE MARKDOWN MEJORADO (LÓGICA CLAVE)
     // ============================================
+    function escapeHtml(str){
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function parseMarkdown(text) {
         // 1. Sanitizar HTML básico para evitar inyección
-        let html = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        let html = escapeHtml(text);
 
         // 2. Procesar Headers (### Titulo)
         html = html.replace(/### (.*$)/gim, '<h3>$1</h3>');
 
         // 3. Procesar Negritas (**texto**)
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // 3.1 Enlaces Markdown: [texto](https://...)
+        const mdLinks = [];
+        html = html.replace(/\[([^\]]+?)\]\((https?:\/\/[^\s)]+)\)/g, function(_, label, url){
+            const idx = mdLinks.length;
+            mdLinks.push('<a class="rag-link-btn" href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + '</a>');
+            return '@@MDLINK_' + idx + '@@';
+        });
+
+        // 3.2 URLs sueltas
+        html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a class="rag-link" href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+        // 3.3 Restaurar enlaces Markdown
+        for(let i = 0; i < mdLinks.length; i++){
+            html = html.replace('@@MDLINK_' + i + '@@', mdLinks[i]);
+        }
 
         // 4. Lógica de Listas (State Machine simplificada)
         // Convertimos el texto en lineas para procesar grupos
@@ -233,7 +282,7 @@
             const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, page: (window.location && window.location.pathname) ? window.location.pathname : '' })
+                body: JSON.stringify({ message: text, page: (window.location ? (window.location.pathname + window.location.search) : '') })
             });
             const data = await res.json();
             

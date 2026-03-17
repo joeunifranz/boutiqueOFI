@@ -1410,13 +1410,29 @@
 			return json_encode($alerta);
 		}
 		/*----------  Productos por categoría  ----------*/
-		public function productosPorCategoriaControlador($categoria_id){
+		public function productosPorCategoriaControlador($categoria_id, $talla = ''){
 
 			$categoria_id = (int)$this->limpiarCadena($categoria_id);
+			$talla = is_string($talla) ? trim($talla) : '';
+			$talla = $this->limpiarCadena($talla);
+			$talla = strtoupper(trim((string)$talla));
+			if(mb_strlen($talla) > 10){
+				$talla = mb_substr($talla, 0, 10);
+			}
+			if($talla !== '' && !preg_match('/^[A-Z0-9]{1,10}$/', $talla)){
+				$talla = '';
+			}
 
 			$condicion_categoria = "";
 			if($categoria_id>0){
 				$condicion_categoria = "AND p.categoria_id = '".$categoria_id."'";
+			}
+
+			$condicion_talla = "";
+			if($talla !== ''){
+				// producto_talla puede venir como "S,M,L" o "S, M". Filtramos por coincidencia de token.
+				$regex = '(^|[ ,;\\/\-])'.$talla.'([ ,;\\/\-]|$)';
+				$condicion_talla = "AND (UPPER(p.producto_talla) = '".$talla."' OR UPPER(p.producto_talla) REGEXP '".$regex."')";
 			}
 
 			$consulta = "
@@ -1427,6 +1443,7 @@
 				WHERE p.producto_estado = 'Habilitado'
 					AND p.producto_stock_total > 0
 					$condicion_categoria
+					$condicion_talla
 				ORDER BY p.producto_nombre ASC
 			";
 
@@ -1434,5 +1451,28 @@
 			$productos = $datos->fetchAll();
 
 			return $productos;
+		}
+
+		/*----------  Obtener ID de categoría por nombre (búsqueda simple)  ----------*/
+		public function obtenerCategoriaIdPorNombreControlador($nombre): int{
+			$nombre = is_string($nombre) ? trim($nombre) : '';
+			$nombre = $this->limpiarCadena($nombre);
+			$nombre = trim((string)$nombre);
+			if($nombre === ''){
+				return 0;
+			}
+			if(mb_strlen($nombre) > 60){
+				$nombre = mb_substr($nombre, 0, 60);
+			}
+			try{
+				$sql = "SELECT categoria_id FROM categoria WHERE categoria_nombre LIKE :q ORDER BY categoria_nombre ASC LIMIT 1";
+				$stmt = $this->conectar()->prepare($sql);
+				$stmt->bindValue(':q', '%'.$nombre.'%');
+				$stmt->execute();
+				$row = $stmt->fetch();
+				return isset($row['categoria_id']) ? (int)$row['categoria_id'] : 0;
+			}catch(\Throwable $e){
+				return 0;
+			}
 		}
 	}

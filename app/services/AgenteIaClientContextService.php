@@ -220,8 +220,8 @@ class AgenteIaClientContextService extends mainModel{
 			return [];
 		}
 
-		$like = $this->buildLikeQuery($message);
-		if($like === ''){
+		$tokens = $this->buildSearchTokens($message);
+		if(empty($tokens)){
 			return [];
 		}
 
@@ -231,12 +231,19 @@ class AgenteIaClientContextService extends mainModel{
 			$categoriaId = (int)$m[1];
 		}
 
+		$whereParts = [];
+		$params = [];
+		foreach($tokens as $i => $t){
+			$ph = ':t'.$i;
+			$whereParts[] = "(p.producto_nombre LIKE {$ph} OR p.producto_codigo LIKE {$ph} OR p.producto_talla LIKE {$ph} OR c.categoria_nombre LIKE {$ph})";
+			$params[$ph] = '%'.$t.'%';
+		}
+
 		$sql = "SELECT p.producto_id, p.producto_nombre, p.producto_talla, p.producto_precio_venta, p.producto_stock_total, c.categoria_nombre
 				FROM producto p
 				INNER JOIN categoria c ON c.categoria_id = p.categoria_id
 				WHERE p.producto_estado='Habilitado'
-				AND (p.producto_nombre LIKE :q OR p.producto_codigo LIKE :q OR p.producto_talla LIKE :q OR c.categoria_nombre LIKE :q)";
-		$params = [':q' => $like];
+				AND (".implode(' OR ', $whereParts).")";
 
 		if($categoriaId > 0){
 			$sql .= " AND p.categoria_id = :cat";
@@ -262,22 +269,58 @@ class AgenteIaClientContextService extends mainModel{
 		}
 	}
 
-	private function buildLikeQuery(string $message): string{
+	private function buildSearchTokens(string $message): array{
 		$m = trim($message);
 		if($m === ''){
-			return '';
+			return [];
 		}
-		// Recortar longitud para que LIKE sea manejable
-		if(mb_strlen($m) > 80){
-			$m = mb_substr($m, 0, 80);
+		// Recortar longitud para que el procesamiento sea manejable
+		if(mb_strlen($m) > 200){
+			$m = mb_substr($m, 0, 200);
 		}
-		// Quitar símbolos que no ayudan
-		$m = preg_replace('/[^\p{L}\p{N}\s\-\.]/u', ' ', $m);
-		$m = trim(preg_replace('/\s+/', ' ', (string)$m));
+		// Normalizar: letras/números/espacios
+		$m = mb_strtolower($m, 'UTF-8');
+		$m = preg_replace('/[^\p{L}\p{N}\s]/u', ' ', $m);
+		$m = trim((string)preg_replace('/\s+/u', ' ', (string)$m));
 		if($m === ''){
-			return '';
+			return [];
 		}
-		return '%'.$m.'%';
+
+		$raw = preg_split('/\s+/u', $m);
+		if(!is_array($raw)){
+			return [];
+		}
+
+		$stop = [
+			'yo','tu','tú','el','la','los','las','un','una','unos','unas','de','del','al','a','en','por','para','con','sin',
+			'que','qué','cual','cuál','como','cómo','donde','dónde','cuando','cuándo','cuanto','cuánto',
+			'estoy','busco','buscando','quiero','quisiera','necesito','me','mi','mis','te','su','sus','porfa','porfavor','favor'
+		];
+		$stopSet = array_fill_keys($stop, true);
+
+		$tokens = [];
+		foreach($raw as $w){
+			$w = trim((string)$w);
+			if($w === ''){
+				continue;
+			}
+			// Filtrar stopwords
+			if(isset($stopSet[$w])){
+				continue;
+			}
+			// Evitar tokens demasiado cortos (pero permitir xs/s/m/l)
+			if(mb_strlen($w) < 2 && !in_array($w, ['s','m','l'], true)){
+				continue;
+			}
+			$tokens[] = $w;
+		}
+
+		// Deduplicar y priorizar los primeros
+		$tokens = array_values(array_unique($tokens));
+		if(count($tokens) > 5){
+			$tokens = array_slice($tokens, 0, 5);
+		}
+		return $tokens;
 	}
 
 	private function extractReservaCodigo(string $message): string{

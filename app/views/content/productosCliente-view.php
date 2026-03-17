@@ -8,13 +8,16 @@
 
 	// Capturar categoría desde la URL
 	$categoria = isset($url[1]) ? (int)$url[1] : 0;
+
+	// Filtro opcional por talla vía querystring (?talla=M)
+	$talla = isset($_GET['talla']) ? trim((string)$_GET['talla']) : '';
 	$categoriaNombre = "";
 	if($categoria>0){
 		$categoriaNombre = $insProductoCliente->obtenerNombreCategoriaPorIdControlador($categoria);
 	}
 
 	// Obtener productos filtrados
-	$productos = $insProductoCliente->productosPorCategoriaControlador($categoria);
+	$productos = $insProductoCliente->productosPorCategoriaControlador($categoria, $talla);
 ?>
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>

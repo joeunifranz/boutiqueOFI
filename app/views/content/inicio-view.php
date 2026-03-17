@@ -22,16 +22,15 @@
 	<!-- HEADER SUPERIOR -->
 	<header class="inicio-header">
 
-		<!-- Botón Categorías -->
-<div class="inicio-categorias-wrapper">
-	<button class="inicio-categorias-btn" onclick="toggleCategorias()">
-		<i class="fas fa-bars"></i> Categorías
-	</button>
-
-	<div id="categoriasDropdown" class="inicio-categorias-dropdown">
-		<?php echo $insProductoInicio->listarCategoriasInicio(); ?>
-	</div>
-</div>
+		<!-- Botón Vestidos (antes: Categorías) -->
+		<div class="inicio-vestidos-wrapper">
+			<a class="button is-medium is-rounded has-text-weight-semibold inicio-btn-vestidos" href="<?php echo APP_URL; ?>productosCliente/" aria-label="Ver vestidos">
+				<span class="icon">
+					<i class="fas fa-store" aria-hidden="true"></i>
+				</span>
+				<span>Vestidos</span>
+			</a>
+		</div>
 
 
 
@@ -74,6 +73,19 @@
 			para que cada momento sea memorable.
 		</p>
 
+		<!-- Categorías (antes: botón Vestidos) -->
+		<div class="has-text-centered mt-5">
+			<div class="inicio-categorias-wrapper inicio-categorias-wrapper--hero is-inline-block">
+				<button class="inicio-categorias-btn" type="button" onclick="toggleCategorias()">
+					<i class="fas fa-bars"></i> Categorías
+				</button>
+
+				<div id="categoriasDropdown" class="inicio-categorias-dropdown">
+					<?php echo $insProductoInicio->listarCategoriasInicio(); ?>
+				</div>
+			</div>
+		</div>
+
 		<section class="inicio-ubicacion" aria-label="Ubicación de la Boutique">
 			<div class="inicio-ubicacion-texto">
 				<h2 class="inicio-ubicacion-titulo">Ubicación</h2>
@@ -91,7 +103,7 @@
 						title="Google Maps - Boutique Dorita"
 						loading="lazy"
 						referrerpolicy="no-referrer-when-downgrade"
-						src="https://www.google.com/maps?q=Avenida%20Maximiliano%20Paredes%2C%20N%C2%BA%20873%20Boutique%20Dorita&output=embed"
+						src="https://www.google.com/maps?output=embed&cid=7166701914346393588"
 					></iframe>
 				</div>
 			</div>
@@ -220,6 +232,28 @@
 .inicio-wrapper{
 	position: relative;
 	width: 100%;
+}
+
+.inicio-btn-vestidos{
+	background-color: #ff2da5;
+	border-color: #ff2da5;
+	color: #ffffff;
+}
+.inicio-btn-vestidos:hover,
+.inicio-btn-vestidos:focus{
+	background-color: #e6008f;
+	border-color: #e6008f;
+	color: #ffffff;
+}
+.inicio-btn-vestidos:active{
+	background-color: #cc007f;
+	border-color: #cc007f;
+	color: #ffffff;
+}
+.inicio-btn-vestidos .icon,
+.inicio-btn-vestidos .icon i,
+.inicio-btn-vestidos span{
+	color: #ffffff;
 }
 
 .inicio-slider,
@@ -660,6 +694,22 @@
 	z-index: 40;
 }
 
+/* Botón Vestidos (fijo arriba izq) */
+.inicio-vestidos-wrapper{
+	position: fixed;
+	top: 1.5rem;
+	left: 1.5rem;
+	z-index: 40;
+}
+
+/* Categorías dentro del HERO (no fijo) */
+.inicio-categorias-wrapper.inicio-categorias-wrapper--hero{
+	position: static;
+	top: auto;
+	left: auto;
+	z-index: auto;
+}
+
 .inicio-categorias-btn{
 	padding: .7rem 1.3rem;
 	border-radius: 999px;
@@ -677,30 +727,54 @@
 	border-radius: 12px;
 	padding: 1rem;
 	min-width: 220px;
+	max-width: 92vw;
 	display: none;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: .6rem;
+	max-height: 60vh;
+	overflow: auto;
 	box-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
+/* Si alguna vista devuelve <ul>, también lo acomodamos en filas/columnas */
 .inicio-categorias-dropdown ul{
 	list-style: none;
 	padding: 0;
 	margin: 0;
+	display: contents;
 }
 
 .inicio-categorias-dropdown li{
-	margin-bottom: .5rem;
+	margin-bottom: 0;
 }
 
 .inicio-categorias-dropdown a{
 	color: #fff;
 	text-decoration: none;
 	font-size: .9rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+	white-space: normal;
+	line-height: 1.2;
+	padding: .55rem .75rem;
+	border-radius: 10px;
+	background: rgba(255,255,255,.06);
+	border: 1px solid rgba(255,255,255,.12);
 	transition: 0.2s;
+}
+
+/* Bulma: .dropdown-item suele ser block (vertical). Lo sobrescribimos solo aquí */
+.inicio-categorias-dropdown .dropdown-item{
+	display: flex;
+	width: 100%;
 }
 
 .inicio-categorias-dropdown a:hover{
 	color: #667eea;
-	padding-left: 5px;
+	background: rgba(102,126,234,.12);
+	border-color: rgba(102,126,234,.35);
 }
 </style>
 
@@ -954,18 +1028,22 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 function toggleCategorias(){
 	const dropdown = document.getElementById('categoriasDropdown');
-	if(dropdown.style.display === 'block'){
+	if(dropdown.style.display === 'grid'){
 		dropdown.style.display = 'none';
 	}else{
-		dropdown.style.display = 'block';
+		dropdown.style.display = 'grid';
 	}
 }
 
 // Cerrar si se hace click afuera
 document.addEventListener('click', function(e){
-	const wrapper = document.querySelector('.inicio-categorias-wrapper');
-	if(!wrapper.contains(e.target)){
-		document.getElementById('categoriasDropdown').style.display = 'none';
+	const dropdown = document.getElementById('categoriasDropdown');
+	if(!dropdown){
+		return;
+	}
+	const wrapper = dropdown.closest('.inicio-categorias-wrapper');
+	if(wrapper && !wrapper.contains(e.target)){
+		dropdown.style.display = 'none';
 	}
 });
 </script>

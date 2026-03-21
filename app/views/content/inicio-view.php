@@ -84,6 +84,24 @@
 					<?php echo $insProductoInicio->listarCategoriasInicio(); ?>
 				</div>
 			</div>
+
+			<div class="inicio-categorias-wrapper inicio-categorias-wrapper--hero is-inline-block ml-2">
+				<button class="inicio-categorias-btn" type="button" onclick="toggleTallas()">
+					<i class="fas fa-ruler"></i> Talla
+				</button>
+
+				<div id="tallasDropdown" class="inicio-categorias-dropdown">
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXS" class="dropdown-item">XXXS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXS" class="dropdown-item">XXS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XS" class="dropdown-item">XS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=S" class="dropdown-item">S</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=M" class="dropdown-item">M</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=L" class="dropdown-item">L</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XL" class="dropdown-item">XL</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXL" class="dropdown-item">XXL</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXL" class="dropdown-item">XXXL</a>
+				</div>
+			</div>
 		</div>
 
 		<section class="inicio-ubicacion" aria-label="Ubicación de la Boutique">
@@ -1035,15 +1053,34 @@ function toggleCategorias(){
 	}
 }
 
-// Cerrar si se hace click afuera
-document.addEventListener('click', function(e){
-	const dropdown = document.getElementById('categoriasDropdown');
+function toggleTallas(){
+	const dropdown = document.getElementById('tallasDropdown');
 	if(!dropdown){
 		return;
 	}
-	const wrapper = dropdown.closest('.inicio-categorias-wrapper');
-	if(wrapper && !wrapper.contains(e.target)){
+	if(dropdown.style.display === 'grid'){
 		dropdown.style.display = 'none';
+	}else{
+		dropdown.style.display = 'grid';
+	}
+}
+
+// Cerrar si se hace click afuera
+document.addEventListener('click', function(e){
+	const dropdownCategorias = document.getElementById('categoriasDropdown');
+	if(dropdownCategorias){
+		const wrapperCategorias = dropdownCategorias.closest('.inicio-categorias-wrapper');
+		if(wrapperCategorias && !wrapperCategorias.contains(e.target)){
+			dropdownCategorias.style.display = 'none';
+		}
+	}
+
+	const dropdownTallas = document.getElementById('tallasDropdown');
+	if(dropdownTallas){
+		const wrapperTallas = dropdownTallas.closest('.inicio-categorias-wrapper');
+		if(wrapperTallas && !wrapperTallas.contains(e.target)){
+			dropdownTallas.style.display = 'none';
+		}
 	}
 });
 </script>

@@ -17,6 +17,33 @@
 	<div id="navbarCliente" class="navbar-menu">
 		<div class="navbar-start">
 			<a class="navbar-item" href="<?php echo APP_URL; ?>productosCliente/">Tienda</a>
+			<?php if($clienteLogueado){ ?>
+				<div class="navbar-item">
+					<div id="tallasDropdownNavbar" class="dropdown">
+						<div class="dropdown-trigger">
+							<button id="btnTallasNavbar" class="button is-light" aria-haspopup="true" aria-controls="dropdown-menu-tallas">
+								<span>Talla</span>
+								<span class="icon is-small">
+									<i class="fas fa-angle-down" aria-hidden="true"></i>
+								</span>
+							</button>
+						</div>
+						<div class="dropdown-menu" id="dropdown-menu-tallas" role="menu">
+							<div class="dropdown-content">
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXS" class="dropdown-item">XXXS</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXS" class="dropdown-item">XXS</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XS" class="dropdown-item">XS</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=S" class="dropdown-item">S</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=M" class="dropdown-item">M</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=L" class="dropdown-item">L</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XL" class="dropdown-item">XL</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXL" class="dropdown-item">XXL</a>
+								<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXL" class="dropdown-item">XXXL</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			<?php } ?>
 		</div>
 
 		<div class="navbar-end">
@@ -50,6 +77,29 @@
 						$target.classList.toggle('is-active');
 					}
 				});
+			});
+		}
+
+		const ddTallas = document.getElementById('tallasDropdownNavbar');
+		const btnTallas = document.getElementById('btnTallasNavbar');
+		if(ddTallas && btnTallas){
+			const toggle = () => ddTallas.classList.toggle('is-active');
+			btnTallas.addEventListener('click', function(e){
+				e.preventDefault();
+				toggle();
+			});
+
+			document.addEventListener('click', function(e){
+				if(!ddTallas.classList.contains('is-active')) return;
+				if(ddTallas.contains(e.target)) return;
+				ddTallas.classList.remove('is-active');
+			});
+
+			ddTallas.addEventListener('click', function(e){
+				const a = e.target && e.target.closest ? e.target.closest('a.dropdown-item') : null;
+				if(a){
+					ddTallas.classList.remove('is-active');
+				}
 			});
 		}
 	})();

@@ -7,7 +7,7 @@
 		/*---------- Modelo obtener vista ----------*/
 		protected function obtenerVistasModelo($vista){
 
-			$listaBlanca=["dashboard","cashierNew","cashierList","cashierSearch","cashierUpdate","userNew","userList","userUpdate","userSearch","userPhoto","clientNew","clientList","clientSearch","clientUpdate","categoryNew","categoryList","categorySearch","categoryUpdate","productNew","productList","productSearch","productUpdate","productPhoto","productCategory","companyNew","saleNew","saleList","saleSearch","saleDetail","logList","logOut","exportarLogs","reservaConfirmar","reservaAprobar","reservaDetalle","reservaList","reservaHorarios","reservaHoy"];
+			$listaBlanca=["dashboard","cashierNew","cashierList","cashierSearch","cashierUpdate","userNew","userList","userUpdate","userSearch","userPhoto","clientNew","clientList","clientSearch","clientUpdate","categoryNew","categoryList","categorySearch","categoryUpdate","productNew","productList","productSearch","productUpdate","productPhoto","productCategory","companyNew","saleNew","saleList","saleSearch","saleDetail","logList","logOut","exportarLogs","reservaConfirmar","reservaAprobar","reservaDetalle","reservaList","reservaHorarios","reservaHoy","fabricNew","fabricList","fabricUpdate"];
 
 			if(in_array($vista, $listaBlanca)){
 				if(is_file("./app/views/content/".$vista."-view.php")){
@@ -27,6 +27,8 @@
 				$contenido="login";
 			}elseif($vista=="productosCliente"){
 				$contenido="productosCliente";
+			}elseif($vista=="telasCliente"){
+				$contenido="telasCliente";
 			}elseif($vista=="productoDetalle"){
 				$contenido="productoDetalle";
 			}elseif($vista=="reservaNueva"){

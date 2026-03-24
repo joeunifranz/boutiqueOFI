@@ -137,6 +137,7 @@
             $vista=="clienteLogin" ||
             $vista=="clienteLogOut" ||
             $vista=="productosCliente" ||
+            $vista=="telasCliente" ||
             $vista=="productoDetalle" ||
             $vista=="reservaNueva" ||
             $vista=="reservaQR" ||

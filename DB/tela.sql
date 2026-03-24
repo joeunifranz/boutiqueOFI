@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS `tela` (
   `tela_descripcion` VARCHAR(255) NULL,
   `tela_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `tela_stock` INT NOT NULL DEFAULT 0,
-  `tela_textura_url` VARCHAR(255) NULL,
+  `tela_textura_url` VARCHAR(255) NULL, -- URL externa o ruta local (ej: app/views/fotos/telas/archivo.jpg)
   `tela_activo` TINYINT(1) NOT NULL DEFAULT 1,
   `tela_creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tela_id`),

@@ -5,6 +5,64 @@
 
 	class fabricController extends mainModel{
 
+		private function guardarTexturaSubida($file){
+			if(!is_array($file) || !isset($file['error'])){
+				return [ 'ok'=>false, 'error'=>'invalid_file' ];
+			}
+			if((int)$file['error'] === UPLOAD_ERR_NO_FILE){
+				return [ 'ok'=>true, 'path'=>null ];
+			}
+			if((int)$file['error'] !== UPLOAD_ERR_OK){
+				return [ 'ok'=>false, 'error'=>'upload_failed' ];
+			}
+
+			$maxBytes = 2 * 1024 * 1024; // 2MB
+			if(isset($file['size']) && (int)$file['size'] > $maxBytes){
+				return [ 'ok'=>false, 'error'=>'file_too_large' ];
+			}
+
+			$tmp = $file['tmp_name'] ?? '';
+			if($tmp==='' || !is_uploaded_file($tmp)){
+				return [ 'ok'=>false, 'error'=>'invalid_upload' ];
+			}
+
+			$mime = '';
+			try{
+				$finfo = new \finfo(FILEINFO_MIME_TYPE);
+				$mime = (string)$finfo->file($tmp);
+			}catch(\Exception $e){
+				$mime = '';
+			}
+
+			$allowed = [
+				'image/png' => 'png',
+				'image/jpeg' => 'jpg',
+				'image/webp' => 'webp'
+			];
+			if(!isset($allowed[$mime])){
+				return [ 'ok'=>false, 'error'=>'invalid_type' ];
+			}
+			$ext = $allowed[$mime];
+
+			$destDir = __DIR__ . '/../views/fotos/telas/';
+			if(!is_dir($destDir)){
+				@mkdir($destDir, 0775, true);
+			}
+			if(!is_dir($destDir)){
+				return [ 'ok'=>false, 'error'=>'dest_dir_missing' ];
+			}
+
+			$name = 'tela_' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+			$destPath = $destDir . $name;
+			if(!@move_uploaded_file($tmp, $destPath)){
+				return [ 'ok'=>false, 'error'=>'move_failed' ];
+			}
+
+			// Ruta pública relativa al proyecto (la usa el frontend)
+			$publicPath = 'app/views/fotos/telas/' . $name;
+			return [ 'ok'=>true, 'path'=>$publicPath ];
+		}
+
 		private function tablaTelasExiste(){
 			try{
 				$check = $this->ejecutarConsulta("SHOW TABLES LIKE 'tela'");
@@ -102,6 +160,25 @@
 					"texto"=>"Importa el script DB/tela.sql en tu base de datos",
 					"icono"=>"error"
 				]);
+			}
+
+			// Si viene archivo, lo guardamos y reemplaza la URL
+			if(isset($_FILES['tela_textura_file'])){
+				$up = $this->guardarTexturaSubida($_FILES['tela_textura_file']);
+				if(!$up['ok']){
+					$texto = 'No se pudo subir la textura.';
+					if($up['error']==='file_too_large') $texto = 'La imagen supera el tamaño máximo (2MB).';
+					if($up['error']==='invalid_type') $texto = 'Tipo de imagen no válido. Usa PNG, JPG o WebP.';
+					return json_encode([
+						"tipo"=>"simple",
+						"titulo"=>"Ocurrió un error inesperado",
+						"texto"=>$texto,
+						"icono"=>"error"
+					]);
+				}
+				if($up['path']){
+					$texturaUrl = $up['path'];
+				}
 			}
 
 			$check_nombre = $this->ejecutarConsulta("SELECT tela_id FROM tela WHERE tela_nombre='$nombre'");
@@ -237,6 +314,25 @@
 					"texto"=>"La tela no existe",
 					"icono"=>"error"
 				]);
+			}
+
+			// Si viene archivo, lo guardamos y reemplaza la URL
+			if(isset($_FILES['tela_textura_file'])){
+				$up = $this->guardarTexturaSubida($_FILES['tela_textura_file']);
+				if(!$up['ok']){
+					$texto = 'No se pudo subir la textura.';
+					if($up['error']==='file_too_large') $texto = 'La imagen supera el tamaño máximo (2MB).';
+					if($up['error']==='invalid_type') $texto = 'Tipo de imagen no válido. Usa PNG, JPG o WebP.';
+					return json_encode([
+						"tipo"=>"simple",
+						"titulo"=>"Ocurrió un error inesperado",
+						"texto"=>$texto,
+						"icono"=>"error"
+					]);
+				}
+				if($up['path']){
+					$texturaUrl = $up['path'];
+				}
 			}
 
 			if(!is_numeric($precio) || (float)$precio < 0){

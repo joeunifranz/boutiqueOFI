@@ -4,7 +4,7 @@
 </div>
 
 <div class="container pb-6 pt-6">
-	<form class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/telaAjax.php" method="POST" autocomplete="off">
+	<form class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/telaAjax.php" method="POST" autocomplete="off" enctype="multipart/form-data">
 		<input type="hidden" name="modulo_tela" value="registrar">
 
 		<div class="columns">
@@ -46,6 +46,13 @@
 					<label>URL de textura (opcional)</label>
 					<input class="input" type="text" name="tela_textura_url" maxlength="255" placeholder="https://.../textura.jpg">
 					<p class="help">Si la dejas vacía, el preview 3D usará un material neutro.</p>
+				</div>
+			</div>
+			<div class="column">
+				<div class="control">
+					<label>Subir textura (opcional)</label>
+					<input class="input" type="file" name="tela_textura_file" accept="image/png, image/jpeg, image/webp">
+					<p class="help">Si subes una imagen, se usará en lugar de la URL.</p>
 				</div>
 			</div>
 			<div class="column">

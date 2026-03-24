@@ -1,3 +1,15 @@
+
+/* --- Telas (cliente): previsualización 3D tamaño normal / grande --- */
+.fabric-preview-wrap #fabricPreviewCanvas{
+    height: 240px;
+}
+
+.fabric-preview-canvas-modal{
+    width: 100%;
+    height: 600px;
+    display: block;
+}
+
 /*=====================================================
                     Tipografia
 ======================================================*/

@@ -37,8 +37,20 @@
 				<div id="telasList"></div>
 
 				<hr>
-				<h3 class="subtitle is-6">Previsualización 3D de la tela</h3>
-				<canvas id="fabricPreviewCanvas" style="width:100%; height:240px; display:block;"></canvas>
+				<div class="is-flex is-justify-content-space-between is-align-items-center">
+					<h3 class="subtitle is-6" style="margin-bottom:0;">Previsualización 3D de la tela</h3>
+					<button
+						id="openFabricPreviewModal"
+						type="button"
+						class="button is-link is-light is-rounded is-small js-modal-trigger"
+						data-target="modalFabricPreview"
+					>
+						Ver grande
+					</button>
+				</div>
+				<div class="fabric-preview-wrap mt-3">
+					<canvas id="fabricPreviewCanvas" style="width:100%; display:block;"></canvas>
+				</div>
 
 				<p class="mt-4">
 					<strong>Precio con esta tela:</strong>
@@ -46,6 +58,23 @@
 				</p>
 			</div>
 		</div>
+	</div>
+</div>
+
+<!-- Modal: Previsualización 3D grande -->
+<div id="modalFabricPreview" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(92vw, 980px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Previsualización 3D de la tela</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<canvas id="fabricPreviewCanvasModal" class="fabric-preview-canvas-modal"></canvas>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
 	</div>
 </div>
 

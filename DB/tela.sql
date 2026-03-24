@@ -1,13 +1,16 @@
 -- Tabla de inventario de telas
 -- Ejecuta este script en tu BD (boutique) si aún no existe la tabla.
 
+-- MIGRACIÓN (si ya tenías la tabla creada con el campo anterior):
+-- ALTER TABLE `tela` CHANGE `tela_textura_url` `tela_textura_imagen` VARCHAR(255) NULL;
+
 CREATE TABLE IF NOT EXISTS `tela` (
   `tela_id` INT NOT NULL AUTO_INCREMENT,
   `tela_nombre` VARCHAR(80) NOT NULL,
   `tela_descripcion` VARCHAR(255) NULL,
   `tela_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `tela_stock` INT NOT NULL DEFAULT 0,
-  `tela_textura_url` VARCHAR(255) NULL, -- URL externa o ruta local (ej: app/views/fotos/telas/archivo.jpg)
+  `tela_textura_imagen` VARCHAR(255) NULL, -- Ruta local de imagen (ej: app/views/fotos/telas/archivo.jpg)
   `tela_activo` TINYINT(1) NOT NULL DEFAULT 1,
   `tela_creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`tela_id`),
@@ -15,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `tela` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- Datos de ejemplo (puedes editar/eliminar)
-INSERT IGNORE INTO `tela` (`tela_nombre`,`tela_descripcion`,`tela_precio`,`tela_stock`,`tela_textura_url`,`tela_activo`) VALUES
+INSERT IGNORE INTO `tela` (`tela_nombre`,`tela_descripcion`,`tela_precio`,`tela_stock`,`tela_textura_imagen`,`tela_activo`) VALUES
 ('Algodón','Tela fresca y cómoda',25.00,50,NULL,1),
 ('Seda','Tela premium con brillo',80.00,20,NULL,1),
 ('Encaje','Acabado elegante',60.00,15,NULL,1),

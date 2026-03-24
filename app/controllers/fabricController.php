@@ -84,7 +84,7 @@
 			}
 
 			try{
-				$datos = $this->ejecutarConsulta("SELECT tela_id, tela_nombre, tela_descripcion, tela_precio, tela_stock, tela_textura_url FROM tela WHERE tela_activo=1 ORDER BY tela_nombre ASC");
+				$datos = $this->ejecutarConsulta("SELECT tela_id, tela_nombre, tela_descripcion, tela_precio, tela_stock, tela_textura_imagen FROM tela WHERE tela_activo=1 ORDER BY tela_nombre ASC");
 				$rows = $datos ? $datos->fetchAll(\PDO::FETCH_ASSOC) : [];
 				return json_encode([
 					'ok'=>true,
@@ -114,7 +114,7 @@
 			$descripcion = $this->limpiarCadena($_POST['tela_descripcion'] ?? '');
 			$precio = $this->limpiarCadena($_POST['tela_precio'] ?? '0');
 			$stock = $this->limpiarCadena($_POST['tela_stock'] ?? '0');
-			$texturaUrl = $this->limpiarCadena($_POST['tela_textura_url'] ?? '');
+			$texturaImagen = null;
 			$activo = isset($_POST['tela_activo']) ? (int)$_POST['tela_activo'] : 1;
 
 			if($nombre==="" || $precio==="" || $stock===""){
@@ -162,7 +162,7 @@
 				]);
 			}
 
-			// Si viene archivo, lo guardamos y reemplaza la URL
+			// Si viene archivo, lo guardamos
 			if(isset($_FILES['tela_textura_file'])){
 				$up = $this->guardarTexturaSubida($_FILES['tela_textura_file']);
 				if(!$up['ok']){
@@ -177,7 +177,7 @@
 					]);
 				}
 				if($up['path']){
-					$texturaUrl = $up['path'];
+					$texturaImagen = $up['path'];
 				}
 			}
 
@@ -213,9 +213,9 @@
 					"campo_valor"=>(int)$stock
 				],
 				[
-					"campo_nombre"=>"tela_textura_url",
-					"campo_marcador"=>":TexturaUrl",
-					"campo_valor"=>($texturaUrl!=='' ? $texturaUrl : null)
+					"campo_nombre"=>"tela_textura_imagen",
+					"campo_marcador"=>":TexturaImagen",
+					"campo_valor"=>$texturaImagen
 				],
 				[
 					"campo_nombre"=>"tela_activo",
@@ -276,7 +276,6 @@
 			$descripcion = $this->limpiarCadena($_POST['tela_descripcion'] ?? '');
 			$precio = $this->limpiarCadena($_POST['tela_precio'] ?? '0');
 			$stock = $this->limpiarCadena($_POST['tela_stock'] ?? '0');
-			$texturaUrl = $this->limpiarCadena($_POST['tela_textura_url'] ?? '');
 			$activo = isset($_POST['tela_activo']) ? (int)$_POST['tela_activo'] : 1;
 
 			if($telaId<=0 || $nombre===""){
@@ -316,7 +315,10 @@
 				]);
 			}
 
-			// Si viene archivo, lo guardamos y reemplaza la URL
+			// Mantener textura actual si no se sube una nueva
+			$texturaImagen = $actual['tela_textura_imagen'] ?? null;
+
+			// Si viene archivo, lo guardamos y reemplaza la textura actual
 			if(isset($_FILES['tela_textura_file'])){
 				$up = $this->guardarTexturaSubida($_FILES['tela_textura_file']);
 				if(!$up['ok']){
@@ -331,7 +333,7 @@
 					]);
 				}
 				if($up['path']){
-					$texturaUrl = $up['path'];
+					$texturaImagen = $up['path'];
 				}
 			}
 
@@ -388,9 +390,9 @@
 					"campo_valor"=>(int)$stock
 				],
 				[
-					"campo_nombre"=>"tela_textura_url",
-					"campo_marcador"=>":TexturaUrl",
-					"campo_valor"=>($texturaUrl!=='' ? $texturaUrl : null)
+					"campo_nombre"=>"tela_textura_imagen",
+					"campo_marcador"=>":TexturaImagen",
+					"campo_valor"=>$texturaImagen
 				],
 				[
 					"campo_nombre"=>"tela_activo",
@@ -468,12 +470,13 @@
 
 
 		/* ---------- Admin: listar inventario de telas ---------- */
-		public function listarTelasAdminControlador($pagina,$registros,$url,$busqueda){
-			$pagina=$this->limpiarCadena($pagina);
-			$registros=$this->limpiarCadena($registros);
-			$url=$this->limpiarCadena($url);
-			$url=APP_URL.$url."/";
-			$busqueda=$this->limpiarCadena($busqueda);
+		public function listarTelasAdminControlador($pagina,$registros,$url,$busqueda,$activo=""){
+			$pagina = $this->limpiarCadena($pagina);
+			$registros = $this->limpiarCadena($registros);
+			$url = $this->limpiarCadena($url);
+			$url = APP_URL.$url."/";
+			$busqueda = $this->limpiarCadena($busqueda);
+			$activo = $this->limpiarCadena($activo);
 
 			if(!$this->tablaTelasExiste()){
 				return '<div class="notification is-warning">No existe la tabla <strong>tela</strong>. Importa <strong>DB/tela.sql</strong>.</div>';
@@ -481,22 +484,57 @@
 
 			$tabla="";
 			$pagina = (isset($pagina) && $pagina>0) ? (int)$pagina : 1;
+			$registros = (int)$registros;
+			if($registros<=0){
+				$registros = 15;
+			}
 			$inicio = ($pagina>0) ? (($pagina*$registros)-$registros) : 0;
 
+			$where=[];
+			$params=[];
 			if(isset($busqueda) && $busqueda!=""){
-				$consulta_datos="SELECT * FROM tela WHERE tela_nombre LIKE '%$busqueda%' ORDER BY tela_nombre ASC LIMIT $inicio,$registros";
-				$consulta_total="SELECT COUNT(tela_id) FROM tela WHERE tela_nombre LIKE '%$busqueda%'";
-			}else{
-				$consulta_datos="SELECT * FROM tela ORDER BY tela_nombre ASC LIMIT $inicio,$registros";
-				$consulta_total="SELECT COUNT(tela_id) FROM tela";
+				$where[] = "tela_nombre LIKE :q";
+				$params[':q'] = "%".$busqueda."%";
+			}
+			$activoFiltro = null;
+			if($activo==="0" || $activo==="1"){
+				$activoFiltro = (int)$activo;
+				$where[] = "tela_activo = :activo";
+				$params[':activo'] = $activoFiltro;
+			}
+			$whereSql = (count($where) > 0) ? (" WHERE ".implode(" AND ",$where)) : "";
+
+			try{
+				$cnx = $this->conectar();
+				$sqlDatos = "SELECT * FROM tela".$whereSql." ORDER BY tela_nombre ASC LIMIT $inicio,$registros";
+				$stmt = $cnx->prepare($sqlDatos);
+				foreach($params as $k=>$v){
+					$stmt->bindValue($k,$v);
+				}
+				$stmt->execute();
+				$datos = $stmt->fetchAll();
+
+				$sqlTotal = "SELECT COUNT(tela_id) FROM tela".$whereSql;
+				$stmtTotal = $cnx->prepare($sqlTotal);
+				foreach($params as $k=>$v){
+					$stmtTotal->bindValue($k,$v);
+				}
+				$stmtTotal->execute();
+				$total = (int)$stmtTotal->fetchColumn();
+			}catch(\Exception $e){
+				$datos = [];
+				$total = 0;
 			}
 
-			$datos = $this->ejecutarConsulta($consulta_datos);
-			$datos = $datos ? $datos->fetchAll() : [];
-			$total = $this->ejecutarConsulta($consulta_total);
-			$total = $total ? (int)$total->fetchColumn() : 0;
+			$numeroPaginas = (int)ceil($total/$registros);
+			if($numeroPaginas<=0){
+				$numeroPaginas = 1;
+			}
 
-			$numeroPaginas = ($registros>0) ? (int)ceil($total/$registros) : 1;
+			$qs = [];
+			if($busqueda!=="") $qs['q'] = $busqueda;
+			if($activoFiltro!==null) $qs['activo'] = (string)$activoFiltro;
+			$queryString = (count($qs)>0) ? ('?'.http_build_query($qs)) : '';
 
 			$tabla.='
 				<div class="table-container">
@@ -516,8 +554,8 @@
 			';
 
 			if($total>=1 && $pagina<=$numeroPaginas){
-				$contador=$inicio+1;
-				$pag_inicio=$inicio+1;
+				$contador = $inicio + 1;
+				$pag_inicio = $inicio + 1;
 				foreach($datos as $rows){
 					$tabla.='
 						<tr class="has-text-centered">
@@ -544,13 +582,13 @@
 					';
 					$contador++;
 				}
-				$pag_final=$contador-1;
+				$pag_final = $contador - 1;
 			}else{
 				if($total>=1){
 					$tabla.='
 						<tr class="has-text-centered">
 							<td colspan="7">
-								<a href="'.$url.'1/" class="button is-link is-rounded is-small mt-4 mb-4">Haga clic acá para recargar el listado</a>
+								<a href="'.$url.'1/'.$queryString.'" class="button is-link is-rounded is-small mt-4 mb-4">Haga clic acá para recargar el listado</a>
 							</td>
 						</tr>
 					';
@@ -567,7 +605,7 @@
 
 			if($total>0 && $pagina<=$numeroPaginas){
 				$tabla.='<p class="has-text-right">Mostrando telas <strong>'.$pag_inicio.'</strong> al <strong>'.$pag_final.'</strong> de un <strong>total de '.$total.'</strong></p>';
-				$tabla.=$this->paginadorTablas($pagina,$numeroPaginas,$url,7);
+				$tabla.=$this->paginadorTablas($pagina,$numeroPaginas,$url,7,$queryString);
 			}
 
 			return $tabla;

@@ -56,12 +56,6 @@
 			<div class="columns">
 				<div class="column">
 					<div class="control">
-						<label>URL de textura (opcional)</label>
-						<input class="input" type="text" name="tela_textura_url" maxlength="255" value="<?php echo htmlspecialchars($tela['tela_textura_url'] ?? ''); ?>">
-					</div>
-				</div>
-				<div class="column">
-					<div class="control">
 						<label>Subir nueva textura (opcional)</label>
 						<input class="input" type="file" name="tela_textura_file" accept="image/png, image/jpeg, image/webp">
 						<p class="help">Si subes una imagen, reemplazará la textura actual.</p>

@@ -293,6 +293,44 @@
 				<li class="full-width">
 					<a href="#" class="full-width btn-subMenu">
 						<div class="navLateral-body-cl">
+							<i class="fas fa-layer-group fa-fw"></i>
+						</div>
+						<div class="navLateral-body-cr">
+							TELAS
+						</div>
+						<span class="fas fa-chevron-down"></span>
+					</a>
+					<ul class="full-width menu-principal sub-menu-options">
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>fabricNew/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-tag fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Nueva tela
+								</div>
+							</a>
+						</li>
+						<li class="full-width">
+							<a href="<?php echo APP_URL; ?>fabricList/" class="full-width">
+								<div class="navLateral-body-cl">
+									<i class="fas fa-clipboard-list fa-fw"></i>
+								</div>
+								<div class="navLateral-body-cr">
+									Inventario de telas
+								</div>
+							</a>
+						</li>
+					</ul>
+				</li>
+
+				<li class="full-width divider-menu-h"></li>
+				<?php } ?>
+
+				<?php if($esAdmin){ ?>
+				<li class="full-width">
+					<a href="#" class="full-width btn-subMenu">
+						<div class="navLateral-body-cl">
 							<i class="fas fa-clipboard-check fa-fw"></i>
 						</div>
 						<div class="navLateral-body-cr">

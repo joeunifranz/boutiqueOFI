@@ -3,10 +3,13 @@
 
 	const estado = qs('#telasEstado');
 	const listWrap = qs('#telasList');
-	const precioTexto = qs('#telaPrecioTexto');
+	const metrosTexto = qs('#telaMetrosTexto');
+	const totalTexto = qs('#telaTotalTexto');
 	const canvasPreview = qs('#fabricPreviewCanvas');
 	const dressCanvas = qs('#dress3dCanvas');
 	const modalCanvas = qs('#fabricPreviewCanvasModal');
+	const dressModalCanvas = qs('#dress3dCanvasModal');
+	const tallaSel = qs('#tallaVestido');
 
 	function showEstado(msg, type){
 		if(!estado) return;
@@ -19,6 +22,33 @@
 		const n = Number(value);
 		if(!isFinite(n)) return '—';
 		return (window.MONEDA_SIMBOLO || '') + n.toFixed(2);
+	}
+
+	function formatMeters(value){
+		const n = Number(value);
+		if(!isFinite(n) || n<=0) return '—';
+		return n.toFixed(1) + ' m';
+	}
+
+	function getAutoComplexityMultiplier(){
+		// Complejidad automática (sin selector): ajusta este factor si deseas.
+		return 1.15;
+	}
+
+	function estimateMeters(talla){
+		// Estimación simple (puedes ajustar los números a tu criterio)
+		const baseBySize = {
+			'XS': 2.4,
+			'S': 2.6,
+			'M': 2.8,
+			'L': 3.0,
+			'XL': 3.2,
+			'XXL': 3.4
+		};
+		const base = baseBySize[String(talla || '').toUpperCase()] ?? baseBySize['M'];
+		const mult = getAutoComplexityMultiplier();
+		// Redondeo al 0.1
+		return Math.round((base * mult) * 10) / 10;
 	}
 
 	function resolveTextureUrl(url){
@@ -113,7 +143,7 @@
 		}else{
 			// Vestido placeholder (sin assets externos)
 			const dress = new THREE.Group();
-			dress.position.y = 0.0;
+			dress.position.y = 0.08;
 			group.add(dress);
 
 			const skirtGeo = new THREE.ConeGeometry(0.85, 1.55, 64, 32, true);
@@ -136,8 +166,9 @@
 
 			dressMeshes = [skirt, top];
 
-			lookAtTarget.set(0, 0.55, 0);
-			camera.position.set(0, 1.05, 2.6);
+			// Centrado del vestido en el canvas
+			lookAtTarget.set(0, 0.45, 0);
+			camera.position.set(0, 0.95, 2.6);
 		}
 
 		const textureLoader = new THREE.TextureLoader();
@@ -235,9 +266,18 @@
 	const fabricPreview = createScene3D(canvasPreview, 'cloth');
 	const dressScene = createScene3D(dressCanvas, 'dress');
 	let fabricPreviewModal = null;
+	let dressPreviewModal = null;
 
 	function currentSelection(){
 		return listWrap ? listWrap.querySelector('input[type="radio"][name="tela_id"]:checked') : null;
+	}
+
+	function refreshSummary(precioPorMetro){
+		const talla = tallaSel ? tallaSel.value : 'M';
+		const metros = estimateMeters(talla);
+		if(metrosTexto) metrosTexto.textContent = formatMeters(metros);
+		const p = Number(precioPorMetro);
+		if(totalTexto) totalTexto.textContent = (isFinite(p) ? formatMoney(metros * p) : '—');
 	}
 
 	function syncModalFabric(){
@@ -254,14 +294,28 @@
 		}
 	}
 
+	function syncModalDress(){
+		if(!dressModalCanvas) return;
+		if(!dressPreviewModal){
+			dressPreviewModal = createScene3D(dressModalCanvas, 'dress');
+		}
+		const sel = currentSelection();
+		if(sel && dressPreviewModal){
+			const textura = sel.getAttribute('data-textura');
+			const seed = sel.value || sel.getAttribute('value') || 'tela';
+			dressPreviewModal.setFabric(textura, seed);
+			setTimeout(() => dressPreviewModal && dressPreviewModal.resize(), 50);
+		}
+	}
+
 	// Cuando se abre el modal, sincronizar la tela y ajustar el renderer
 	document.addEventListener('click', (e) => {
-		const t = e.target;
-		if(!t) return;
-		if(t.matches('.js-modal-trigger')){
-			// Dar tiempo a que Bulma muestre el modal
-			setTimeout(syncModalFabric, 80);
-		}
+		const btn = (e.target && e.target.closest) ? e.target.closest('.js-modal-trigger') : null;
+		if(!btn) return;
+		const targetId = btn.getAttribute('data-target') || '';
+		// Dar tiempo a que Bulma muestre el modal
+		if(targetId === 'modalFabricPreview') setTimeout(syncModalFabric, 80);
+		if(targetId === 'modalDressPreview') setTimeout(syncModalDress, 80);
 	});
 
 	async function cargarTelas(){
@@ -294,7 +348,7 @@
 				const nombre = t.tela_nombre || 'Tela';
 				const precio = t.tela_precio;
 				const desc = t.tela_descripcion || '';
-				const textura = t.tela_textura_url || '';
+				const textura = t.tela_textura_imagen || '';
 
 				const box = document.createElement('div');
 				box.className = 'box';
@@ -332,13 +386,14 @@
 	}
 
 	function applySelection(radio){
-		const precio = radio.getAttribute('data-precio');
 		const textura = radio.getAttribute('data-textura');
+		const precio = radio.getAttribute('data-precio');
 		const seed = radio.value || radio.getAttribute('value') || 'tela';
-		if(precioTexto) precioTexto.textContent = formatMoney(precio);
+		refreshSummary(precio);
 		if(fabricPreview) fabricPreview.setFabric(textura, seed);
 		if(dressScene) dressScene.setFabric(textura, seed);
 		if(fabricPreviewModal) fabricPreviewModal.setFabric(textura, seed);
+		if(dressPreviewModal) dressPreviewModal.setFabric(textura, seed);
 	}
 
 	function escapeHtml(str){
@@ -351,4 +406,11 @@
 	}
 
 	document.addEventListener('DOMContentLoaded', cargarTelas);
+	if(tallaSel){
+		tallaSel.addEventListener('change', () => {
+			const sel = currentSelection();
+			if(sel) applySelection(sel);
+			else refreshSummary(NaN);
+		});
+	}
 })();

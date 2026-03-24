@@ -18,7 +18,17 @@
 	<div class="columns is-variable is-5">
 		<div class="column is-7">
 			<div class="box">
-				<h2 class="subtitle"><i class="fas fa-cube"></i> &nbsp; Vestido en 3D</h2>
+				<div class="is-flex is-justify-content-space-between is-align-items-center">
+					<h2 class="subtitle" style="margin-bottom:0;"><i class="fas fa-cube"></i> &nbsp; Vestido en 3D</h2>
+					<button
+						id="openDressPreviewModal"
+						type="button"
+						class="button is-link is-light is-rounded is-small js-modal-trigger"
+						data-target="modalDressPreview"
+					>
+						Ver grande
+					</button>
+				</div>
 				<div id="dress3dContainer" style="width:100%; min-height:420px;">
 					<div class="notification is-light">
 						Este es el espacio reservado para el visor 3D del vestido (modelo + material).<br>
@@ -52,10 +62,32 @@
 					<canvas id="fabricPreviewCanvas" style="width:100%; display:block;"></canvas>
 				</div>
 
-				<p class="mt-4">
-					<strong>Precio con esta tela:</strong>
-					<span id="telaPrecioTexto">—</span>
+				<p class="mt-4 mb-2">
+					<strong>Metros estimados:</strong>
+					<span id="telaMetrosTexto">—</span>
 				</p>
+				<p class="mb-4">
+					<strong>Total (metros × precio por metro):</strong>
+					<span id="telaTotalTexto">—</span>
+				</p>
+
+				<div class="columns is-variable is-2 mt-2">
+					<div class="column">
+						<div class="control">
+							<label class="label" style="margin-bottom:0.35rem;">Talla</label>
+							<div class="select is-fullwidth">
+								<select id="tallaVestido" name="talla_vestido">
+									<option value="XS">XS</option>
+									<option value="S">S</option>
+									<option value="M" selected>M</option>
+									<option value="L">L</option>
+									<option value="XL">XL</option>
+									<option value="XXL">XXL</option>
+								</select>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -71,6 +103,23 @@
 		</header>
 		<section class="modal-card-body">
 			<canvas id="fabricPreviewCanvasModal" class="fabric-preview-canvas-modal"></canvas>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Modal: Vestido 3D grande -->
+<div id="modalDressPreview" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(92vw, 980px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Vestido en 3D</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<canvas id="dress3dCanvasModal" class="fabric-preview-canvas-modal"></canvas>
 		</section>
 		<footer class="modal-card-foot" style="justify-content:flex-end;">
 			<button class="button is-link is-light is-rounded">Cerrar</button>

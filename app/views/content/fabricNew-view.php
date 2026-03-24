@@ -43,16 +43,9 @@
 		<div class="columns">
 			<div class="column">
 				<div class="control">
-					<label>URL de textura (opcional)</label>
-					<input class="input" type="text" name="tela_textura_url" maxlength="255" placeholder="https://.../textura.jpg">
-					<p class="help">Si la dejas vacía, el preview 3D usará un material neutro.</p>
-				</div>
-			</div>
-			<div class="column">
-				<div class="control">
 					<label>Subir textura (opcional)</label>
 					<input class="input" type="file" name="tela_textura_file" accept="image/png, image/jpeg, image/webp">
-					<p class="help">Si subes una imagen, se usará en lugar de la URL.</p>
+					<p class="help">Si la dejas vacía, el preview 3D usará una textura procedimental.</p>
 				</div>
 			</div>
 			<div class="column">

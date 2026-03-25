@@ -22,14 +22,42 @@
 	<!-- HEADER SUPERIOR -->
 	<header class="inicio-header">
 
-		<!-- Botón Vestidos (antes: Categorías) -->
-		<div class="inicio-vestidos-wrapper">
-			<a class="button is-medium is-rounded has-text-weight-semibold inicio-btn-vestidos" href="<?php echo APP_URL; ?>productosCliente/" aria-label="Ver vestidos">
+		<!-- Accesos principales (misma fila / mismo tamaño) -->
+		<div class="inicio-left-buttons" aria-label="Accesos rápidos">
+			<a class="button is-medium is-rounded has-text-weight-semibold is-warning inicio-btn-gold" href="<?php echo APP_URL; ?>productosCliente/" aria-label="Ver vestidos">
 				<span class="icon">
 					<i class="fas fa-store" aria-hidden="true"></i>
 				</span>
 				<span>Vestidos</span>
 			</a>
+
+			<div class="inicio-categorias-wrapper">
+				<button class="button is-medium is-rounded has-text-weight-semibold is-warning inicio-btn-gold" type="button" onclick="toggleCategorias()" aria-haspopup="true" aria-controls="categoriasDropdown">
+					<span class="icon"><i class="fas fa-bars" aria-hidden="true"></i></span>
+					<span>Categorías</span>
+				</button>
+				<div id="categoriasDropdown" class="inicio-categorias-dropdown">
+					<?php echo $insProductoInicio->listarCategoriasInicio(); ?>
+				</div>
+			</div>
+
+			<div class="inicio-categorias-wrapper">
+				<button class="button is-medium is-rounded has-text-weight-semibold is-warning inicio-btn-gold" type="button" onclick="toggleTallas()" aria-haspopup="true" aria-controls="tallasDropdown">
+					<span class="icon"><i class="fas fa-ruler" aria-hidden="true"></i></span>
+					<span>Tallas</span>
+				</button>
+				<div id="tallasDropdown" class="inicio-categorias-dropdown">
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXS" class="dropdown-item">XXXS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXS" class="dropdown-item">XXS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XS" class="dropdown-item">XS</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=S" class="dropdown-item">S</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=M" class="dropdown-item">M</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=L" class="dropdown-item">L</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XL" class="dropdown-item">XL</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXL" class="dropdown-item">XXL</a>
+					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXL" class="dropdown-item">XXXL</a>
+				</div>
+			</div>
 		</div>
 
 
@@ -73,36 +101,7 @@
 			para que cada momento sea memorable.
 		</p>
 
-		<!-- Categorías (antes: botón Vestidos) -->
-		<div class="has-text-centered mt-5">
-			<div class="inicio-categorias-wrapper inicio-categorias-wrapper--hero is-inline-block">
-				<button class="inicio-categorias-btn" type="button" onclick="toggleCategorias()">
-					<i class="fas fa-bars"></i> Categorías
-				</button>
-
-				<div id="categoriasDropdown" class="inicio-categorias-dropdown">
-					<?php echo $insProductoInicio->listarCategoriasInicio(); ?>
-				</div>
-			</div>
-
-			<div class="inicio-categorias-wrapper inicio-categorias-wrapper--hero is-inline-block ml-2">
-				<button class="inicio-categorias-btn" type="button" onclick="toggleTallas()">
-					<i class="fas fa-ruler"></i> Talla
-				</button>
-
-				<div id="tallasDropdown" class="inicio-categorias-dropdown">
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXS" class="dropdown-item">XXXS</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXS" class="dropdown-item">XXS</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XS" class="dropdown-item">XS</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=S" class="dropdown-item">S</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=M" class="dropdown-item">M</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=L" class="dropdown-item">L</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XL" class="dropdown-item">XL</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXL" class="dropdown-item">XXL</a>
-					<a href="<?php echo APP_URL; ?>productosCliente/?talla=XXXL" class="dropdown-item">XXXL</a>
-				</div>
-			</div>
-		</div>
+		<!-- (Los accesos rápidos ahora están arriba a la izquierda) -->
 
 		<section class="inicio-ubicacion" aria-label="Ubicación de la Boutique">
 			<div class="inicio-ubicacion-texto">
@@ -252,26 +251,107 @@
 	width: 100%;
 }
 
-.inicio-btn-vestidos{
-	background-color: #ff2da5;
-	border-color: #ff2da5;
-	color: #ffffff;
+.inicio-left-buttons{
+	position: fixed;
+	top: 1.5rem;
+	left: 1.5rem;
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	gap: .65rem;
+	flex-wrap: wrap;
 }
-.inicio-btn-vestidos:hover,
-.inicio-btn-vestidos:focus{
-	background-color: #e6008f;
-	border-color: #e6008f;
-	color: #ffffff;
+
+.inicio-btn-gold{
+	/* Mantener mismo tamaño visual en los 3 botones */
+	min-height: 44px;
+	padding-left: 1.25rem;
+	padding-right: 1.25rem;
+	position: relative;
+	overflow: hidden;
+
+	/* Negro brilloso (glossy) */
+	background-color: #0b0f1a !important;
+	background-image:
+		linear-gradient(180deg,
+			rgba(255,255,255,0.22) 0%,
+			rgba(255,255,255,0.10) 22%,
+			rgba(255,255,255,0.02) 48%,
+			rgba(0,0,0,0.22) 100%
+		),
+		linear-gradient(135deg,
+			rgba(255,255,255,0.10) 0%,
+			rgba(255,255,255,0.00) 40%,
+			rgba(0,0,0,0.28) 100%
+		) !important;
+	background-blend-mode: screen, normal;
+	filter: contrast(1.08) saturate(1.05);
+
+	border: 1px solid rgba(255,255,255,.22);
+	color: #fff !important;
+	text-shadow: 0 1px 0 rgba(0,0,0,0.18);
+
+	/* Relieve: sombra externa + sombra interna */
+	box-shadow:
+		0 16px 42px rgba(0,0,0,0.38),
+		0 10px 24px rgba(0,0,0,0.24),
+		inset 0 1px 0 rgba(255,255,255,0.22),
+		inset 0 -10px 22px rgba(0,0,0,0.42);
+
+	backdrop-filter: blur(6px);
+	transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
-.inicio-btn-vestidos:active{
-	background-color: #cc007f;
-	border-color: #cc007f;
-	color: #ffffff;
+
+.inicio-btn-gold .icon,
+.inicio-btn-gold .icon i,
+.inicio-btn-gold span{
+	color: #fff !important;
 }
-.inicio-btn-vestidos .icon,
-.inicio-btn-vestidos .icon i,
-.inicio-btn-vestidos span{
-	color: #ffffff;
+
+/* Brillo tipo "gloss" arriba */
+.inicio-btn-gold::before{
+	content: "";
+	position: absolute;
+	left: 10%;
+	top: -60%;
+	width: 80%;
+	height: 140%;
+	background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.0) 62%);
+	transform: rotate(-8deg);
+	pointer-events: none;
+	opacity: 0.55;
+}
+
+/* Reflejo fino (metal) */
+.inicio-btn-gold::after{
+	content: "";
+	position: absolute;
+	left: 8%;
+	top: 10px;
+	width: 84%;
+	height: 2px;
+	background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.38) 50%, rgba(255,255,255,0.0) 100%);
+	opacity: 0.65;
+	pointer-events: none;
+}
+
+.inicio-btn-gold:hover,
+.inicio-btn-gold:focus{
+	transform: translateY(-1px);
+	filter: contrast(1.10) saturate(1.08) brightness(1.05);
+	box-shadow:
+		0 20px 54px rgba(0,0,0,0.42),
+		0 16px 28px rgba(0,0,0,0.26),
+		inset 0 1px 0 rgba(255,255,255,0.26),
+		inset 0 -10px 24px rgba(0,0,0,0.46);
+}
+
+.inicio-btn-gold:active{
+	transform: translateY(0px);
+	box-shadow:
+		0 10px 24px rgba(0,0,0,0.20),
+		inset 0 2px 6px rgba(0,0,0,0.22),
+		inset 0 1px 0 rgba(255,255,255,0.35);
 }
 
 .inicio-slider,
@@ -704,43 +784,15 @@
 	transform: translateY(-4px) scale(1.03);
 	box-shadow: 0 18px 45px rgba(102,126,234,0.6);
 }
-/* Categorías botón */
 .inicio-categorias-wrapper{
-	position: fixed;
-	top: 1.5rem;
-	left: 1.5rem;
-	z-index: 40;
-}
-
-/* Botón Vestidos (fijo arriba izq) */
-.inicio-vestidos-wrapper{
-	position: fixed;
-	top: 1.5rem;
-	left: 1.5rem;
-	z-index: 40;
-}
-
-/* Categorías dentro del HERO (no fijo) */
-.inicio-categorias-wrapper.inicio-categorias-wrapper--hero{
-	position: static;
-	top: auto;
-	left: auto;
-	z-index: auto;
-}
-
-.inicio-categorias-btn{
-	padding: .7rem 1.3rem;
-	border-radius: 999px;
-	border: 1px solid rgba(255,255,255,.3);
-	background: rgba(255,255,255,.12);
-	backdrop-filter: blur(10px);
-	color: #fff;
-	font-weight: 600;
-	cursor: pointer;
+	position: relative;
 }
 
 .inicio-categorias-dropdown{
-	margin-top: .5rem;
+	position: absolute;
+	top: calc(100% + .5rem);
+	left: 0;
+	z-index: 60;
 	background: rgba(15,15,15,0.95);
 	border-radius: 12px;
 	padding: 1rem;
@@ -749,9 +801,20 @@
 	display: none;
 	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 	gap: .6rem;
-	max-height: 60vh;
+	max-height: calc(100vh - 7rem);
 	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
 	box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* Tallas: mostrar en 2 filas (para que no quede tan alto) */
+#tallasDropdown.inicio-categorias-dropdown{
+	grid-template-rows: repeat(2, minmax(0, auto));
+	grid-template-columns: none;
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(88px, max-content);
+	min-width: 260px;
 }
 
 /* Si alguna vista devuelve <ul>, también lo acomodamos en filas/columnas */
@@ -1046,10 +1109,12 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 function toggleCategorias(){
 	const dropdown = document.getElementById('categoriasDropdown');
+	ajustarDropdownToViewport(dropdown);
 	if(dropdown.style.display === 'grid'){
 		dropdown.style.display = 'none';
 	}else{
 		dropdown.style.display = 'grid';
+		requestAnimationFrame(() => ajustarDropdownToViewport(dropdown));
 	}
 }
 
@@ -1058,12 +1123,36 @@ function toggleTallas(){
 	if(!dropdown){
 		return;
 	}
+	ajustarDropdownToViewport(dropdown);
 	if(dropdown.style.display === 'grid'){
 		dropdown.style.display = 'none';
 	}else{
 		dropdown.style.display = 'grid';
+		requestAnimationFrame(() => ajustarDropdownToViewport(dropdown));
 	}
 }
+
+function ajustarDropdownToViewport(dropdown){
+	if(!dropdown) return;
+	// Solo tiene sentido si está visible o por mostrarse
+	const prevDisplay = dropdown.style.display;
+	if(prevDisplay === 'none' || prevDisplay === ''){
+		// No forzamos display aquí para no afectar el toggle; el RAF posterior ajusta.
+		return;
+	}
+	const rect = dropdown.getBoundingClientRect();
+	const padding = 16;
+	const maxH = Math.max(180, window.innerHeight - rect.top - padding);
+	dropdown.style.maxHeight = maxH + 'px';
+	dropdown.style.overflow = 'auto';
+}
+
+window.addEventListener('resize', () => {
+	const cd = document.getElementById('categoriasDropdown');
+	if(cd && cd.style.display === 'grid') ajustarDropdownToViewport(cd);
+	const td = document.getElementById('tallasDropdown');
+	if(td && td.style.display === 'grid') ajustarDropdownToViewport(td);
+});
 
 // Cerrar si se hace click afuera
 document.addEventListener('click', function(e){

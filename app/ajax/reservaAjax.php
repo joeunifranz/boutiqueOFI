@@ -40,9 +40,13 @@ if(isset($_POST['modulo_reserva'])){
         echo $insReserva->rechazarReservaControlador();
     }
 
-        if($_POST['modulo_reserva']=="completar"){
-            echo $insReserva->completarReservaVentaControlador();
-        }
+    if($_POST['modulo_reserva']=="reasignar_cita_no_asistio"){
+        echo $insReserva->reasignarCitaNoAsistioControlador();
+    }
+
+    if($_POST['modulo_reserva']=="completar"){
+        echo $insReserva->completarReservaVentaControlador();
+    }
 
 }else{
     session_destroy();

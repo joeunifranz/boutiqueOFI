@@ -607,6 +607,13 @@
 	overflow-x: auto;
 	padding-bottom: 0.5rem;
 	scroll-behavior: smooth;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior-x: contain;
+	cursor: grab;
+}
+.inicio-catalogo-row.is-dragging{
+	cursor: grabbing;
+	user-select: none;
 }
 .inicio-catalogo-row::-webkit-scrollbar{
 	height: 6px;
@@ -871,11 +878,103 @@ document.addEventListener('DOMContentLoaded', function(){
 		let scrollPos = 0;
 		const paso = 1;
 		const intervalo = 25;
+		let paused = false;
+		let resumeTimer = null;
+
+		const pauseAuto = () => {
+			paused = true;
+			if(resumeTimer){
+				clearTimeout(resumeTimer);
+				resumeTimer = null;
+			}
+		};
+		const resumeAutoSoon = () => {
+			if(resumeTimer){
+				clearTimeout(resumeTimer);
+			}
+			resumeTimer = setTimeout(function(){
+				paused = false;
+			}, 1800);
+		};
 
 		if(fila.scrollWidth <= fila.clientWidth){
 			return;
 		}
+
+		// Scroll con rueda (vertical -> horizontal)
+		fila.addEventListener('wheel', function(e){
+			const absX = Math.abs(e.deltaX || 0);
+			const absY = Math.abs(e.deltaY || 0);
+			if(absY > absX){
+				pauseAuto();
+				fila.scrollLeft += e.deltaY;
+				e.preventDefault();
+				resumeAutoSoon();
+			}
+		}, { passive: false });
+
+		// Drag-to-scroll (mouse/touch)
+		let isDown = false;
+		let startX = 0;
+		let startScrollLeft = 0;
+		let moved = false;
+		let suppressClickUntil = 0;
+
+		fila.addEventListener('pointerdown', function(e){
+			if(e.pointerType === 'mouse' && e.button !== 0) return;
+			isDown = true;
+			moved = false;
+			startX = e.clientX;
+			startScrollLeft = fila.scrollLeft;
+			fila.classList.add('is-dragging');
+			pauseAuto();
+			try{ fila.setPointerCapture(e.pointerId); }catch(err){}
+		});
+
+		fila.addEventListener('pointermove', function(e){
+			if(!isDown) return;
+			const dx = e.clientX - startX;
+			if(Math.abs(dx) > 6){
+				moved = true;
+			}
+			fila.scrollLeft = startScrollLeft - dx;
+			e.preventDefault();
+		});
+
+		const endDrag = function(e){
+			if(!isDown) return;
+			isDown = false;
+			fila.classList.remove('is-dragging');
+			if(moved){
+				suppressClickUntil = Date.now() + 350;
+			}
+			resumeAutoSoon();
+			try{ fila.releasePointerCapture(e.pointerId); }catch(err){}
+		};
+		fila.addEventListener('pointerup', endDrag);
+		fila.addEventListener('pointercancel', endDrag);
+		fila.addEventListener('pointerleave', function(){
+			if(isDown){
+				isDown = false;
+				fila.classList.remove('is-dragging');
+				resumeAutoSoon();
+			}
+		});
+
+		fila.addEventListener('click', function(e){
+			if(Date.now() < suppressClickUntil){
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}, true);
+
+		fila.addEventListener('mouseenter', pauseAuto);
+		fila.addEventListener('mouseleave', resumeAutoSoon);
+		fila.addEventListener('focusin', pauseAuto);
+		fila.addEventListener('focusout', resumeAutoSoon);
+
 		setInterval(function(){
+			if(paused) return;
 			if(fila.scrollWidth <= fila.clientWidth){
 				return;
 			}

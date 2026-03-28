@@ -1201,4 +1201,90 @@
 		    return json_encode($alerta);
 		}
 
+		/*----------  Historial de compras (cliente)  ----------*/
+		public function obtenerVentasPorClienteControlador(int $clienteId): array{
+			$clienteId = (int)$clienteId;
+			if($clienteId <= 0){
+				return [];
+			}
+
+			try{
+				$stmt = $this->conectar()->prepare(
+					"SELECT v.venta_id, v.venta_codigo, v.venta_fecha, v.venta_hora, v.venta_total,
+						(SELECT COALESCE(SUM(vd.venta_detalle_cantidad),0) FROM venta_detalle vd WHERE vd.venta_codigo=v.venta_codigo) AS items,
+						(SELECT COUNT(*) FROM venta_detalle vd WHERE vd.venta_codigo=v.venta_codigo) AS lineas,
+						(SELECT p.producto_nombre
+							FROM venta_detalle vd
+							INNER JOIN producto p ON p.producto_id=vd.producto_id
+							WHERE vd.venta_codigo=v.venta_codigo
+							ORDER BY vd.venta_detalle_id ASC
+							LIMIT 1
+						) AS producto_nombre,
+						(SELECT p.producto_foto
+							FROM venta_detalle vd
+							INNER JOIN producto p ON p.producto_id=vd.producto_id
+							WHERE vd.venta_codigo=v.venta_codigo
+							ORDER BY vd.venta_detalle_id ASC
+							LIMIT 1
+						) AS producto_foto
+					 FROM venta v
+					 WHERE v.cliente_id=:cid
+					 ORDER BY v.venta_fecha DESC, v.venta_id DESC"
+				);
+				$stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+				$stmt->execute();
+				$rows = $stmt->fetchAll();
+				return is_array($rows) ? $rows : [];
+			}catch(\Throwable $e){
+				return [];
+			}
+		}
+
+		/*----------  Detalle de compra (cliente)  ----------*/
+		public function obtenerVentaPorCodigoParaClienteControlador(string $ventaCodigo, int $clienteId): ?array{
+			$ventaCodigo = trim($this->limpiarCadena($ventaCodigo));
+			$clienteId = (int)$clienteId;
+			if($ventaCodigo==='' || $clienteId <= 0){
+				return null;
+			}
+
+			try{
+				$stmt = $this->conectar()->prepare(
+					"SELECT v.venta_id, v.venta_codigo, v.venta_fecha, v.venta_hora, v.venta_total, v.venta_pagado, v.venta_cambio,
+						c.cliente_nombre, c.cliente_apellido
+					 FROM venta v
+					 INNER JOIN cliente c ON c.cliente_id=v.cliente_id
+					 WHERE v.venta_codigo=:cod AND v.cliente_id=:cid
+					 LIMIT 1"
+				);
+				$stmt->bindValue(':cod', $ventaCodigo);
+				$stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+				$stmt->execute();
+				$venta = $stmt->fetch();
+				if(!$venta){
+					return null;
+				}
+
+				$det = $this->conectar()->prepare(
+					"SELECT venta_detalle_descripcion, venta_detalle_cantidad, venta_detalle_precio_venta, venta_detalle_total
+					 FROM venta_detalle
+					 WHERE venta_codigo=:cod
+					 ORDER BY venta_detalle_id ASC"
+				);
+				$det->bindValue(':cod', $ventaCodigo);
+				$det->execute();
+				$detalle = $det->fetchAll();
+				if(!is_array($detalle)){
+					$detalle = [];
+				}
+
+				return [
+					'venta' => $venta,
+					'detalle' => $detalle,
+				];
+			}catch(\Throwable $e){
+				return null;
+			}
+		}
+
 	}

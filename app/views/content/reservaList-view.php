@@ -54,6 +54,7 @@ if(!$esAdmin){
 									<option value="" <?php echo ($estado==='' ? 'selected' : ''); ?>>(Todos)</option>
 									<option value="pendiente" <?php echo ($estado==='pendiente' ? 'selected' : ''); ?>>pendiente</option>
 									<option value="confirmada" <?php echo ($estado==='confirmada' ? 'selected' : ''); ?>>confirmada</option>
+									<option value="reprogramada" <?php echo ($estado==='reprogramada' ? 'selected' : ''); ?>>reprogramada</option>
 									<option value="completada" <?php echo ($estado==='completada' ? 'selected' : ''); ?>>completada</option>
 									<option value="rechazada" <?php echo ($estado==='rechazada' ? 'selected' : ''); ?>>rechazada</option>
 								</select>

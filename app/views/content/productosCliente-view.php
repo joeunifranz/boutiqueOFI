@@ -31,32 +31,6 @@
 		<?php } ?>
 	</h1>
 
-	<div class="columns is-centered mb-5">
-		<div class="column is-10-mobile is-6-tablet is-5-desktop">
-			<div class="categorias-dropdown-wrap">
-				<div id="categoriasDropdownProductos" class="dropdown is-fullwidth">
-					<div class="dropdown-trigger is-fullwidth">
-						<button id="btnCategoriasProductos" class="button is-light is-rounded is-fullwidth" aria-haspopup="true" aria-controls="dropdown-menu-categorias">
-							<span class="is-flex is-align-items-center is-justify-content-center" style="width:100%;">
-								<span><i class="fas fa-bars"></i> &nbsp; Categorías</span>
-								<span class="icon is-small" style="margin-left:auto;">
-									<i class="fas fa-angle-down" aria-hidden="true"></i>
-								</span>
-							</span>
-						</button>
-					</div>
-					<div class="dropdown-menu" id="dropdown-menu-categorias" role="menu">
-						<div class="dropdown-content">
-							<a href="<?php echo APP_URL; ?>productosCliente/" class="dropdown-item">Todos los productos</a>
-							<hr class="dropdown-divider">
-							<?php echo $insProductoCliente->listarCategoriasInicio(); ?>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
 	<p class="has-text-centered mb-5">
 	<?php if($clienteLogueado){ ?>
 		Bienvenido <?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".$_SESSION['cliente_apellido']); ?>,
@@ -136,46 +110,6 @@
 		</a>
 	</p>
 </div>	
-
-<script>
-	(function(){
-		const dd = document.getElementById('categoriasDropdownProductos');
-		const btn = document.getElementById('btnCategoriasProductos');
-		if(!dd || !btn) return;
-
-		const toggle = () => dd.classList.toggle('is-active');
-		btn.addEventListener('click', function(e){
-			e.preventDefault();
-			toggle();
-		});
-
-		dd.addEventListener('click', function(e){
-			// Al seleccionar un item del dropdown, cerrarlo (la navegación sigue igual).
-			const a = e.target && e.target.closest ? e.target.closest('a.dropdown-item') : null;
-			if(a){
-				dd.classList.remove('is-active');
-			}
-		});
-
-		document.addEventListener('click', function(e){
-			if(!dd.classList.contains('is-active')) return;
-			if(dd.contains(e.target)) return;
-			dd.classList.remove('is-active');
-		});
-	})();
-</script>
-
-<style>
-	.categorias-dropdown-wrap{ padding: 0.25rem 0; }
-	#btnCategoriasProductos{ box-shadow: 0 14px 32px rgba(0,0,0,0.10); border: 1px solid rgba(0,0,0,0.06); }
-	#categoriasDropdownProductos.is-active #btnCategoriasProductos{ box-shadow: 0 18px 45px rgba(0,0,0,0.12); }
-	#categoriasDropdownProductos .dropdown-menu{ width: 100%; min-width: 100%; padding-top: 0.65rem; }
-	#categoriasDropdownProductos .dropdown-content{ border-radius: 16px; overflow: hidden; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 22px 55px rgba(0,0,0,0.12); }
-	#categoriasDropdownProductos .dropdown-item{ padding: 0.85rem 1rem; font-size: 0.98rem; }
-	#categoriasDropdownProductos .dropdown-item:hover{ background: rgba(0,0,0,0.03); }
-	#categoriasDropdownProductos .dropdown-item:active{ background: rgba(0,0,0,0.05); }
-	#categoriasDropdownProductos .dropdown-divider{ margin: 0.35rem 0; background: rgba(0,0,0,0.06); }
-</style>
 <style>
 .productos-publicos-wrapper{
 	overflow: hidden;

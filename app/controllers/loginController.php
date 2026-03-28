@@ -51,6 +51,17 @@
 
 					    	if($check_usuario['usuario_usuario']==$usuario && password_verify($clave,$check_usuario['usuario_clave'])){
 
+								// Si se inicia sesión como usuario (admin/empleado), limpiar sesión de cliente
+								unset(
+									$_SESSION['cliente_id'],
+									$_SESSION['cliente_nombre'],
+									$_SESSION['cliente_apellido'],
+									$_SESSION['cliente_email'],
+									$_SESSION['google_cliente_email'],
+									$_SESSION['google_cliente_nombre'],
+									$_SESSION['google_cliente_apellido']
+								);
+
 				    			$_SESSION['id']=$check_usuario['usuario_id'];
 					            $_SESSION['nombre']=$check_usuario['usuario_nombre'];
 					            $_SESSION['apellido']=$check_usuario['usuario_apellido'];
@@ -191,6 +202,17 @@
 			if($check_cliente->rowCount()==1){
 				$check_cliente = $check_cliente->fetch();
 
+				// Si se inicia sesión como cliente, limpiar sesión de administrador/usuario
+				unset(
+					$_SESSION['id'],
+					$_SESSION['nombre'],
+					$_SESSION['apellido'],
+					$_SESSION['usuario'],
+					$_SESSION['rol'],
+					$_SESSION['foto'],
+					$_SESSION['caja']
+				);
+
 				$_SESSION['cliente_id']       = $check_cliente['cliente_id'];
 				$_SESSION['cliente_nombre']   = $check_cliente['cliente_nombre'];
 				$_SESSION['cliente_apellido'] = $check_cliente['cliente_apellido'];
@@ -259,6 +281,17 @@
 			}
 
 			$check_cliente = $check_cliente->fetch();
+
+			// Si se inicia sesión como cliente, limpiar sesión de administrador/usuario
+			unset(
+				$_SESSION['id'],
+				$_SESSION['nombre'],
+				$_SESSION['apellido'],
+				$_SESSION['usuario'],
+				$_SESSION['rol'],
+				$_SESSION['foto'],
+				$_SESSION['caja']
+			);
 
 			$_SESSION['cliente_id']      = $check_cliente['cliente_id'];
 			$_SESSION['cliente_nombre']  = $check_cliente['cliente_nombre'];

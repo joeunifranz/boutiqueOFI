@@ -43,6 +43,304 @@ class reservationController extends mainModel{
         return array_values(array_unique($out));
     }
 
+    private function normalizarHoraCita(string $hora): ?string{
+        $hora = trim(strtolower($hora));
+        if($hora===''){
+            return null;
+        }
+        if(preg_match('/^\d{2}:\d{2}$/', $hora)){
+            $dt = \DateTime::createFromFormat('H:i', $hora);
+            if($dt instanceof \DateTime){
+                return $dt->format('h:i a');
+            }
+            return null;
+        }
+        if(preg_match('/^\d{1,2}:\d{2}\s*(am|pm)$/', $hora)){
+            $hora = preg_replace('/\s+/', ' ', $hora);
+            $dt = \DateTime::createFromFormat('g:i a', $hora);
+            if($dt instanceof \DateTime){
+                return $dt->format('h:i a');
+            }
+            return null;
+        }
+        return null;
+    }
+
+    /*----------  Reservas del cliente (cliente)  ----------*/
+    public function obtenerReservasPorClienteControlador(int $clienteId): array{
+        $clienteId = (int)$clienteId;
+        if($clienteId <= 0){
+            return [];
+        }
+
+        $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
+        try{
+            $stmt = $this->conectar()->prepare(
+                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                    p.producto_id, p.producto_nombre, p.producto_foto
+                 FROM reserva r
+                 INNER JOIN producto p ON p.producto_id=r.producto_id
+                 WHERE r.cliente_id=:cid
+                 ORDER BY r.reserva_fecha DESC, r.reserva_id DESC"
+            );
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+            return is_array($rows) ? $rows : [];
+        }catch(\Throwable $e){
+            return [];
+        }
+    }
+
+    public function obtenerReservaPorCodigoParaClienteControlador(string $codigo, int $clienteId): ?array{
+        $codigo = trim($this->limpiarCadena($codigo));
+        $clienteId = (int)$clienteId;
+        if($codigo==='' || $clienteId <= 0){
+            return null;
+        }
+
+        $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
+        try{
+            $stmt = $this->conectar()->prepare(
+                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                    c.cliente_id, c.cliente_nombre, c.cliente_apellido, c.cliente_email,
+                    p.producto_id, p.producto_nombre, p.producto_foto
+                 FROM reserva r
+                 INNER JOIN cliente c ON c.cliente_id=r.cliente_id
+                 INNER JOIN producto p ON p.producto_id=r.producto_id
+                 WHERE r.reserva_codigo=:cod AND r.cliente_id=:cid
+                 LIMIT 1"
+            );
+            $stmt->bindValue(':cod', $codigo);
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch();
+            return $row ? $row : null;
+        }catch(\Throwable $e){
+            return null;
+        }
+    }
+
+    private function tablaReservaRecordatorioColsDisponibles(): bool{
+        try{
+            $check = $this->conectar()->prepare("SHOW COLUMNS FROM `reserva` LIKE 'reserva_recordatorio_1d_enviado'");
+            $check->execute();
+            return ($check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    private function enviarReprogramacionCitaPorCorreo(array $reserva, string $nuevaFecha, string $nuevaHora, string $motivo): void{
+        try{
+            $email = trim((string)($reserva['cliente_email'] ?? ''));
+            if($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)){
+                return;
+            }
+
+            $cliente = trim((string)($reserva['cliente_nombre'] ?? '').' '.(string)($reserva['cliente_apellido'] ?? ''));
+            if($cliente===''){
+                $cliente = 'Cliente';
+            }
+
+            $fechaPretty = $nuevaFecha;
+            try{
+                $dt = new \DateTime($nuevaFecha);
+                $fechaPretty = $dt->format('d/m/Y');
+            }catch(\Throwable $e){
+                // keep
+            }
+
+            $codigo = (string)($reserva['reserva_codigo'] ?? '');
+            $producto = (string)($reserva['producto_nombre'] ?? '');
+            $subject = 'Reasignación de cita - '.(defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE');
+
+            $total = (float)($reserva['reserva_total'] ?? 0);
+            $abono = (float)($reserva['reserva_abono'] ?? 0);
+            $saldo = $total - $abono;
+            if($saldo < 0){ $saldo = 0; }
+
+            $motivoTxt = trim($motivo);
+            if($motivoTxt===''){
+                $motivoTxt = 'No asistencia a la cita.';
+            }
+
+            $html = "
+                <div style=\"font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111;\">
+                    <p>Hola <strong>".htmlspecialchars($cliente,ENT_QUOTES,'UTF-8')."</strong>,</p>
+                    <p>Tu cita fue <strong>reasignada</strong>. Por favor toma nota de la nueva fecha:</p>
+                    <ul>
+                        <li><strong>Código:</strong> ".htmlspecialchars($codigo,ENT_QUOTES,'UTF-8')."</li>
+                        <li><strong>Producto:</strong> ".htmlspecialchars($producto,ENT_QUOTES,'UTF-8')."</li>
+                        <li><strong>Nueva fecha:</strong> ".htmlspecialchars($fechaPretty,ENT_QUOTES,'UTF-8')."</li>
+                        <li><strong>Nueva hora:</strong> ".htmlspecialchars($nuevaHora,ENT_QUOTES,'UTF-8')."</li>
+                        <li><strong>Saldo pendiente:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($saldo, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>
+                        <li><strong>Motivo:</strong> ".htmlspecialchars($motivoTxt,ENT_QUOTES,'UTF-8')."</li>
+                    </ul>
+                    <p><strong>Importante:</strong> si no asistes a la cita reasignada, se entiende que <strong>no hay devolución</strong>.</p>
+                    <p>Gracias,<br>".htmlspecialchars((defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE'),ENT_QUOTES,'UTF-8')."</p>
+                </div>
+            ";
+
+            $mailer = new \app\services\MailService();
+            $ok = $mailer->sendHtml($email, $subject, $html);
+            if(!$ok){
+                $err = $mailer->getLastError() ?: 'Falló envío (sin detalle)';
+                error_log('[BOUTIQUE][MAIL] Fallo reprogramacion reserva codigo='.$codigo.' to='.$email.' :: '.$err);
+            }
+        }catch(\Throwable $e){
+            error_log('[BOUTIQUE][MAIL] Excepción reprogramacion reserva :: '.$e->getMessage());
+        }
+    }
+
+    /*----------  Reasignar cita por no asistencia (admin)  ----------*/
+    public function reasignarCitaNoAsistioControlador(){
+        if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+            $alerta=[
+                'tipo'=>'redireccionar',
+                'url'=>APP_URL.'login/'
+            ];
+            return json_encode($alerta);
+        }
+
+        if(!$this->sesionEsAdmin()){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Acceso restringido',
+                'texto'=>'Solo el administrador puede reasignar citas.',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $codigo = $this->limpiarCadena($_POST['reserva_codigo'] ?? '');
+        $nuevaFecha = $this->limpiarCadena($_POST['nueva_fecha'] ?? '');
+        $nuevaHoraIn = (string)($_POST['nueva_hora'] ?? '');
+        $motivo = $this->limpiarCadena($_POST['motivo'] ?? '');
+
+        if($codigo==='' || $nuevaFecha===''){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Datos incompletos',
+                'texto'=>'Debes indicar el código y la nueva fecha.',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        if(!preg_match('/^\d{4}-\d{2}-\d{2}$/', $nuevaFecha)){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Fecha inválida',
+                'texto'=>'La fecha no tiene el formato correcto (YYYY-MM-DD).',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        try{
+            new \DateTime($nuevaFecha);
+        }catch(\Throwable $e){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Fecha inválida',
+                'texto'=>'La fecha indicada no es válida.',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $nuevaHora = $this->normalizarHoraCita((string)$nuevaHoraIn);
+        if($nuevaHora === null){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Hora inválida',
+                'texto'=>'La hora no tiene un formato válido.',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $reserva = $this->obtenerReservaPorCodigo($codigo);
+        if(!$reserva){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Reserva no encontrada',
+                'texto'=>'No encontramos la reserva indicada.',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $estadoActual = (string)($reserva['reserva_estado'] ?? '');
+        if(!in_array($estadoActual, ['confirmada','reprogramada'], true)){
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'No se puede reasignar',
+                'texto'=>'Solo se pueden reasignar reservas en estado confirmada o reprogramada (actual: '.$estadoActual.').',
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $obs = trim((string)($reserva['reserva_observacion'] ?? ''));
+        $nota = 'Reprogramada por no asistencia. ';
+        if(trim($motivo) !== ''){
+            $nota .= 'Motivo: '.trim($motivo).'. ';
+        }
+        $nota .= 'Política: si no asiste a la cita reasignada, no hay devolución.';
+        $nuevaObs = trim(($obs !== '' ? ($obs.' | ') : '').$nota);
+        if(function_exists('mb_substr')){
+            $nuevaObs = mb_substr($nuevaObs, 0, 255, 'UTF-8');
+        }else{
+            $nuevaObs = substr($nuevaObs, 0, 255);
+        }
+
+        try{
+            $pdo = $this->conectar();
+            $pdo->beginTransaction();
+
+            $setReminderCols = $this->tablaReservaRecordatorioColsDisponibles();
+            $sql = "UPDATE reserva SET reserva_fecha=:f, reserva_hora=:h, reserva_estado='reprogramada', reserva_observacion=:o";
+            if($setReminderCols){
+                $sql .= ", reserva_recordatorio_1d_enviado=0, reserva_recordatorio_1d_enviado_en=NULL, reserva_recordatorio_1d_ultimo_intento=NULL, reserva_recordatorio_1d_error=NULL";
+            }
+            $sql .= " WHERE reserva_codigo=:c AND reserva_estado IN ('confirmada','reprogramada') LIMIT 1";
+
+            $stmt = $pdo->prepare($sql);
+            $stmt->bindValue(':f', $nuevaFecha);
+            $stmt->bindValue(':h', $nuevaHora);
+            $stmt->bindValue(':o', $nuevaObs);
+            $stmt->bindValue(':c', $codigo);
+            $stmt->execute();
+            if($stmt->rowCount() !== 1){
+                throw new \Exception('No se pudo actualizar la reserva.');
+            }
+
+            $pdo->commit();
+        }catch(\Throwable $e){
+            try{ if(isset($pdo) && $pdo instanceof \PDO && $pdo->inTransaction()){ $pdo->rollBack(); } }catch(\Throwable $e2){}
+            $alerta=[
+                'tipo'=>'simple',
+                'titulo'=>'Ocurrió un error inesperado',
+                'texto'=>'No pudimos reasignar la cita: '.$e->getMessage(),
+                'icono'=>'error'
+            ];
+            return json_encode($alerta);
+        }
+
+        $this->registrarLogAccion('Reasignó cita (no asistió) reserva '.$codigo.' -> '.$nuevaFecha.' '.$nuevaHora);
+        $this->enviarReprogramacionCitaPorCorreo($reserva, $nuevaFecha, $nuevaHora, $motivo);
+
+        $alerta=[
+            'tipo'=>'recargar',
+            'titulo'=>'Cita reasignada',
+            'texto'=>'La cita fue reasignada y se notificó al cliente (si tiene email válido).',
+            'icono'=>'success'
+        ];
+        return json_encode($alerta);
+    }
+
     private function enviarTicketReservaPorCorreo(string $codigo): void{
         try{
             $reserva = $this->obtenerReservaPorCodigo($codigo);
@@ -1437,6 +1735,8 @@ class reservationController extends mainModel{
                 $tagColor = 'is-warning';
             }elseif($estado==='confirmada'){
                 $tagColor = 'is-success';
+            }elseif($estado==='reprogramada'){
+                $tagColor = 'is-link';
             }elseif($estado==='completada'){
                 $tagColor = 'is-link';
             }
@@ -1487,7 +1787,7 @@ class reservationController extends mainModel{
         $busqueda=$this->limpiarCadena($busqueda);
         $estado=$this->limpiarCadena($estado);
         $estado=strtolower((string)$estado);
-        $estadosPermitidos=['pendiente','confirmada','completada','rechazada'];
+        $estadosPermitidos=['pendiente','confirmada','reprogramada','completada','rechazada'];
         if($estado!=="" && !in_array($estado,$estadosPermitidos,true)){
             $estado="";
         }
@@ -1585,6 +1885,8 @@ class reservationController extends mainModel{
                     $tagColor = 'is-warning';
                 }elseif($estado==='confirmada'){
                     $tagColor = 'is-success';
+                }elseif($estado==='reprogramada'){
+                    $tagColor = 'is-link';
                 }elseif($estado==='completada'){
                     $tagColor = 'is-link';
                 }elseif($estado==='rechazada'){
@@ -1944,11 +2246,11 @@ class reservationController extends mainModel{
             return json_encode($alerta);
         }
 
-        if($estado!=='confirmada'){
+        if(!in_array($estado, ['confirmada','reprogramada'], true)){
             $alerta=[
                 'tipo'=>'simple',
                 'titulo'=>'No se puede completar',
-                'texto'=>'Solo se pueden completar reservas en estado confirmada.',
+                'texto'=>'Solo se pueden completar reservas en estado confirmada o reprogramada.',
                 'icono'=>'error'
             ];
             return json_encode($alerta);
@@ -2074,7 +2376,7 @@ class reservationController extends mainModel{
                                         SET reserva_estado='completada',
                                             usuario_id=:uid,
                                             caja_id=:cid
-                                        WHERE reserva_codigo=:c AND reserva_estado='confirmada'");
+                                        WHERE reserva_codigo=:c AND reserva_estado IN ('confirmada','reprogramada')");
             $stmtUpRes->bindValue(':uid', (int)$_SESSION['id'], \PDO::PARAM_INT);
             $stmtUpRes->bindParam(':cid', $caja_id, \PDO::PARAM_INT);
             $stmtUpRes->bindParam(':c', $codigo);

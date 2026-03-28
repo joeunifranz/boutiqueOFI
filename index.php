@@ -142,6 +142,9 @@
             $vista=="reservaNueva" ||
             $vista=="reservaQR" ||
             $vista=="reservaPagar" ||
+            $vista=="reservasComprasCliente" ||
+            $vista=="seguimientoReservaCliente" ||
+            $vista=="seguimientoCompraCliente" ||
             $vista=="googleClienteAuth" ||
             $vista=="googleClienteCallback"
         ){

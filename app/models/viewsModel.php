@@ -41,6 +41,12 @@
 				$contenido="googleClienteAuth";
 			}elseif($vista=="googleClienteCallback"){
 				$contenido="googleClienteCallback";
+			}elseif($vista=="reservasComprasCliente"){
+				$contenido="reservasComprasCliente";
+			}elseif($vista=="seguimientoReservaCliente"){
+				$contenido="seguimientoReservaCliente";
+			}elseif($vista=="seguimientoCompraCliente"){
+				$contenido="seguimientoCompraCliente";
 			}elseif($vista=="clienteLogOut"){
 				$contenido="clienteLogOut";
 			}else{

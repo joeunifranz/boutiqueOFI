@@ -38,6 +38,8 @@ if($estado==='pendiente'){
     $tagColor = 'is-warning';
 }elseif($estado==='confirmada'){
     $tagColor = 'is-success';
+}elseif($estado==='reprogramada'){
+    $tagColor = 'is-link';
 }elseif($estado==='completada'){
     $tagColor = 'is-link';
 }elseif($estado==='rechazada'){
@@ -153,6 +155,40 @@ $urlAprobar = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo']).
                         </a>
                     <?php } ?>
                 </div>
+
+                <?php if($estado==='confirmada' || $estado==='reprogramada'){ ?>
+                    <hr>
+                    <div class="box">
+                        <h3 class="title is-6 mb-2"><i class="fas fa-calendar-alt"></i> &nbsp; Reasignar cita (no asistió)</h3>
+                        <p class="has-text-grey is-size-7 mb-3">Actualiza fecha/hora y se enviará un correo al cliente (si tiene email válido).</p>
+                        <form class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
+                            <input type="hidden" name="modulo_reserva" value="reasignar_cita_no_asistio">
+                            <input type="hidden" name="reserva_codigo" value="<?php echo htmlspecialchars((string)$reserva['reserva_codigo'],ENT_QUOTES,'UTF-8'); ?>">
+
+                            <div class="columns is-multiline">
+                                <div class="column is-4">
+                                    <label class="label">Nueva fecha</label>
+                                    <input class="input" type="date" name="nueva_fecha" value="<?php echo htmlspecialchars((string)$reserva['reserva_fecha'],ENT_QUOTES,'UTF-8'); ?>" required>
+                                </div>
+                                <div class="column is-4">
+                                    <label class="label">Nueva hora</label>
+                                    <input class="input" type="time" name="nueva_hora" required>
+                                    <p class="help">Formato 24h (se guardará como hora de cita).</p>
+                                </div>
+                                <div class="column is-4">
+                                    <label class="label">Motivo (opcional)</label>
+                                    <input class="input" type="text" name="motivo" maxlength="120" placeholder="Ej: No asistió a la cita">
+                                </div>
+                            </div>
+
+                            <div class="buttons">
+                                <button type="submit" class="button is-link">
+                                    <i class="fas fa-save"></i> &nbsp; Guardar y notificar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                <?php } ?>
             </div>
         </div>
     </div>

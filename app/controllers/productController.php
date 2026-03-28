@@ -684,27 +684,95 @@
 			return $tabla;
 		}
 
-		/*----------  Catálogo de inicio agrupado por categoría (público)  ----------*/
-		public function catalogoInicioHTMLControlador($limite=30){
+		/*----------  Catálogo de inicio (público)  ----------*/
+		public function catalogoInicioHTMLControlador($limite=20){
 
 			$limite = (int)$limite;
 			if($limite<=0){
-				$limite = 30;
+				$limite = 20;
 			}
-		
-			$campos_producto="producto_id,producto_nombre,producto_precio_venta,producto_talla,producto_foto,producto_stock_total";
-			$condicion_base="producto_estado='Habilitado' AND producto_stock_total>0";
-		
-			$consulta_productos = "SELECT $campos_producto 
-								   FROM producto 
-								   WHERE $condicion_base 
-								   ORDER BY producto_nombre ASC 
-								   LIMIT $limite";
-		
-			$productos = $this->ejecutarConsulta($consulta_productos);
-			$productos = $productos->fetchAll();
-		
-			if(!$productos){
+
+			$limite = min($limite, 50);
+			$top_recientes = 10;
+			$top_mas_vendidos = 10;
+
+			$campos_producto = "producto_id,producto_nombre,producto_precio_venta,producto_talla,producto_foto,producto_stock_total";
+			$campos_producto_p = "p.producto_id,p.producto_nombre,p.producto_precio_venta,p.producto_talla,p.producto_foto,p.producto_stock_total";
+			$condicion_base = "producto_estado='Habilitado' AND producto_stock_total>0";
+			$condicion_base_p = "p.producto_estado='Habilitado' AND p.producto_stock_total>0";
+
+			$productos = [];
+			$ids_usados = [];
+
+			# 1) Últimos ingresados
+			$consulta_recientes = "SELECT $campos_producto
+				FROM producto
+				WHERE $condicion_base
+				ORDER BY producto_id DESC
+				LIMIT $top_recientes";
+
+			$recientes = $this->ejecutarConsulta($consulta_recientes);
+			$recientes = $recientes->fetchAll();
+			if($recientes){
+				foreach($recientes as $row){
+					$pid = (int)$row['producto_id'];
+					if(isset($ids_usados[$pid])){ continue; }
+					$productos[] = $row;
+					$ids_usados[$pid] = true;
+				}
+			}
+
+			# 2) Más vendidos (por cantidad)
+			$consulta_mas_vendidos = "SELECT $campos_producto_p, SUM(vd.venta_detalle_cantidad) AS vendidos
+				FROM venta_detalle vd
+				INNER JOIN producto p ON p.producto_id = vd.producto_id
+				WHERE $condicion_base_p
+				GROUP BY p.producto_id
+				ORDER BY vendidos DESC
+				LIMIT 50";
+
+			$mas_vendidos = $this->ejecutarConsulta($consulta_mas_vendidos);
+			$mas_vendidos = $mas_vendidos->fetchAll();
+			if($mas_vendidos){
+				foreach($mas_vendidos as $row){
+					if(count($productos) >= ($top_recientes + $top_mas_vendidos)){
+						break;
+					}
+					$pid = (int)$row['producto_id'];
+					if(isset($ids_usados[$pid])){ continue; }
+					$productos[] = $row;
+					$ids_usados[$pid] = true;
+				}
+			}
+
+			# 3) Relleno si no se llega al límite total (por recientes)
+			if(count($productos) < $limite){
+				$faltan = $limite - count($productos);
+				$notIn = '';
+				if(!empty($ids_usados)){
+					$ids = array_map('intval', array_keys($ids_usados));
+					$notIn = ' AND producto_id NOT IN ('.implode(',', $ids).')';
+				}
+				$consulta_relleno = "SELECT $campos_producto
+					FROM producto
+					WHERE $condicion_base $notIn
+					ORDER BY producto_id DESC
+					LIMIT $faltan";
+				$relleno = $this->ejecutarConsulta($consulta_relleno);
+				$relleno = $relleno->fetchAll();
+				if($relleno){
+					foreach($relleno as $row){
+						$pid = (int)$row['producto_id'];
+						if(isset($ids_usados[$pid])){ continue; }
+						$productos[] = $row;
+						$ids_usados[$pid] = true;
+					}
+				}
+			}
+
+			$productos = array_slice($productos, 0, $limite);
+
+			if(empty($productos)){
 				return '<p class="has-text-centered has-text-grey-lighter mt-5">No hay productos disponibles en este momento.</p>';
 			}
 		

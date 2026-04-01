@@ -342,10 +342,10 @@
 						<li class="full-width">
 							<a href="<?php echo APP_URL; ?>reservaHoy/" class="full-width">
 								<div class="navLateral-body-cl">
-									<i class="fas fa-calendar-day fa-fw"></i>
+									<i class="fas fa-calendar-alt fa-fw"></i>
 								</div>
 								<div class="navLateral-body-cr">
-									Citas de hoy
+									Calendario de citas
 								</div>
 							</a>
 						</li>

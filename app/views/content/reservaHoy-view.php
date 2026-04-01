@@ -18,7 +18,7 @@ if(!$esAdmin){
 
 <div class="container is-fluid mb-6">
     <h1 class="title">Reservas</h1>
-    <h2 class="subtitle"><i class="fas fa-calendar-day fa-fw"></i> &nbsp; Citas de hoy</h2>
+    <h2 class="subtitle"><i class="fas fa-calendar-alt fa-fw"></i> &nbsp; Calendario de citas</h2>
 </div>
 
 <div class="container pb-6 pt-6">
@@ -27,6 +27,6 @@ if(!$esAdmin){
     <?php
         use app\controllers\reservationController;
         $insReserva = new reservationController();
-        echo $insReserva->listarCitasDeHoyControlador(200);
+        echo $insReserva->mostrarCalendarioReservasControlador(200);
     ?>
 </div>

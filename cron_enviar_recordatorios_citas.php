@@ -41,8 +41,12 @@ foreach($argv as $arg){
 $force = in_array('--force', $argv, true) || in_array('--forzar', $argv, true);
 
 try{
+	$dsn = "mysql:host=".DB_SERVER.";dbname=".DB_NAME;
+	if(defined('DB_PORT') && (string)DB_PORT !== ''){
+		$dsn .= ";port=".DB_PORT;
+	}
 	$pdo = new PDO(
-		"mysql:host=".DB_SERVER.";dbname=".DB_NAME,
+		$dsn,
 		DB_USER,
 		DB_PASS,
 		[

@@ -76,7 +76,7 @@ class reservationController extends mainModel{
         $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
         try{
             $stmt = $this->conectar()->prepare(
-                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                    "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
                     p.producto_id, p.producto_nombre, p.producto_foto
                  FROM reserva r
                  INNER JOIN producto p ON p.producto_id=r.producto_id
@@ -102,7 +102,7 @@ class reservationController extends mainModel{
         $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
         try{
             $stmt = $this->conectar()->prepare(
-                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                    "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
                     c.cliente_id, c.cliente_nombre, c.cliente_apellido, c.cliente_email,
                     p.producto_id, p.producto_nombre, p.producto_foto
                  FROM reserva r
@@ -1760,6 +1760,261 @@ class reservationController extends mainModel{
 
         $tabla .= '</tbody></table></div>';
         return $tabla;
+    }
+
+
+    /*---------- Calendario de reservas (solo admin) ----------*/
+    public function mostrarCalendarioReservasControlador($limite=200){
+
+        if(!$this->tablaReservaExiste()){
+            return '<article class="message is-danger"><div class="message-body">No existe la tabla <strong>reserva</strong> en la base de datos.</div></article>';
+        }
+
+        if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+            return '<article class="message is-danger"><div class="message-body">Debes iniciar sesión.</div></article>';
+        }
+
+        if(!$this->sesionEsAdmin()){
+            return '';
+        }
+
+        $limite = (int)$limite;
+        if($limite<=0){
+            $limite = 200;
+        }
+        if($limite>500){
+            $limite = 500;
+        }
+
+        $hoy = date('Y-m-d');
+        $fechaSel = isset($_GET['fecha']) ? (string)$this->limpiarCadena($_GET['fecha']) : $hoy;
+
+        if(!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSel)){
+            $fechaSel = $hoy;
+        }else{
+            $yy = (int)substr($fechaSel, 0, 4);
+            $mm = (int)substr($fechaSel, 5, 2);
+            $dd = (int)substr($fechaSel, 8, 2);
+            if(!checkdate($mm, $dd, $yy)){
+                $fechaSel = $hoy;
+            }
+        }
+
+        $anio = (int)substr($fechaSel, 0, 4);
+        $mes = (int)substr($fechaSel, 5, 2);
+
+        if($anio<2000 || $anio>2100){
+            $anio = (int)date('Y');
+        }
+        if($mes<1 || $mes>12){
+            $mes = (int)date('m');
+        }
+
+        $inicioMes = sprintf('%04d-%02d-01', $anio, $mes);
+        $finMes = date('Y-m-t', strtotime($inicioMes));
+        $diasEnMes = (int)date('t', strtotime($inicioMes));
+        $offsetInicio = (int)date('N', strtotime($inicioMes));
+
+        $prevMes = date('Y-m-d', strtotime($inicioMes.' -1 month'));
+        $nextMes = date('Y-m-d', strtotime($inicioMes.' +1 month'));
+
+        // Cargar todas las citas del mes (para poder mostrarlas dentro del calendario)
+        $citasPorFecha = [];
+        $conteo = [];
+        $limiteMes = 2000;
+        $sqlMes = "SELECT r.reserva_fecha, r.reserva_hora, r.reserva_codigo, r.reserva_estado,
+                          c.cliente_nombre, c.cliente_apellido,
+                          p.producto_nombre
+                   FROM reserva r
+                   INNER JOIN cliente c ON c.cliente_id = r.cliente_id
+                   INNER JOIN producto p ON p.producto_id = r.producto_id
+                   WHERE r.reserva_fecha BETWEEN :ini AND :fin
+                                         AND r.reserva_estado <> 'rechazada'
+                   ORDER BY r.reserva_fecha ASC, STR_TO_DATE(r.reserva_hora, '%h:%i %p') ASC, r.reserva_id ASC
+                   LIMIT :lim";
+        try{
+            $stmt = $this->conectar()->prepare($sqlMes);
+            $stmt->bindParam(':ini', $inicioMes);
+            $stmt->bindParam(':fin', $finMes);
+            $stmt->bindValue(':lim', $limiteMes, \PDO::PARAM_INT);
+            $stmt->execute();
+            $rowsMes = $stmt->fetchAll();
+            foreach($rowsMes as $rm){
+                $f = (string)($rm['reserva_fecha'] ?? '');
+                if($f===''){
+                    continue;
+                }
+                if(!isset($citasPorFecha[$f])){
+                    $citasPorFecha[$f] = [];
+                }
+                $citasPorFecha[$f][] = $rm;
+            }
+            foreach($citasPorFecha as $f=>$items){
+                $conteo[$f] = count($items);
+            }
+        }catch(\Throwable $e){
+            $citasPorFecha = [];
+            $conteo = [];
+        }
+
+        $citasDia = [];
+                $sqlDia = "SELECT r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado,
+                                                    c.cliente_nombre, c.cliente_apellido, c.cliente_email,
+                                                    p.producto_nombre
+                                     FROM reserva r
+                                     INNER JOIN cliente c ON c.cliente_id = r.cliente_id
+                                     INNER JOIN producto p ON p.producto_id = r.producto_id
+                                     WHERE r.reserva_fecha = :fecha
+                                         AND r.reserva_estado <> 'rechazada'
+                                     ORDER BY STR_TO_DATE(r.reserva_hora, '%h:%i %p') ASC, r.reserva_id ASC
+                                     LIMIT :lim";
+        try{
+            $stmt = $this->conectar()->prepare($sqlDia);
+            $stmt->bindParam(':fecha', $fechaSel);
+            $stmt->bindValue(':lim', $limite, \PDO::PARAM_INT);
+            $stmt->execute();
+            $citasDia = $stmt->fetchAll();
+        }catch(\Throwable $e){
+            $citasDia = [];
+        }
+
+        $meses = [
+            1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',
+            7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
+        ];
+        $nombreMes = $meses[$mes] ?? '';
+        $baseUrl = APP_URL.'reservaHoy/';
+
+        $html = '';
+        $html .= '<div class="columns is-variable is-6">';
+
+        $html .= '<div class="column is-5">';
+        $html .= '<div class="card">';
+        $html .= '<header class="card-header">';
+        $html .= '<p class="card-header-title">';
+        $html .= '<span class="icon"><i class="fas fa-calendar-alt"></i></span>';
+        $html .= '<span>'.htmlspecialchars($nombreMes.' '.$anio, ENT_QUOTES, 'UTF-8').'</span>';
+        $html .= '</p>';
+        $html .= '<div class="card-header-icon">';
+        $html .= '<div class="buttons has-addons">';
+        $html .= '<a class="button is-small is-light" href="'.$baseUrl.'?fecha='.urlencode($prevMes).'" aria-label="Mes anterior"><span class="icon is-small"><i class="fas fa-chevron-left"></i></span></a>';
+        $html .= '<a class="button is-small is-light" href="'.$baseUrl.'?fecha='.urlencode($nextMes).'" aria-label="Mes siguiente"><span class="icon is-small"><i class="fas fa-chevron-right"></i></span></a>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</header>';
+
+        $html .= '<div class="card-content">';
+        $html .= '<p class="is-size-7 has-text-grey">Selecciona un día para ver las citas.</p>';
+
+        $html .= '<div class="table-container">';
+        $html .= '<table class="table is-bordered is-fullwidth is-narrow">';
+        $html .= '<thead><tr class="has-text-centered is-size-7">';
+        $html .= '<th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>';
+        $html .= '</tr></thead><tbody>';
+
+        $dia = 1;
+        $col = 1;
+        $html .= '<tr>';
+
+        while($col < $offsetInicio){
+            $html .= '<td>&nbsp;</td>';
+            $col++;
+        }
+
+        while($dia <= $diasEnMes){
+            $fechaDia = sprintf('%04d-%02d-%02d', $anio, $mes, $dia);
+            $esHoy = ($fechaDia === $hoy);
+            $esSeleccion = ($fechaDia === $fechaSel);
+            $claseTd = 'has-text-centered';
+            if($esHoy){
+                $claseTd .= ' has-background-warning-light';
+            }elseif($esSeleccion){
+                $claseTd .= ' has-background-link-light';
+            }
+
+            $count = (int)($conteo[$fechaDia] ?? 0);
+            $badge = '';
+            if($count>0){
+                $badge = '<div class="mt-1"><span class="tag is-info is-light is-rounded">'.(int)$count.'</span></div>';
+            }
+
+            $html .= '<td class="'.$claseTd.'">';
+            $html .= '<a href="'.$baseUrl.'?fecha='.urlencode($fechaDia).'" class="button is-white is-fullwidth">';
+            $html .= '<span class="is-size-6 has-text-weight-semibold">'.$dia.'</span>';
+            $html .= '</a>';
+            $html .= $badge;
+            $html .= '</td>';
+
+            if($col==7){
+                $html .= '</tr>';
+                if($dia < $diasEnMes){
+                    $html .= '<tr>';
+                }
+                $col = 1;
+            }else{
+                $col++;
+            }
+
+            $dia++;
+        }
+
+        if($col!==1){
+            while($col<=7){
+                $html .= '<td>&nbsp;</td>';
+                $col++;
+            }
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table></div>';
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        $html .= '<div class="column is-7">';
+        $html .= '<div class="card">';
+        $html .= '<header class="card-header">';
+        $html .= '<p class="card-header-title">';
+        $html .= '<span class="icon"><i class="fas fa-calendar-check"></i></span>';
+        $html .= '<span>Citas del '.htmlspecialchars(date('d/m/Y', strtotime($fechaSel)), ENT_QUOTES, 'UTF-8').'</span>';
+        $html .= '</p>';
+        $html .= '</header>';
+        $html .= '<div class="card-content">';
+
+        if(empty($citasDia)){
+            $html .= '<article class="message is-info"><div class="message-body">No hay citas para este día.</div></article>';
+        }else{
+            $html .= '<p class="mb-3"><span class="tag is-info is-light is-rounded">'.count($citasDia).'</span> <span class="is-size-7 has-text-grey">cita(s)</span></p>';
+            $html .= '<div class="table-container">';
+            $html .= '<table class="table is-striped is-narrow is-hoverable is-fullwidth">';
+            $html .= '<thead><tr>';
+            $html .= '<th class="has-text-centered">Hora</th>';
+            $html .= '<th class="has-text-centered">Cliente</th>';
+            $html .= '<th class="has-text-centered">Vestido</th>';
+            $html .= '</tr></thead><tbody>';
+
+            foreach($citasDia as $r){
+                $cliente = $this->limitarCadena(trim((string)$r['cliente_nombre'].' '.(string)$r['cliente_apellido']), 40, '...');
+                $vestido = $this->limitarCadena((string)$r['producto_nombre'], 50, '...');
+                $hora = (string)($r['reserva_hora'] ?? '');
+
+                $html .= '<tr class="has-text-centered">';
+                $html .= '<td><span class="tag is-light is-rounded">'.htmlspecialchars($hora, ENT_QUOTES, 'UTF-8').'</span></td>';
+                $html .= '<td>'.htmlspecialchars($cliente, ENT_QUOTES, 'UTF-8').'</td>';
+                $html .= '<td>'.htmlspecialchars($vestido, ENT_QUOTES, 'UTF-8').'</td>';
+                $html .= '</tr>';
+            }
+
+            $html .= '</tbody></table></div>';
+        }
+
+        $html .= '</div>';
+        $html .= '</div>';
+        $html .= '</div>';
+
+        $html .= '</div>';
+
+        return $html;
     }
 
 

@@ -92,7 +92,7 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 		<?php if($direccion !== ''){ ?>
 			<p class="mb-3"><?php echo htmlspecialchars($direccion,ENT_QUOTES,'UTF-8'); ?></p>
 		<?php } ?>
-		<div class="buttons">
+		<div class="buttons is-right">
 			<?php if($mapsUrl !== ''){ ?>
 				<a class="button is-light" href="<?php echo htmlspecialchars($mapsUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ver en Google Maps</a>
 			<?php } ?>

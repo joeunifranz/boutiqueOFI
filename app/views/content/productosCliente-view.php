@@ -11,13 +11,31 @@
 
 	// Filtro opcional por talla vía querystring (?talla=M)
 	$talla = isset($_GET['talla']) ? trim((string)$_GET['talla']) : '';
+	// Filtro opcional por precio máximo (?max_price=1200)
+	$maxPrice = null;
+	if(isset($_GET['max_price'])){
+		$rawMax = trim((string)$_GET['max_price']);
+		// Permitir separadores tipo 1.200 o 1,200 (tomamos solo dígitos)
+		$digits = preg_replace('/\D+/', '', $rawMax);
+		if($digits !== ''){
+			$val = (float)((int)$digits);
+			if($val > 0){
+				$maxPrice = $val;
+			}
+		}
+	}
+	// Página (paginación) vía querystring (?page=2)
+	$pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+	if($pagina < 1){ $pagina = 1; }
 	$categoriaNombre = "";
 	if($categoria>0){
 		$categoriaNombre = $insProductoCliente->obtenerNombreCategoriaPorIdControlador($categoria);
 	}
 
-	// Obtener productos filtrados
-	$productos = $insProductoCliente->productosPorCategoriaControlador($categoria, $talla);
+	// Obtener productos filtrados (paginado, 8 por página)
+	$res = $insProductoCliente->productosPorCategoriaPaginadoControlador($categoria, $talla, $pagina, 8, $maxPrice);
+	$productos = $res['productos'] ?? [];
+	$paginacion = $res['paginacion'] ?? '';
 ?>
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
@@ -103,6 +121,12 @@
 	<?php } ?>
 
 	</div>
+
+	<?php if(!empty($paginacion)){ ?>
+		<div class="mt-5">
+			<?php echo $paginacion; ?>
+		</div>
+	<?php } ?>
 
 	<p class="has-text-centered mt-5">
 		<a class="button is-light is-rounded" href="<?php echo APP_URL; ?>inicio/">

@@ -48,6 +48,31 @@ if(mb_strlen($message) > 2000){
 $pagePath = isset($body['page']) ? (string)$body['page'] : '';
 $pagePath = trim($pagePath);
 
+// Historial opcional del chat (para mantener contexto entre recargas)
+$chatHistory = [];
+if(isset($body['chat_history']) && is_array($body['chat_history'])){
+	// Sanitizar y recortar
+	foreach(array_slice($body['chat_history'], -12) as $m){
+		if(!is_array($m)){
+			continue;
+		}
+		$role = isset($m['role']) ? (string)$m['role'] : '';
+		$content = isset($m['content']) ? (string)$m['content'] : '';
+		$role = trim($role);
+		$content = trim($content);
+		if($content === ''){
+			continue;
+		}
+		if($role !== 'user' && $role !== 'assistant'){
+			continue;
+		}
+		if(mb_strlen($content) > 1200){
+			$content = mb_substr($content, 0, 1200);
+		}
+		$chatHistory[] = ['role'=>$role, 'content'=>$content];
+	}
+}
+
 /**
  * Respuestas rápidas orientadas a compra.
  * Devuelven links clicables (http/https) para que el widget los convierta en <a>.
@@ -100,9 +125,192 @@ function agenteIa_extractCategoriaFromMessage(string $message): array{
 	return ['id'=>$id, 'name'=>$name];
 }
 
+function agenteIa_extractBudgetBs(string $message): int{
+	// Ejemplos soportados: "1200bs", "1200 bs", "presupuesto 1200", "hasta 1.200 Bs"
+	$budgetRaw = '';
+	if(preg_match('/\b(?:presupuesto|hasta|maximo|máximo|max|tope)\s*(?:de\s*)?(\d[\d\.,\s]{0,12})\s*(?:bs|bss|bolivianos)?\b/iu', $message, $m)){
+		$budgetRaw = (string)$m[1];
+	}else if(preg_match('/\b(\d[\d\.,\s]{0,12})\s*(?:bs|bss|bolivianos)\b/iu', $message, $m)){
+		$budgetRaw = (string)$m[1];
+	}
+	if($budgetRaw === ''){
+		return 0;
+	}
+	// Convertir a entero, removiendo separadores
+	$digits = preg_replace('/\D+/', '', $budgetRaw);
+	$val = (int)$digits;
+	// Rangos de sanidad
+	if($val < 50 || $val > 20000){
+		return 0;
+	}
+	return $val;
+}
+
+function agenteIa_extractReservaCodigoFromPath(string $pagePath): string{
+	$pagePath = preg_replace('~[\?#].*$~', '', $pagePath);
+	if(preg_match('~seguimientoReservaCliente/([^/]+)/~', $pagePath, $m)){
+		return trim((string)$m[1]);
+	}
+	if(preg_match('~reservaPagar/([^/]+)/~', $pagePath, $m)){
+		return trim((string)$m[1]);
+	}
+	if(preg_match('~reservaTicket\?code=([^&]+)~', $pagePath, $m)){
+		return trim((string)$m[1]);
+	}
+	return '';
+}
+
 function agenteIa_quickReply(string $message, string $pagePath): string{
 	$low = agenteIa_normalize($message);
 	$base = (defined('APP_URL') ? (string)APP_URL : '');
+
+	// Menú / ayuda (lo que puede hacer el cliente)
+	if(
+		str_contains($low, 'ayuda') ||
+		str_contains($low, 'menu') ||
+		str_contains($low, 'menú') ||
+		str_contains($low, 'opciones') ||
+		str_contains($low, 'que puedo hacer') ||
+		str_contains($low, 'qué puedo hacer') ||
+		str_contains($low, 'como funciona') ||
+		str_contains($low, 'cómo funciona')
+	){
+		if($base === ''){
+			return "Puedo ayudarte con catálogo, reservas y contacto.";
+		}
+		return "Aquí tienes lo que puedes hacer como cliente:\n\n".
+			"- Ver catálogo: [Click aquí](".$base."productosCliente/)\n".
+			"- Filtrar por talla (ej. talla M): dime \"talla M\" y te paso el link\n".
+			"- Buscar por presupuesto (ej. 1200 Bs): dime \"presupuesto 1200 bs\"\n".
+			"- Ver tus reservas y compras: [Click aquí](".$base."reservasComprasCliente/)\n".
+			"- Seguimiento de una reserva (desde tu lista)\n".
+			"- Pagar una reserva (desde el seguimiento)\n".
+			"- Ubicación / WhatsApp / teléfono (dime \"ubicación\" o \"whatsapp\")";
+	}
+
+	// No puedo asistir / reprogramar cita (redirigir + WhatsApp)
+	if(
+		str_contains($low, 'no puedo asistir') ||
+		str_contains($low, 'no podre asistir') ||
+		str_contains($low, 'no podré asistir') ||
+		str_contains($low, 'no puedo ir') ||
+		str_contains($low, 'no voy a poder') ||
+		str_contains($low, 'reprogram') ||
+		str_contains($low, 'cambiar fecha') ||
+		str_contains($low, 'posponer') ||
+		str_contains($low, 'cancelar cita')
+	){
+		$telefono = '+59178791595';
+		$codigo = agenteIa_extractReservaCodigoFromPath($pagePath);
+		$waMsg = ($codigo !== '')
+			? ("Hola, no podré asistir a mi cita. Reserva: ".$codigo.". ¿Podemos reprogramar? Gracias.")
+			: "Hola, no podré asistir a mi cita. ¿Podemos reprogramar? Gracias.";
+		$wa = 'https://wa.me/59178791595?text='.urlencode($waMsg);
+		$out = [];
+		$out[] = "Claro, avísanos y la reprogramamos.";
+		if($base !== ''){
+			$out[] = "- Ver tus reservas y abrir el seguimiento: [Click aquí](".$base."reservasComprasCliente/)";
+		}
+		$out[] = "- WhatsApp (mensaje listo): [Click aquí]({$wa})";
+		$out[] = "- Teléfono: {$telefono}";
+		return implode("\n", $out);
+	}
+
+	// Presupuesto (recomendación con productos del sistema)
+	$budget = agenteIa_extractBudgetBs($message);
+	if($budget > 0 && (
+		str_contains($low, 'presupuesto') ||
+		str_contains($low, 'bs') ||
+		str_contains($low, 'barato') ||
+		str_contains($low, 'econ') ||
+		str_contains($low, 'menor precio') ||
+		str_contains($low, 'menos de')
+	)){
+		if($base === ''){
+			return '';
+		}
+		// Margen: un poquito arriba, sin exagerar
+		$margen = (int)ceil($budget * 0.15);
+		if($margen > 200){ $margen = 200; }
+		if($margen < 50){ $margen = 50; }
+		$upper = $budget + $margen;
+
+		$talla = agenteIa_extractTalla($message);
+		$catFromPath = agenteIa_extractCategoriaIdFromPath($pagePath);
+		$catFromMsg = agenteIa_extractCategoriaFromMessage($message);
+		$catId = (int)($catFromMsg['id'] ?? 0);
+		$catName = (string)($catFromMsg['name'] ?? '');
+		if($catId <= 0 && $catName !== ''){
+			try{
+				$pc = new productController();
+				$catId = $pc->obtenerCategoriaIdPorNombreControlador($catName);
+			}catch(\Throwable $e){
+				$catId = 0;
+			}
+		}
+		if($catId <= 0){
+			$catId = $catFromPath;
+		}
+
+		try{
+			$pc = new productController();
+			$items = $pc->buscarProductosPorMaxPrecioControlador($upper, $catId, $talla, 10);
+		}catch(\Throwable $e){
+			$items = [];
+		}
+
+		if(empty($items)){
+			$catalogUrl = ($catId > 0) ? ($base."productosCliente/".$catId."/") : ($base."productosCliente/");
+			$qs = [];
+			$qs[] = 'max_price='.urlencode((string)$upper);
+			if($talla !== ''){ $qs[] = 'talla='.urlencode($talla); }
+			return "Con presupuesto {$budget} Bs no encontré productos dentro de {$upper} Bs ahora mismo.\n".
+				"- Ver catálogo filtrado: [Click aquí](".$catalogUrl.'?'.implode('&', $qs).")";
+		}
+
+		$below = [];
+		$above = [];
+		foreach($items as $it){
+			$precio = (float)($it['producto_precio_venta'] ?? 0);
+			if($precio <= $budget){
+				$below[] = $it;
+			}else{
+				$above[] = $it;
+			}
+		}
+		$suggestions = array_merge(array_slice($below, 0, 4), array_slice($above, 0, 2));
+		if(empty($suggestions)){
+			$suggestions = array_slice($items, 0, 6);
+		}
+
+		$out = [];
+		$out[] = "Con tu presupuesto de **{$budget} Bs**, te paso opciones recomendadas (hasta **{$upper} Bs**):";
+		foreach($suggestions as $it){
+			$id = (int)($it['producto_id'] ?? 0);
+			$nombre = trim((string)($it['producto_nombre'] ?? 'Producto'));
+			$precio = (float)($it['producto_precio_venta'] ?? 0);
+			$tag = ($precio > $budget) ? ' (un poquito arriba)' : '';
+			$link = $base.'productoDetalle/'.$id.'/';
+			$out[] = "- {$nombre} — ".MONEDA_SIMBOLO.number_format($precio, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)."{$tag} — [Ver detalle]({$link})";
+		}
+
+		$catalogBase = ($catId > 0) ? ($base."productosCliente/".$catId."/") : ($base."productosCliente/");
+		$qsBudget = [];
+		$qsBudget[] = 'max_price='.urlencode((string)$budget);
+		if($talla !== ''){ $qsBudget[] = 'talla='.urlencode($talla); }
+		$qsUpper = [];
+		$qsUpper[] = 'max_price='.urlencode((string)$upper);
+		if($talla !== ''){ $qsUpper[] = 'talla='.urlencode($talla); }
+		$out[] = "";
+		$out[] = "Ver todo el catálogo filtrado:";
+		$out[] = "- Hasta {$budget} Bs: [Click aquí](".$catalogBase.'?'.implode('&', $qsBudget).")";
+		$out[] = "- Hasta {$upper} Bs (un poquito arriba): [Click aquí](".$catalogBase.'?'.implode('&', $qsUpper).")";
+		if($talla === ''){
+			$out[] = "";
+			$out[] = "Si me dices tu **talla** (ej. talla M), te afino las opciones.";
+		}
+		return implode("\n", $out);
+	}
 
 	// Teléfono / contacto
 	if(
@@ -370,6 +578,7 @@ $result = $service->chat($message, [
 	'db_context' => (string)($ctx['db_context'] ?? ''),
 	'page_context' => (string)($ctx['page_context'] ?? ''),
 	'user_context' => (array)($ctx['user_context'] ?? []),
+	'chat_history' => $chatHistory,
 ]);
 
 if(!isset($result['ok']) || $result['ok'] !== true){

@@ -1521,6 +1521,192 @@
 			return $productos;
 		}
 
+		/*----------  Productos por categoría (paginado)  ----------*/
+		public function productosPorCategoriaPaginadoControlador($categoria_id, $talla = '', $pagina = 1, $registros = 8, $maxPrecio = null): array{
+
+			$categoria_id = (int)$this->limpiarCadena($categoria_id);
+			$pagina = (int)$this->limpiarCadena($pagina);
+			$registros = (int)$this->limpiarCadena($registros);
+			if($pagina < 1){ $pagina = 1; }
+			if($registros < 1){ $registros = 8; }
+
+			$talla = is_string($talla) ? trim($talla) : '';
+			$talla = $this->limpiarCadena($talla);
+			$talla = strtoupper(trim((string)$talla));
+			if(mb_strlen($talla) > 10){
+				$talla = mb_substr($talla, 0, 10);
+			}
+			if($talla !== '' && !preg_match('/^[A-Z0-9]{1,10}$/', $talla)){
+				$talla = '';
+			}
+
+			$where = "p.producto_estado = 'Habilitado' AND p.producto_stock_total > 0";
+			$params = [];
+
+			$maxPrecioNorm = null;
+			if($maxPrecio !== null && $maxPrecio !== ''){
+				$maxPrecioNorm = (float)$maxPrecio;
+				if($maxPrecioNorm <= 0){
+					$maxPrecioNorm = null;
+				}
+			}
+
+			if($categoria_id > 0){
+				$where .= " AND p.categoria_id = :cat";
+				$params[':cat'] = $categoria_id;
+			}
+
+			if($talla !== ''){
+				$regex = '(^|[ ,;\\/\-])'.$talla.'([ ,;\\/\-]|$)';
+				$where .= " AND (UPPER(p.producto_talla) = :talla OR UPPER(p.producto_talla) REGEXP :regex)";
+				$params[':talla'] = $talla;
+				$params[':regex'] = $regex;
+			}
+
+			if($maxPrecioNorm !== null){
+				$where .= " AND p.producto_precio_venta <= :maxPrecio";
+				$params[':maxPrecio'] = $maxPrecioNorm;
+			}
+
+			$total = 0;
+			try{
+				$sqlTotal = "SELECT COUNT(*) AS total FROM producto p WHERE $where";
+				$stmtTotal = $this->conectar()->prepare($sqlTotal);
+				foreach($params as $k => $v){
+					$paramType = is_int($v) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+					$stmtTotal->bindValue($k, $v, $paramType);
+				}
+				$stmtTotal->execute();
+				$rowTotal = $stmtTotal->fetch();
+				$total = isset($rowTotal['total']) ? (int)$rowTotal['total'] : 0;
+			}catch(\Throwable $e){
+				$total = 0;
+			}
+
+			$numeroPaginas = ($total > 0) ? (int)ceil($total / $registros) : 0;
+			if($numeroPaginas > 0 && $pagina > $numeroPaginas){
+				$pagina = $numeroPaginas;
+			}
+
+			$inicio = ($pagina > 0) ? (($pagina * $registros) - $registros) : 0;
+			$productos = [];
+
+			if($total > 0){
+				try{
+					$sqlDatos = "
+						SELECT p.*, c.categoria_nombre
+						FROM producto p
+						INNER JOIN categoria c ON p.categoria_id = c.categoria_id
+						WHERE $where
+						ORDER BY p.producto_nombre ASC
+						LIMIT :inicio, :registros
+					";
+					$stmtDatos = $this->conectar()->prepare($sqlDatos);
+					foreach($params as $k => $v){
+						$paramType = is_int($v) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+						$stmtDatos->bindValue($k, $v, $paramType);
+					}
+					$stmtDatos->bindValue(':inicio', (int)$inicio, \PDO::PARAM_INT);
+					$stmtDatos->bindValue(':registros', (int)$registros, \PDO::PARAM_INT);
+					$stmtDatos->execute();
+					$productos = $stmtDatos->fetchAll();
+				}catch(\Throwable $e){
+					$productos = [];
+				}
+			}
+
+			$paginacion = '';
+			if($numeroPaginas > 1){
+				$baseUrl = APP_URL.'productosCliente/';
+				if($categoria_id > 0){
+					$baseUrl .= $categoria_id.'/';
+				}
+
+				$queryParams = [];
+				if($talla !== ''){
+					$queryParams['talla'] = $talla;
+				}
+				if($maxPrecioNorm !== null){
+					// Mantener filtro en los links de paginación
+					$queryParams['max_price'] = (string)$maxPrecioNorm;
+				}
+				$paginacion = $this->paginadorQueryString($pagina, $numeroPaginas, $baseUrl, 7, 'page', $queryParams);
+			}
+
+			return [
+				'productos' => $productos,
+				'total' => $total,
+				'pagina' => $pagina,
+				'registros' => $registros,
+				'numeroPaginas' => $numeroPaginas,
+				'paginacion' => $paginacion
+			];
+		}
+
+		/*----------  Buscar productos por precio máximo (para recomendaciones)  ----------*/
+		public function buscarProductosPorMaxPrecioControlador($maxPrecio, $categoria_id = 0, $talla = '', $limit = 10): array{
+			$maxPrecio = (float)$maxPrecio;
+			$categoria_id = (int)$this->limpiarCadena($categoria_id);
+			$limit = (int)$this->limpiarCadena($limit);
+			if($maxPrecio <= 0){
+				return [];
+			}
+			if($limit < 1){
+				$limit = 10;
+			}
+			if($limit > 40){
+				$limit = 40;
+			}
+
+			$talla = is_string($talla) ? trim($talla) : '';
+			$talla = $this->limpiarCadena($talla);
+			$talla = strtoupper(trim((string)$talla));
+			if(mb_strlen($talla) > 10){
+				$talla = mb_substr($talla, 0, 10);
+			}
+			if($talla !== '' && !preg_match('/^[A-Z0-9]{1,10}$/', $talla)){
+				$talla = '';
+			}
+
+			$where = "p.producto_estado = 'Habilitado' AND p.producto_stock_total > 0 AND p.producto_precio_venta <= :max";
+			$params = [':max' => $maxPrecio];
+
+			if($categoria_id > 0){
+				$where .= " AND p.categoria_id = :cat";
+				$params[':cat'] = $categoria_id;
+			}
+
+			if($talla !== ''){
+				$regex = '(^|[ ,;\\/\-])'.$talla.'([ ,;\\/\-]|$)';
+				$where .= " AND (UPPER(p.producto_talla) = :talla OR UPPER(p.producto_talla) REGEXP :regex)";
+				$params[':talla'] = $talla;
+				$params[':regex'] = $regex;
+			}
+
+			try{
+				$sql = "
+					SELECT p.producto_id, p.producto_nombre, p.producto_precio_venta, p.producto_foto, p.categoria_id
+					FROM producto p
+					WHERE $where
+					ORDER BY p.producto_precio_venta ASC, p.producto_nombre ASC
+					LIMIT :lim
+				";
+				$stmt = $this->conectar()->prepare($sql);
+				foreach($params as $k => $v){
+					if($k === ':cat'){
+						$stmt->bindValue($k, (int)$v, \PDO::PARAM_INT);
+						continue;
+					}
+					$stmt->bindValue($k, $v);
+				}
+				$stmt->bindValue(':lim', (int)$limit, \PDO::PARAM_INT);
+				$stmt->execute();
+				return (array)$stmt->fetchAll();
+			}catch(\Throwable $e){
+				return [];
+			}
+		}
+
 		/*----------  Obtener ID de categoría por nombre (búsqueda simple)  ----------*/
 		public function obtenerCategoriaIdPorNombreControlador($nombre): int{
 			$nombre = is_string($nombre) ? trim($nombre) : '';

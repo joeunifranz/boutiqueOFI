@@ -31,6 +31,13 @@
 				<span>Vestidos</span>
 			</a>
 
+			<a class="button is-medium is-rounded has-text-weight-semibold is-warning inicio-btn-gold" href="<?php echo APP_URL; ?>tablaTallas/" aria-label="Ver tabla de tallas en 3D">
+				<span class="icon">
+					<i class="fas fa-ruler-combined" aria-hidden="true"></i>
+				</span>
+				<span>Tabla de tallas</span>
+			</a>
+
 			<div class="inicio-categorias-wrapper">
 				<button class="button is-medium is-rounded has-text-weight-semibold is-warning inicio-btn-gold" type="button" onclick="toggleCategorias()" aria-haspopup="true" aria-controls="categoriasDropdown">
 					<span class="icon"><i class="fas fa-bars" aria-hidden="true"></i></span>

@@ -139,6 +139,8 @@
 	<script>
 		// Base URL de la app para que el widget arme rutas internas
 		window.APP_URL = <?php echo json_encode(APP_URL, JSON_UNESCAPED_SLASHES); ?>;
+		// Identificador opcional de cliente para persistir el chat por usuario
+		window.BOUTIQUE_CLIENTE_ID = <?php echo json_encode((isset($_SESSION['cliente_id']) ? (int)$_SESSION['cliente_id'] : 0)); ?>;
 	</script>
 	<script src="<?php echo APP_URL; ?>agente_ia/agent.js"></script>
 <?php } ?>

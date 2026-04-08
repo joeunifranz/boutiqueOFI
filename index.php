@@ -143,6 +143,7 @@
             $vista=="reservaQR" ||
             $vista=="reservaPagar" ||
             $vista=="reservasComprasCliente" ||
+            $vista=="tablaTallas" ||
             $vista=="seguimientoReservaCliente" ||
             $vista=="seguimientoCompraCliente" ||
             $vista=="googleClienteAuth" ||

@@ -306,6 +306,73 @@
 	        return $tabla;
 	    }
 
+		/*---------- Paginador usando querystring (?page=) ----------*/
+		protected function paginadorQueryString($pagina,$numeroPaginas,$url,$botones,$paramNombre="page",$params=[]){
+			$pagina=(int)$pagina;
+			$numeroPaginas=(int)$numeroPaginas;
+			$botones=(int)$botones;
+			$paramNombre=(string)$paramNombre;
+			$params=is_array($params) ? $params : [];
+
+			if($pagina<1){ $pagina=1; }
+			if($numeroPaginas<1){ $numeroPaginas=1; }
+			if($botones<1){ $botones=5; }
+
+			unset($params[$paramNombre]);
+
+			$buildLink=function(int $page) use ($url,$params,$paramNombre){
+				$query=array_merge($params,[$paramNombre=>$page]);
+				$qs=http_build_query($query);
+				return $url.'?'.$qs;
+			};
+
+			$tabla='<nav class="pagination is-centered is-rounded" role="navigation" aria-label="pagination">';
+
+			if($pagina<=1){
+				$tabla.='
+				<a class="pagination-previous is-disabled" disabled ><i class="fas fa-arrow-alt-circle-left"></i> &nbsp; Anterior</a>
+				<ul class="pagination-list">
+				';
+			}else{
+				$tabla.='
+				<a class="pagination-previous" href="'.$buildLink($pagina-1).'"><i class="fas fa-arrow-alt-circle-left"></i> &nbsp; Anterior</a>
+				<ul class="pagination-list">
+					<li><a class="pagination-link" href="'.$buildLink(1).'">1</a></li>
+					<li><span class="pagination-ellipsis">&hellip;</span></li>
+				';
+			}
+
+			$ci=0;
+			for($i=$pagina; $i<=$numeroPaginas; $i++){
+				if($ci>=$botones){
+					break;
+				}
+				if($pagina==$i){
+					$tabla.='<li><a class="pagination-link is-current" href="'.$buildLink($i).'">'.$i.'</a></li>';
+				}else{
+					$tabla.='<li><a class="pagination-link" href="'.$buildLink($i).'">'.$i.'</a></li>';
+				}
+				$ci++;
+			}
+
+			if($pagina==$numeroPaginas){
+				$tabla.='
+				</ul>
+				<a class="pagination-next is-disabled" disabled ><i class="fas fa-arrow-alt-circle-right"></i> &nbsp; Siguiente</a>
+				';
+			}else{
+				$tabla.='
+					<li><span class="pagination-ellipsis">&hellip;</span></li>
+					<li><a class="pagination-link" href="'.$buildLink($numeroPaginas).'">'.$numeroPaginas.'</a></li>
+				</ul>
+				<a class="pagination-next" href="'.$buildLink($pagina+1).'"><i class="fas fa-arrow-alt-circle-right"></i> &nbsp; Siguiente</a>
+				';
+			}
+
+			$tabla.='</nav>';
+			return $tabla;
+		}
+
 
 	    /*----------  Funcion generar select ----------*/
 		public function generarSelect($datos,$campo_db){

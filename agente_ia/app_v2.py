@@ -283,6 +283,30 @@ def chat():
     page_context = (data.get('page_context', '') or '').strip()
     user_context = data.get('user_context', {}) if isinstance(data.get('user_context', {}), dict) else {}
 
+    # Historial opcional del chat (para memoria en recargas)
+    chat_history = data.get('chat_history', [])
+    if not isinstance(chat_history, list):
+        chat_history = []
+    chat_history = chat_history[-12:]
+
+    hist_lines = []
+    for m in chat_history:
+        if not isinstance(m, dict):
+            continue
+        role = (m.get('role', '') or '').strip().lower()
+        content = (m.get('content', '') or '').strip()
+        if not content:
+            continue
+        if role not in ('user', 'assistant'):
+            continue
+        content = content[:1200]
+        prefix = 'CLIENTE' if role == 'user' else 'ASESORA'
+        hist_lines.append(f"{prefix}: {content}")
+
+    history_block = "\n".join(hist_lines)
+    if len(history_block) > 2400:
+        history_block = history_block[-2400:]
+
     deterministic = maybe_answer_from_db_context(user_msg, db_context)
     if deterministic:
         return jsonify({"response": deterministic})
@@ -294,6 +318,9 @@ def chat():
         live_block += f"\n\nCONTEXTO_DE_PAGINA:\n{page_context}"
     if db_context:
         live_block += f"\n\nDATOS_EN_VIVO (BASE DE DATOS):\n{db_context}"
+
+    if history_block:
+        live_block += f"\n\nHISTORIAL_RECIENTE (CONVERSACION):\n{history_block}"
 
     # Construct System Prompt (Keep in Spanish for consistency)
     if context:

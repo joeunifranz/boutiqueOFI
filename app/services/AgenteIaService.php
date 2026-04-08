@@ -36,6 +36,9 @@ class AgenteIaService{
 		if(isset($options['user_context']) && is_array($options['user_context']) && !empty($options['user_context'])){
 			$payloadArr['user_context'] = $options['user_context'];
 		}
+		if(isset($options['chat_history']) && is_array($options['chat_history']) && !empty($options['chat_history'])){
+			$payloadArr['chat_history'] = $options['chat_history'];
+		}
 
 		$payload = json_encode($payloadArr, JSON_UNESCAPED_UNICODE);
 		if(!is_string($payload)){

@@ -60,3 +60,8 @@
 		define('AGENTE_IA_API_URL', ($apiEnv===false || trim((string)$apiEnv)==='') ? 'http://127.0.0.1:5000/chat' : trim((string)$apiEnv));
 	}
 
+	/*----------  Tabla de tallas (visor 3D del maniquí) ----------*/
+	// Coloca tu archivo en: app/views/models/maniqui.glb (por defecto)
+	// Si usas otro nombre/ruta, ajusta esta constante.
+	const TABLA_TALLAS_MODEL_PATH = "app/views/models/maniqui.glb";
+

@@ -2,6 +2,67 @@
     // Evitar inyectar dos veces el widget
     if (document.getElementById('rag-agent-container')) return;
 
+    const STORAGE_VERSION = 1;
+    const MAX_STORED_MESSAGES = 120;
+    const MAX_SENT_HISTORY = 12;
+
+    function getClientKey(){
+        try{
+            const id = Number(window.BOUTIQUE_CLIENTE_ID || 0);
+            if(Number.isFinite(id) && id > 0){
+                return 'cliente:' + String(id);
+            }
+        }catch(e){}
+        return 'guest';
+    }
+
+    function getStorageKey(){
+        return 'boutique_rag_chat_v' + STORAGE_VERSION + ':' + getClientKey();
+    }
+
+    function safeJsonParse(s){
+        try{ return JSON.parse(s); }catch(e){ return null; }
+    }
+
+    function nowIso(){
+        try{ return new Date().toISOString(); }catch(e){ return ''; }
+    }
+
+    function defaultState(){
+        return {
+            version: STORAGE_VERSION,
+            open: false,
+            draft: '',
+            messages: [],
+            updatedAt: nowIso(),
+        };
+    }
+
+    function loadState(){
+        try{
+            const raw = localStorage.getItem(getStorageKey());
+            if(!raw) return defaultState();
+            const data = safeJsonParse(raw);
+            if(!data || typeof data !== 'object') return defaultState();
+            if(data.version !== STORAGE_VERSION) return defaultState();
+            if(!Array.isArray(data.messages)) data.messages = [];
+            return Object.assign(defaultState(), data);
+        }catch(e){
+            return defaultState();
+        }
+    }
+
+    let saveTimer = null;
+    function saveState(state){
+        state.updatedAt = nowIso();
+        if(saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            try{
+                localStorage.setItem(getStorageKey(), JSON.stringify(state));
+            }catch(e){}
+        }, 120);
+    }
+
     function getAppBase(){
         try{
             if(typeof window.APP_URL === 'string' && window.APP_URL.length){
@@ -71,7 +132,7 @@
         }
 
         /* Ventana de Chat */
-        #rag-agent-chat-window { display: none; width: 380px; height: 600px; background: #ffffff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); flex-direction: column; overflow: hidden; margin-bottom: 16px; border: 1px solid #e5e7eb; animation: slideIn 0.3s ease-out; }
+        #rag-agent-chat-window { display: none; width: min(380px, calc(100vw - 40px)); height: min(600px, calc(100vh - 140px)); background: #ffffff; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.15); flex-direction: column; overflow: hidden; margin-bottom: 16px; border: 1px solid #e5e7eb; animation: slideIn 0.3s ease-out; }
         @keyframes slideIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
         /* Header */
@@ -133,6 +194,17 @@
         #rag-input:focus { border-color: #8b5cf6; background: white; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12); }
         #rag-send { padding: 0 20px; background: #8b5cf6; color: white; border: none; border-radius: 24px; cursor: pointer; font-weight: 600; font-size: 14px; transition: background 0.2s; }
         #rag-send:hover { background: #7c3aed; }
+        #rag-send[disabled]{ opacity: 0.6; cursor: not-allowed; }
+
+        /* Responsive tweaks */
+        @media (max-width: 480px){
+            #rag-agent-container{ bottom: 12px; right: 12px; }
+            #rag-agent-button{ width: 56px; height: 56px; font-size: 26px; }
+            #rag-agent-label{ font-size: 11px; }
+            #rag-messages{ padding: 14px; }
+            .rag-header{ padding: 14px 16px; }
+            .rag-input-area{ padding: 12px; }
+        }
 
         /* Loader */
         .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 16px; width: fit-content; }
@@ -151,7 +223,10 @@
         <div id="rag-agent-chat-window">
             <div class="rag-header">
                 <span>👗 Boutique Dorita</span>
-                <span id="rag-close" class="rag-icon-btn">✕</span>
+                <span style="display:flex; gap:10px; align-items:center;">
+                    <span id="rag-reset" class="rag-icon-btn" title="Nueva conversación">↺</span>
+                    <span id="rag-close" class="rag-icon-btn" title="Cerrar">✕</span>
+                </span>
             </div>
             <div id="rag-messages"><div class="message bot-msg">Bienvenida, soy tu asesora de Boutique Dorita. Cuéntame tu estilo, talla o el tipo de vestido que imaginas y te orientaré.</div></div>
             <div class="rag-input-area"><input type="text" id="rag-input" placeholder="Ej: busco sirena para 1.65m, presupuesto 2500 Bs"><button id="rag-send">Enviar</button></div>
@@ -163,14 +238,76 @@
 
     const msgsDiv = document.getElementById('rag-messages');
     const input = document.getElementById('rag-input');
+    const sendBtn = document.getElementById('rag-send');
+    const win = document.getElementById('rag-agent-chat-window');
+    const resetBtn = document.getElementById('rag-reset');
+
+    const WELCOME_TEXT = 'Bienvenida, soy tu asesora de Boutique Dorita. Cuéntame tu estilo, talla o el tipo de vestido que imaginas y te orientaré.';
+    let state = loadState();
+
+    function renderMessage(msg){
+        const div = document.createElement('div');
+        div.className = 'message ' + (msg.role === 'user' ? 'user-msg' : 'bot-msg');
+        if(msg.role === 'user'){
+            div.innerText = msg.content || '';
+        }else{
+            div.innerHTML = parseMarkdown(msg.content || '');
+        }
+        msgsDiv.appendChild(div);
+    }
+
+    function renderAll(){
+        msgsDiv.innerHTML = '';
+        if(!state.messages || !state.messages.length){
+            state.messages = [{ role: 'assistant', content: WELCOME_TEXT, ts: nowIso() }];
+            saveState(state);
+        }
+        state.messages.forEach(renderMessage);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    }
+
+    function openWindow(){
+        win.style.display = 'flex';
+        state.open = true;
+        saveState(state);
+        setTimeout(() => {
+            try{ input.focus(); }catch(e){}
+        }, 0);
+    }
+    function closeWindow(){
+        win.style.display = 'none';
+        state.open = false;
+        saveState(state);
+    }
+
+    // Restore UI state
+    renderAll();
+    if(typeof state.draft === 'string' && state.draft){
+        input.value = state.draft;
+    }
+    if(state.open){
+        openWindow();
+    }
     
     // Toggle Ventana
     document.getElementById('rag-agent-button').onclick = () => {
-        const win = document.getElementById('rag-agent-chat-window');
-        win.style.display = win.style.display === 'flex' ? 'none' : 'flex';
-        if(win.style.display === 'flex') input.focus();
+        if(win.style.display === 'flex'){
+            closeWindow();
+        }else{
+            openWindow();
+        }
     };
-    document.getElementById('rag-close').onclick = () => document.getElementById('rag-agent-chat-window').style.display = 'none';
+    document.getElementById('rag-close').onclick = () => closeWindow();
+    resetBtn.onclick = () => {
+        const ok = window.confirm('¿Quieres iniciar una nueva conversación? Se borrará el historial de este chat.');
+        if(!ok) return;
+        state.messages = [{ role: 'assistant', content: WELCOME_TEXT, ts: nowIso() }];
+        state.draft = '';
+        saveState(state);
+        renderAll();
+        input.value = '';
+        try{ input.focus(); }catch(e){}
+    };
 
     // ============================================
     // 3. PARSER DE MARKDOWN MEJORADO (LÓGICA CLAVE)
@@ -264,12 +401,23 @@
         const text = input.value.trim();
         if (!text) return;
 
+		// Persist draft cleared
+		state.draft = '';
+
+		// Guardar mensaje usuario en estado
+		state.messages = Array.isArray(state.messages) ? state.messages : [];
+		state.messages.push({ role: 'user', content: text, ts: nowIso() });
+		if(state.messages.length > MAX_STORED_MESSAGES){
+			state.messages = state.messages.slice(-MAX_STORED_MESSAGES);
+		}
+		saveState(state);
+
         // Mostrar usuario
         const userDiv = document.createElement('div');
         userDiv.className = 'message user-msg';
         userDiv.innerText = text;
         msgsDiv.appendChild(userDiv);
-        input.value = ''; input.disabled = true;
+        input.value = ''; input.disabled = true; sendBtn.disabled = true;
         msgsDiv.scrollTop = msgsDiv.scrollHeight;
 
         // Mostrar loader
@@ -279,10 +427,18 @@
         msgsDiv.appendChild(loader);
         
         try {
+            const historyToSend = (state.messages || []).filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+                .slice(-MAX_SENT_HISTORY)
+                .map(m => ({ role: m.role, content: String(m.content).slice(0, 1200) }));
+
             const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: text, page: (window.location ? (window.location.pathname + window.location.search) : '') })
+                body: JSON.stringify({
+                    message: text,
+                    page: (window.location ? (window.location.pathname + window.location.search) : ''),
+                    chat_history: historyToSend
+                })
             });
             const data = await res.json();
             
@@ -291,8 +447,17 @@
             // Crear respuesta del bot parseada
             const botDiv = document.createElement('div');
             botDiv.className = 'message bot-msg';
-            botDiv.innerHTML = parseMarkdown(data.response); // Usamos el nuevo parser
+            const botText = (data && typeof data.response === 'string') ? data.response : (data && data.error ? ('Error: ' + data.error) : 'No recibí respuesta.');
+            botDiv.innerHTML = parseMarkdown(botText); // Usamos el nuevo parser
             msgsDiv.appendChild(botDiv);
+
+            // Guardar respuesta del bot
+            state.messages = Array.isArray(state.messages) ? state.messages : [];
+            state.messages.push({ role: 'assistant', content: botText, ts: nowIso() });
+            if(state.messages.length > MAX_STORED_MESSAGES){
+                state.messages = state.messages.slice(-MAX_STORED_MESSAGES);
+            }
+            saveState(state);
 
         } catch (e) {
             loader.remove();
@@ -301,13 +466,24 @@
             err.style.color = '#ef4444';
             err.innerText = "Error: no pude conectar con Boutique Dorita.";
             msgsDiv.appendChild(err);
+            state.messages = Array.isArray(state.messages) ? state.messages : [];
+            state.messages.push({ role: 'assistant', content: 'Error: no pude conectar con Boutique Dorita.', ts: nowIso() });
+            if(state.messages.length > MAX_STORED_MESSAGES){
+                state.messages = state.messages.slice(-MAX_STORED_MESSAGES);
+            }
+            saveState(state);
         } finally {
+            sendBtn.disabled = false;
             input.disabled = false;
             input.focus();
             msgsDiv.scrollTop = msgsDiv.scrollHeight;
         }
     }
 
-    document.getElementById('rag-send').onclick = handleSend;
+    sendBtn.onclick = handleSend;
+    input.oninput = () => {
+        state.draft = input.value || '';
+        saveState(state);
+    };
     input.onkeypress = (e) => { if (e.key === 'Enter') handleSend(); };
 })();

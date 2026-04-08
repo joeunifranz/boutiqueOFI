@@ -29,6 +29,8 @@
 				$contenido="productosCliente";
 			}elseif($vista=="telasCliente"){
 				$contenido="telasCliente";
+			}elseif($vista=="tablaTallas"){
+				$contenido="tablaTallas";
 			}elseif($vista=="productoDetalle"){
 				$contenido="productoDetalle";
 			}elseif($vista=="reservaNueva"){

@@ -54,8 +54,9 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 		$estado = (string)($reserva['reserva_estado'] ?? '');
 		$total = (float)($reserva['reserva_total'] ?? 0);
 		$abono = (float)($reserva['reserva_abono'] ?? 0);
-		$saldo = $total - $abono;
+		$saldo = (float)number_format(($total - $abono), (int)MONEDA_DECIMALES, '.', '');
 		if($saldo < 0){ $saldo = 0; }
+		$pagoCompleto = (strtolower(trim($estado)) === 'completada') || ($saldo <= 0);
 		$foto = (string)($reserva['producto_foto'] ?? '');
 		$pagarUrl = APP_URL.'reservaPagar/'.urlencode($codigo).'/';
 		$ticketUrl = APP_URL.'app/pdf/reserva_ticket.php?code='.urlencode($codigo);
@@ -92,14 +93,25 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 										<td class="has-text-weight-semibold is-size-5">Estado</td>
 										<td class="is-size-5"><?php echo htmlspecialchars($estado,ENT_QUOTES,'UTF-8'); ?></td>
 									</tr>
-									<tr>
-										<td class="has-text-weight-semibold is-size-5">Abono</td>
-										<td class="is-size-5"><?php echo MONEDA_SIMBOLO.number_format($abono,2); ?> <?php echo MONEDA_NOMBRE; ?></td>
-									</tr>
-									<tr>
-										<td class="has-text-weight-semibold is-size-5">Debe pagar</td>
-										<td class="is-size-5"><?php echo MONEDA_SIMBOLO.number_format($saldo,2); ?> <?php echo MONEDA_NOMBRE; ?></td>
-									</tr>
+									<?php if($pagoCompleto){ ?>
+										<tr>
+											<td class="has-text-weight-semibold is-size-5">Pago</td>
+											<td class="is-size-5">Completado</td>
+										</tr>
+										<tr>
+											<td class="has-text-weight-semibold is-size-5">Total pagado</td>
+											<td class="is-size-5"><?php echo MONEDA_SIMBOLO.number_format($total,2); ?> <?php echo MONEDA_NOMBRE; ?></td>
+										</tr>
+									<?php }else{ ?>
+										<tr>
+											<td class="has-text-weight-semibold is-size-5">Abono</td>
+											<td class="is-size-5"><?php echo MONEDA_SIMBOLO.number_format($abono,2); ?> <?php echo MONEDA_NOMBRE; ?></td>
+										</tr>
+										<tr>
+											<td class="has-text-weight-semibold is-size-5">Debe pagar</td>
+											<td class="is-size-5"><?php echo MONEDA_SIMBOLO.number_format($saldo,2); ?> <?php echo MONEDA_NOMBRE; ?></td>
+										</tr>
+									<?php } ?>
 								</tbody>
 							</table>
 						</div>

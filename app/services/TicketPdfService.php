@@ -225,23 +225,33 @@ class TicketPdfService{
 
 		$pdf->MultiCell(0,5,iconv('UTF-8','ISO-8859-1','Producto: '.(string)$r['producto_nombre']),0,'C',false);
 
+		$estadoReserva = strtolower(trim((string)($r['reserva_estado'] ?? '')));
 		$total = (float)($r['reserva_total'] ?? 0);
 		$abono = (float)($r['reserva_abono'] ?? 0);
-		$saldo = $total - $abono;
-		if($saldo < 0){
-			$saldo = 0;
-		}
+		$saldo = (float)number_format(($total - $abono), (int)MONEDA_DECIMALES, '.', '');
+		if($saldo < 0){ $saldo = 0; }
+		$pagoCompleto = ($estadoReserva === 'completada') || ($saldo <= 0);
 		$pdf->Ln(2);
 		$pdf->MultiCell(0,5,iconv('UTF-8','ISO-8859-1','Total: '.MONEDA_SIMBOLO.number_format($total,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE),0,'C',false);
-		$pdf->MultiCell(0,5,iconv('UTF-8','ISO-8859-1','Abono: '.MONEDA_SIMBOLO.number_format($abono,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE),0,'C',false);
-
-		$pdf->Ln(2);
-		$pdf->SetFont('Arial','B',11);
-		$pdf->SetFillColor(33,33,33);
-		$pdf->SetTextColor(255,255,255);
-		$pdf->Cell(0,8,iconv('UTF-8','ISO-8859-1','TOTAL SALDO: '.MONEDA_SIMBOLO.' '.number_format($saldo,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR)),0,1,'C',true);
-		$pdf->SetTextColor(0,0,0);
-		$pdf->SetFont('Arial','',9);
+		if($pagoCompleto){
+			$pdf->MultiCell(0,5,iconv('UTF-8','ISO-8859-1','Pagado: '.MONEDA_SIMBOLO.number_format($total,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE),0,'C',false);
+			$pdf->Ln(2);
+			$pdf->SetFont('Arial','B',11);
+			$pdf->SetFillColor(33,33,33);
+			$pdf->SetTextColor(255,255,255);
+			$pdf->Cell(0,8,iconv('UTF-8','ISO-8859-1','PAGO COMPLETADO'),0,1,'C',true);
+			$pdf->SetTextColor(0,0,0);
+			$pdf->SetFont('Arial','',9);
+		}else{
+			$pdf->MultiCell(0,5,iconv('UTF-8','ISO-8859-1','Abono: '.MONEDA_SIMBOLO.number_format($abono,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE),0,'C',false);
+			$pdf->Ln(2);
+			$pdf->SetFont('Arial','B',11);
+			$pdf->SetFillColor(33,33,33);
+			$pdf->SetTextColor(255,255,255);
+			$pdf->Cell(0,8,iconv('UTF-8','ISO-8859-1','TOTAL SALDO: '.MONEDA_SIMBOLO.' '.number_format($saldo,MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR)),0,1,'C',true);
+			$pdf->SetTextColor(0,0,0);
+			$pdf->SetFont('Arial','',9);
+		}
 
 		$pdf->Ln(6);
 		$pdf->Code128(5,$pdf->GetY(),(string)$r['reserva_codigo'],70,20);

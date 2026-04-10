@@ -376,10 +376,13 @@ class reservationController extends mainModel{
 
             $total = (float)($reserva['reserva_total'] ?? 0);
             $abono = (float)($reserva['reserva_abono'] ?? 0);
-            $saldo = $total - $abono;
-            if($saldo < 0){
-                $saldo = 0;
-            }
+            $saldo = (float)number_format(($total - $abono), (int)MONEDA_DECIMALES, '.', '');
+            if($saldo < 0){ $saldo = 0; }
+            $pagoCompleto = (strtolower(trim((string)$estado)) === 'completada') || ($saldo <= 0);
+
+            $liPago = $pagoCompleto
+                ? ("<li><strong>Pago:</strong> Completado</li>\n<li><strong>Total pagado:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>")
+                : ("<li><strong>Abono:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($abono, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>\n<li><strong>Debe pagar:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($saldo, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>");
 
             $html = "
                 <div style=\"font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111;\">
@@ -391,8 +394,7 @@ class reservationController extends mainModel{
                         <li><strong>Hora:</strong> ".htmlspecialchars((string)($reserva['reserva_hora'] ?? ''),ENT_QUOTES,'UTF-8')."</li>
                         <li><strong>Producto:</strong> ".htmlspecialchars((string)($reserva['producto_nombre'] ?? ''),ENT_QUOTES,'UTF-8')."</li>
                         <li><strong>Total:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>
-                        <li><strong>Abono:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($abono, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>
-                        <li><strong>TOTAL SALDO (debe pagar):</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($saldo, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR).' Bs',ENT_QUOTES,'UTF-8')."</li>
+                        ".$liPago."
                     </ul>
                     <p>Adjuntamos tu ticket en PDF. También puedes abrirlo aquí: <a href=\"".htmlspecialchars($linkPdf,ENT_QUOTES,'UTF-8')."\" target=\"_blank\" rel=\"noopener\">Ticket de reserva</a></p>
                     <p>Gracias,<br>".htmlspecialchars((defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE'),ENT_QUOTES,'UTF-8')."</p>
@@ -2627,11 +2629,14 @@ class reservationController extends mainModel{
             }
 
             // Marcar reserva como completada (evita duplicados)
+            // Importante: al completar el pago, el abono debe quedar igual al total.
             $stmtUpRes = $pdo->prepare("UPDATE reserva
-                                        SET reserva_estado='completada',
-                                            usuario_id=:uid,
-                                            caja_id=:cid
-                                        WHERE reserva_codigo=:c AND reserva_estado IN ('confirmada','reprogramada')");
+                                    SET reserva_abono=:a,
+                                        reserva_estado='completada',
+                                        usuario_id=:uid,
+                                        caja_id=:cid
+                                    WHERE reserva_codigo=:c AND reserva_estado IN ('confirmada','reprogramada')");
+            $stmtUpRes->bindParam(':a', $venta_pagado);
             $stmtUpRes->bindValue(':uid', (int)$_SESSION['id'], \PDO::PARAM_INT);
             $stmtUpRes->bindParam(':cid', $caja_id, \PDO::PARAM_INT);
             $stmtUpRes->bindParam(':c', $codigo);

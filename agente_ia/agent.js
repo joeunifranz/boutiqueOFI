@@ -80,6 +80,7 @@
 
     // Consumimos el agente por el proxy PHP para evitar CORS y mantener misma-origin
     const API_URL = joinUrl(getAppBase(), 'app/ajax/agenteIaAjax.php');
+    const RECO_URL = joinUrl(getAppBase(), 'app/ajax/recomendadorAjax.php');
 
     // ============================================
     // 1. ESTILOS CSS (DISEÑO LIMPIO Y GOURMET)
@@ -229,6 +230,50 @@
                 </span>
             </div>
             <div id="rag-messages"><div class="message bot-msg">Bienvenida, soy tu asesora de Boutique Dorita. Cuéntame tu estilo, talla o el tipo de vestido que imaginas y te orientaré.</div></div>
+            <div id="rag-reco-panel" class="p-3 has-background-danger-light" style="border-top: 1px solid rgba(0,0,0,0.06); display:none;">
+                <div class="is-flex is-align-items-center is-justify-content-space-between mb-2">
+                    <div class="has-text-weight-semibold has-text-danger-dark" style="font-size: 13px;">SUGERENCIAS DE VESTIDO</div>
+                    <span class="tag is-danger is-light">Foto + tipo de cuerpo</span>
+                </div>
+                <div class="columns is-mobile is-variable is-2" style="margin-bottom: .25rem;">
+                    <div class="column" style="padding-top: .25rem; padding-bottom: .25rem;">
+                        <div class="field">
+                            <div class="control">
+                                <div class="select is-fullwidth is-small is-danger">
+                                    <select id="rag-reco-tipo">
+                                        <option value="" selected>Tipo de cuerpo (opcional)</option>
+                                        <option value="reloj_arena">Reloj de arena</option>
+                                        <option value="pera">Pera</option>
+                                        <option value="manzana">Manzana</option>
+                                        <option value="rectangular">Rectangular</option>
+                                        <option value="triangulo_invertido">Triángulo invertido</option>
+                                        <option value="no_se">No estoy segura</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="column" style="padding-top: .25rem; padding-bottom: .25rem;">
+                        <div class="field">
+                            <div class="file has-name is-fullwidth is-small is-danger">
+                                <label class="file-label">
+                                    <input id="rag-reco-foto" class="file-input" type="file" accept="image/jpeg,image/png">
+                                    <span class="file-cta">
+                                        <span class="file-icon"><i class="fas fa-camera"></i></span>
+                                        <span class="file-label">Foto</span>
+                                    </span>
+                                    <span class="file-name" id="rag-reco-foto-name">JPG/PNG</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field is-grouped is-grouped-right" style="margin-top: .25rem;">
+                    <div class="control">
+                        <button id="rag-reco-btn" class="button is-danger is-small is-rounded" type="button">Sugerir</button>
+                    </div>
+                </div>
+            </div>
             <div class="rag-input-area"><input type="text" id="rag-input" placeholder="Ej: busco sirena para 1.65m, presupuesto 2500 Bs"><button id="rag-send">Enviar</button></div>
         </div>
         <div id="rag-agent-label">HABLA CON TU ASESORA</div>
@@ -241,6 +286,44 @@
     const sendBtn = document.getElementById('rag-send');
     const win = document.getElementById('rag-agent-chat-window');
     const resetBtn = document.getElementById('rag-reset');
+
+    const recoTipoEl = document.getElementById('rag-reco-tipo');
+    const recoFotoEl = document.getElementById('rag-reco-foto');
+    const recoFotoNameEl = document.getElementById('rag-reco-foto-name');
+    const recoBtn = document.getElementById('rag-reco-btn');
+    const recoPanelEl = document.getElementById('rag-reco-panel');
+
+    let recoPanelVisible = false;
+    function setRecoPanelVisible(v){
+        recoPanelVisible = !!v;
+        try{
+            if(recoPanelEl) recoPanelEl.style.display = recoPanelVisible ? 'block' : 'none';
+        }catch(e){}
+		try{ msgsDiv.scrollTop = msgsDiv.scrollHeight; }catch(e){}
+    }
+
+    function normalizeText(s){
+        let t = '';
+        try{ t = String(s || '').toLowerCase(); }catch(e){ t = ''; }
+        t = t
+            .replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u')
+            .replace(/ñ/g,'n');
+        return t;
+    }
+
+    function isRecoTriggerMessage(text){
+        const low = normalizeText(text);
+        if(!low) return false;
+        return (
+            low.includes('suger') ||
+            low.includes('recomend') ||
+            low.includes('vestido') ||
+            low.includes('que me queda') ||
+            low.includes('tipo de cuerpo') ||
+            low.includes('foto') ||
+            low.includes('outfit')
+        );
+    }
 
     const WELCOME_TEXT = 'Bienvenida, soy tu asesora de Boutique Dorita. Cuéntame tu estilo, talla o el tipo de vestido que imaginas y te orientaré.';
     let state = loadState();
@@ -306,6 +389,7 @@
         saveState(state);
         renderAll();
         input.value = '';
+        setRecoPanelVisible(false);
         try{ input.focus(); }catch(e){}
     };
 
@@ -397,9 +481,135 @@
     // ============================================
     // 4. ENVÍO DE MENSAJES
     // ============================================
+
+    function setBusy(v){
+        try{ input.disabled = !!v; }catch(e){}
+        try{ sendBtn.disabled = !!v; }catch(e){}
+        try{ if(recoBtn) recoBtn.disabled = !!v; }catch(e){}
+        try{ if(recoTipoEl) recoTipoEl.disabled = !!v; }catch(e){}
+        try{ if(recoFotoEl) recoFotoEl.disabled = !!v; }catch(e){}
+    }
+
+    function pushMessage(role, content){
+        state.messages = Array.isArray(state.messages) ? state.messages : [];
+        state.messages.push({ role: role, content: content, ts: nowIso() });
+        if(state.messages.length > MAX_STORED_MESSAGES){
+            state.messages = state.messages.slice(-MAX_STORED_MESSAGES);
+        }
+        saveState(state);
+    }
+
+    function appendUserBubble(text){
+        const userDiv = document.createElement('div');
+        userDiv.className = 'message user-msg';
+        userDiv.innerText = text;
+        msgsDiv.appendChild(userDiv);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    }
+
+    function appendBotBubble(markdownText){
+        const botDiv = document.createElement('div');
+        botDiv.className = 'message bot-msg';
+        botDiv.innerHTML = parseMarkdown(markdownText);
+        msgsDiv.appendChild(botDiv);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+    }
+
+    function appendLoader(){
+        const loader = document.createElement('div');
+        loader.className = 'message bot-msg typing-indicator';
+        loader.innerHTML = '<div class="dot"></div><div class="dot"></div>';
+        msgsDiv.appendChild(loader);
+        msgsDiv.scrollTop = msgsDiv.scrollHeight;
+        return loader;
+    }
+
+    async function handleReco(){
+        // asegurar visible
+        if(!recoPanelVisible) setRecoPanelVisible(true);
+
+        if(!recoFotoEl || !recoFotoEl.files || !recoFotoEl.files.length){
+            appendBotBubble('Para darte **SUGERENCIAS DE VESTIDO**, sube una **foto** (JPG/PNG) en el panel rosado y presiona **Sugerir**.');
+            return;
+        }
+
+        const tipo = (recoTipoEl && recoTipoEl.value) ? String(recoTipoEl.value) : '';
+        const userText = 'Quiero sugerencias de vestido' + (tipo ? (' (tipo de cuerpo: ' + tipo + ')') : '') + '.';
+        pushMessage('user', userText);
+        appendUserBubble(userText);
+
+        setBusy(true);
+        const loader = appendLoader();
+
+        try{
+            const fd = new FormData();
+            fd.append('modulo_reco', 'sugerir');
+            fd.append('tipo_cuerpo', tipo);
+            fd.append('categoria_id', '0');
+            fd.append('talla', '');
+            fd.append('max_price', '');
+            fd.append('foto', recoFotoEl.files[0]);
+
+            const res = await fetch(RECO_URL, { method: 'POST', body: fd });
+            let data = null;
+            try{ data = await res.json(); }catch(e){ data = null; }
+
+            if(loader) loader.remove();
+
+            if(!res.ok || !data || data.ok !== true){
+                const msg = (data && typeof data.message === 'string') ? data.message : 'No pude generar sugerencias ahora mismo.';
+                appendBotBubble(msg);
+                pushMessage('assistant', msg);
+                return;
+            }
+
+            const items = Array.isArray(data.items) ? data.items : [];
+            let out = '### SUGERENCIAS DE VESTIDO\n\n';
+            out += (data.message ? String(data.message) : 'Aquí tienes sugerencias:') + '\n\n';
+
+            if(!items.length){
+                out += 'No encontré resultados con el catálogo actual.';
+                appendBotBubble(out);
+                pushMessage('assistant', out);
+                return;
+            }
+
+            items.forEach(it => {
+                const nombre = (it && it.nombre != null) ? String(it.nombre) : 'Vestido';
+                const precioNum = (it && it.precio != null && !isNaN(Number(it.precio))) ? Number(it.precio) : null;
+                const url = (it && it.detalle_url != null) ? String(it.detalle_url) : '';
+
+                let line = '- **' + nombre + '**';
+                if(precioNum !== null){ line += ' — Bs ' + precioNum.toFixed(2); }
+                if(url){ line += ' [Abrir detalle](' + url + ')'; }
+                out += line + '\n';
+            });
+
+            appendBotBubble(out);
+            pushMessage('assistant', out);
+
+            // limpiar foto seleccionada para siguiente uso
+            recoFotoEl.value = '';
+            if(recoFotoNameEl) recoFotoNameEl.textContent = 'JPG/PNG';
+        }catch(e){
+            if(loader) loader.remove();
+            const msg = 'No pude generar sugerencias ahora mismo.';
+            appendBotBubble(msg);
+            pushMessage('assistant', msg);
+        }finally{
+            setBusy(false);
+            try{ input.focus(); }catch(e){}
+        }
+    }
+
     async function handleSend() {
         const text = input.value.trim();
         if (!text) return;
+
+        // Mostrar panel solo cuando el cliente lo pida
+        if(!recoPanelVisible && isRecoTriggerMessage(text)){
+            setRecoPanelVisible(true);
+        }
 
 		// Persist draft cleared
 		state.draft = '';
@@ -417,7 +627,8 @@
         userDiv.className = 'message user-msg';
         userDiv.innerText = text;
         msgsDiv.appendChild(userDiv);
-        input.value = ''; input.disabled = true; sendBtn.disabled = true;
+        input.value = '';
+        setBusy(true);
         msgsDiv.scrollTop = msgsDiv.scrollHeight;
 
         // Mostrar loader
@@ -473,14 +684,25 @@
             }
             saveState(state);
         } finally {
-            sendBtn.disabled = false;
-            input.disabled = false;
+            setBusy(false);
             input.focus();
             msgsDiv.scrollTop = msgsDiv.scrollHeight;
         }
     }
 
     sendBtn.onclick = handleSend;
+
+    if(recoFotoEl && recoFotoNameEl){
+        recoFotoEl.addEventListener('change', function(){
+            let name = '';
+            try{ name = (recoFotoEl.files && recoFotoEl.files[0]) ? String(recoFotoEl.files[0].name || '') : ''; }catch(e){ name = ''; }
+            recoFotoNameEl.textContent = name ? name : 'JPG/PNG';
+        });
+    }
+    if(recoBtn){
+        recoBtn.onclick = handleReco;
+    }
+
     input.oninput = () => {
         state.draft = input.value || '';
         saveState(state);

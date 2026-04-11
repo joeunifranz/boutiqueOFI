@@ -180,6 +180,7 @@ function agenteIa_quickReply(string $message, string $pagePath): string{
 		}
 		return "Aquí tienes lo que puedes hacer como cliente:\n\n".
 			"- Ver catálogo: [Click aquí](".$base."productosCliente/)\n".
+			"- Sugerencias de vestido (foto + tipo de cuerpo): [Click aquí](".$base."productosCliente/?reco=1#recoFoto)\n".
 			"- Filtrar por talla (ej. talla M): dime \"talla M\" y te paso el link\n".
 			"- Buscar por presupuesto (ej. 1200 Bs): dime \"presupuesto 1200 bs\"\n".
 			"- Ver tus reservas y compras: [Click aquí](".$base."reservasComprasCliente/)\n".
@@ -188,6 +189,36 @@ function agenteIa_quickReply(string $message, string $pagePath): string{
 			"- Ubicación / WhatsApp / teléfono (dime \"ubicación\" o \"whatsapp\")";
 	}
 
+		// Sugerencias de vestido (guía)
+		if(
+			str_contains($low, 'sugerencia') ||
+			str_contains($low, 'sugerencias') ||
+			str_contains($low, 'sugier') ||
+			str_contains($low, 'vestido') ||
+			str_contains($low, 'vestidos') ||
+			str_contains($low, 'recomiend') ||
+			str_contains($low, 'recomendacion') ||
+			str_contains($low, 'recomendación') ||
+			str_contains($low, 'look') ||
+			str_contains($low, 'outfit') ||
+			str_contains($low, 'qué me pongo') ||
+			str_contains($low, 'que me pongo') ||
+			str_contains($low, 'probar') ||
+			str_contains($low, 'probador')
+		){
+			$out = [];
+			$out[] = "¡Claro! Para darte **SUGERENCIAS DE VESTIDO** necesito 2 cosas:";
+			$out[] = "";
+			$out[] = "1) Tu **tipo de cuerpo** (elige en el panel rosado).";
+			$out[] = "2) Una **foto** (JPG/PNG) del vestido/estilo que te gusta (sube en el panel).";
+			$out[] = "";
+			$out[] = "Luego presiona **Sugerir** y te mostraré opciones del catálogo.";
+			if($base !== ''){
+				$out[] = "";
+				$out[] = "También puedes abrirlo desde el catálogo: [Click aquí](".$base."productosCliente/?reco=1#recoFoto)";
+			}
+			return implode("\n", $out);
+		}
 	// No puedo asistir / reprogramar cita (redirigir + WhatsApp)
 	if(
 		str_contains($low, 'no puedo asistir') ||

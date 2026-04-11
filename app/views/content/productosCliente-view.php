@@ -75,8 +75,8 @@
 		<div id="recoFoto" class="modal is-active">
 			<div class="modal-background" id="recoCloseBg"></div>
 			<div class="modal-card" style="max-width: 980px; width: calc(100% - 2rem);">
-				<header class="modal-card-head">
-					<p class="modal-card-title"><i class="fas fa-camera"></i> &nbsp; SUGERENCIAS DE VESTIDO</p>
+				<header class="modal-card-head has-background-danger-light">
+					<p class="modal-card-title has-text-danger-dark"><i class="fas fa-camera"></i> &nbsp; SUGERENCIAS DE VESTIDO</p>
 					<button class="delete" aria-label="close" id="recoCloseBtn"></button>
 				</header>
 				<section class="modal-card-body">
@@ -93,7 +93,7 @@
 						<div class="field">
 							<label class="label">Tipo de cuerpo (opcional)</label>
 							<div class="control">
-								<div class="select is-fullwidth">
+								<div class="select is-fullwidth is-danger">
 									<select name="tipo_cuerpo">
 										<option value="" selected>Sin especificar</option>
 										<option value="reloj_arena">Reloj de arena (cintura marcada)</option>
@@ -106,17 +106,11 @@
 								</div>
 							</div>
 						</div>
-						<div class="field">
-							<label class="label">Contorno de cintura (cm) (opcional)</label>
-							<div class="control">
-								<input class="input" type="number" name="cintura_cm" min="40" max="160" step="1" placeholder="Ej: 74">
-							</div>
-						</div>
 					</div>
 					<div class="column is-6">
 						<div class="field">
 							<label class="label">Foto (para colores)</label>
-							<div class="file has-name is-fullwidth">
+							<div class="file has-name is-fullwidth is-danger">
 								<label class="file-label">
 									<input class="file-input" type="file" name="foto" accept="image/jpeg,image/png" required>
 									<span class="file-cta">
@@ -131,7 +125,7 @@
 				</div>
 				<div class="field is-grouped">
 					<div class="control">
-						<button id="recoBtn" class="button is-info" type="submit">Sugerir</button>
+						<button id="recoBtn" class="button is-danger is-rounded" type="submit">Sugerir</button>
 					</div>
 					<div class="control">
 						<span id="recoStatus" class="has-text-grey"></span>

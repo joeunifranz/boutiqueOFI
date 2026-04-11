@@ -5,12 +5,11 @@ namespace app\controllers;
 use app\models\mainModel;
 
 class recommendationController extends mainModel{
-	private const CACHE_VERSION = 1;
+	private const CACHE_VERSION = 2;
 	private const H_BINS = 12;
 	private const S_BINS = 3;
 	private const V_BINS = 3;
-	private const MAX_PRODUCTS = 220;
-	private const MAX_RESULTADOS = 8;
+	private const G_BINS = 8; // gradientes (bordes) para reforzar similitud
 	private const MAX_UPLOAD_MB = 8;
 
 	public function recomendarVestidosPorFotoControlador(): string{
@@ -92,7 +91,11 @@ class recommendationController extends mainModel{
 			return json_encode(['ok'=>false,'error'=>'img_read_failed','message'=>'No se pudo procesar la imagen.'], JSON_UNESCAPED_UNICODE);
 		}
 
-		$productos = $this->obtenerProductosParaRecomendacion($categoriaId, $talla, $maxPrecio, self::MAX_PRODUCTS);
+		$maxProducts = (defined('RECO_MAX_PRODUCTS') ? (int)RECO_MAX_PRODUCTS : 260);
+		if($maxProducts < 60){ $maxProducts = 60; }
+		if($maxProducts > 800){ $maxProducts = 800; }
+
+		$productos = $this->obtenerProductosParaRecomendacion($categoriaId, $talla, $maxPrecio, $maxProducts);
 		if(empty($productos)){
 			return json_encode(['ok'=>false,'error'=>'no_products','message'=>'No hay productos disponibles para recomendar.'], JSON_UNESCAPED_UNICODE);
 		}
@@ -125,8 +128,19 @@ class recommendationController extends mainModel{
 			$scoreColor = $this->cosineSimilarity($vectorUser, $vecProd);
 			$scoreTipo = $this->bodyModelCompatibilityScore($tipoCuerpo, $modelo, $nombre);
 			$scoreCintura = ($cinturaCm !== null) ? $this->waistModelCompatibilityScore((float)$cinturaCm, $modelo, $nombre) : 0.55;
-			$scoreCuerpo = (0.70 * $scoreTipo) + (0.30 * $scoreCintura);
-			$score = (0.40 * $scoreColor) + (0.60 * $scoreCuerpo);
+			$wTipo = defined('RECO_WEIGHT_TIPO') ? (float)RECO_WEIGHT_TIPO : 0.65;
+			$wCint = defined('RECO_WEIGHT_CINTURA') ? (float)RECO_WEIGHT_CINTURA : 0.35;
+			$sum = $wTipo + $wCint;
+			if($sum <= 0){ $wTipo = 0.65; $wCint = 0.35; $sum = 1.0; }
+			$wTipo /= $sum; $wCint /= $sum;
+			$scoreCuerpo = ($wTipo * $scoreTipo) + ($wCint * $scoreCintura);
+
+			$wColor = defined('RECO_WEIGHT_COLOR') ? (float)RECO_WEIGHT_COLOR : 0.35;
+			$wCuerpo = defined('RECO_WEIGHT_CUERPO') ? (float)RECO_WEIGHT_CUERPO : 0.65;
+			$sum2 = $wColor + $wCuerpo;
+			if($sum2 <= 0){ $wColor = 0.35; $wCuerpo = 0.65; $sum2 = 1.0; }
+			$wColor /= $sum2; $wCuerpo /= $sum2;
+			$score = ($wColor * $scoreColor) + ($wCuerpo * $scoreCuerpo);
 			$resultados[] = [
 				'producto_id' => $pid,
 				'producto_nombre' => $nombre,
@@ -145,7 +159,10 @@ class recommendationController extends mainModel{
 		usort($resultados, function($a, $b){
 			return ($b['score'] <=> $a['score']);
 		});
-		$resultados = array_slice($resultados, 0, self::MAX_RESULTADOS);
+		$maxResultados = (defined('RECO_MAX_RESULTADOS') ? (int)RECO_MAX_RESULTADOS : 8);
+		if($maxResultados < 3){ $maxResultados = 3; }
+		if($maxResultados > 20){ $maxResultados = 20; }
+		$resultados = array_slice($resultados, 0, $maxResultados);
 
 		$items = [];
 		foreach($resultados as $r){
@@ -341,16 +358,42 @@ class recommendationController extends mainModel{
 			if(!is_file($path)){
 				return [
 					'version' => self::CACHE_VERSION,
-					'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS],
+					'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS,'g'=>self::G_BINS],
 					'items' => []
 				];
 			}
-			$raw = file_get_contents($path);
+			$raw = '';
+			$fh = @fopen($path, 'rb');
+			if($fh){
+				@flock($fh, LOCK_SH);
+				$raw = (string)stream_get_contents($fh);
+				@flock($fh, LOCK_UN);
+				@fclose($fh);
+			}else{
+				$raw = (string)@file_get_contents($path);
+			}
 			$data = json_decode((string)$raw, true);
 			if(!is_array($data) || !isset($data['items']) || !is_array($data['items'])){
 				return [
 					'version' => self::CACHE_VERSION,
-					'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS],
+					'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS,'g'=>self::G_BINS],
+					'items' => []
+				];
+			}
+
+			// invalidar si cambió versión o bins
+			$bins = $data['bins'] ?? null;
+			if(
+				(!isset($data['version']) || (int)$data['version'] !== self::CACHE_VERSION)
+				|| !is_array($bins)
+				|| (int)($bins['h'] ?? -1) !== self::H_BINS
+				|| (int)($bins['s'] ?? -1) !== self::S_BINS
+				|| (int)($bins['v'] ?? -1) !== self::V_BINS
+				|| (int)($bins['g'] ?? -1) !== self::G_BINS
+			){
+				return [
+					'version' => self::CACHE_VERSION,
+					'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS,'g'=>self::G_BINS],
 					'items' => []
 				];
 			}
@@ -358,7 +401,7 @@ class recommendationController extends mainModel{
 		}catch(\Throwable $e){
 			return [
 				'version' => self::CACHE_VERSION,
-				'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS],
+				'bins' => ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS,'g'=>self::G_BINS],
 				'items' => []
 			];
 		}
@@ -367,10 +410,20 @@ class recommendationController extends mainModel{
 	private function saveCache(string $path, array $cache): void{
 		try{
 			$cache['version'] = self::CACHE_VERSION;
-			$cache['bins'] = ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS];
+			$cache['bins'] = ['h'=>self::H_BINS,'s'=>self::S_BINS,'v'=>self::V_BINS,'g'=>self::G_BINS];
 			$raw = json_encode($cache, JSON_UNESCAPED_UNICODE);
 			if(is_string($raw)){
-				@file_put_contents($path, $raw);
+				$fh = @fopen($path, 'cb');
+				if($fh){
+					@flock($fh, LOCK_EX);
+					ftruncate($fh, 0);
+					fwrite($fh, $raw);
+					fflush($fh);
+					@flock($fh, LOCK_UN);
+					@fclose($fh);
+				}else{
+					@file_put_contents($path, $raw);
+				}
 			}
 		}catch(\Throwable $e){
 			// no-op
@@ -429,8 +482,11 @@ class recommendationController extends mainModel{
 		imagecopyresampled($dst, $img, 0,0,0,0, $target,$target, $w,$h);
 		imagedestroy($img);
 
-		$bins = self::H_BINS * self::S_BINS * self::V_BINS;
-		$hist = array_fill(0, $bins, 0.0);
+		$binsColor = self::H_BINS * self::S_BINS * self::V_BINS;
+		$histColor = array_fill(0, $binsColor, 0.0);
+		$histGrad = array_fill(0, self::G_BINS, 0.0);
+
+		$gray = array_fill(0, $target * $target, 0.0);
 
 		for($y=0; $y<$target; $y++){
 			for($x=0; $x<$target; $x++){
@@ -448,25 +504,47 @@ class recommendationController extends mainModel{
 				if($vb >= self::V_BINS){ $vb = self::V_BINS - 1; }
 
 				$idx = ($hb * self::S_BINS * self::V_BINS) + ($sb * self::V_BINS) + $vb;
-				$hist[$idx] += 1.0;
+				$histColor[$idx] += 1.0;
+
+				// gris para gradientes (luma)
+				$gi = ($y * $target) + $x;
+				$gray[$gi] = (0.299 * $r) + (0.587 * $g) + (0.114 * $b);
+			}
+		}
+
+		// Histograma de gradientes (bordes) simple, sin inferir silueta
+		$twoPi = 2 * (defined('M_PI') ? M_PI : pi());
+		for($y=1; $y<$target-1; $y++){
+			for($x=1; $x<$target-1; $x++){
+				$c = ($y * $target) + $x;
+				$gx = $gray[$c+1] - $gray[$c-1];
+				$gy = $gray[$c+$target] - $gray[$c-$target];
+				$mag = sqrt(($gx*$gx) + ($gy*$gy));
+				if($mag < 6){
+					continue;
+				}
+				$angle = atan2($gy, $gx); // -pi..pi
+				if($angle < 0){ $angle += $twoPi; }
+				$bin = (int)floor(($angle / $twoPi) * self::G_BINS);
+				if($bin >= self::G_BINS){ $bin = self::G_BINS - 1; }
+				$histGrad[$bin] += $mag;
 			}
 		}
 		imagedestroy($dst);
 
-		// Normalizar
+		$vec = array_merge($histColor, $histGrad);
 		$norm = 0.0;
-		foreach($hist as $v){
-			$norm += $v*$v;
+		foreach($vec as $v){
+			$norm += ((float)$v) * ((float)$v);
 		}
 		$norm = sqrt($norm);
 		if($norm <= 0){
 			return null;
 		}
-		for($i=0; $i<count($hist); $i++){
-			$hist[$i] = $hist[$i] / $norm;
+		for($i=0; $i<count($vec); $i++){
+			$vec[$i] = ((float)$vec[$i]) / $norm;
 		}
-
-		return $hist;
+		return $vec;
 	}
 
 	private function loadImage(string $path, string $mime){

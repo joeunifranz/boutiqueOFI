@@ -60,6 +60,18 @@
 		define('AGENTE_IA_API_URL', ($apiEnv===false || trim((string)$apiEnv)==='') ? 'http://127.0.0.1:5000/chat' : trim((string)$apiEnv));
 	}
 
+	/*----------  Recomendador de vestidos (local)  ----------*/
+	// Ajustes de rendimiento y ponderación del ranking.
+	// Se aplican en app/controllers/recommendationController.php
+	if(!defined('RECO_MAX_PRODUCTS')){ define('RECO_MAX_PRODUCTS', 260); }
+	if(!defined('RECO_MAX_RESULTADOS')){ define('RECO_MAX_RESULTADOS', 8); }
+	// Pesos (0..1) que suman 1.0
+	if(!defined('RECO_WEIGHT_COLOR')){ define('RECO_WEIGHT_COLOR', 0.35); }
+	if(!defined('RECO_WEIGHT_CUERPO')){ define('RECO_WEIGHT_CUERPO', 0.65); }
+	// Dentro del score de "cuerpo"
+	if(!defined('RECO_WEIGHT_TIPO')){ define('RECO_WEIGHT_TIPO', 0.65); }
+	if(!defined('RECO_WEIGHT_CINTURA')){ define('RECO_WEIGHT_CINTURA', 0.35); }
+
 	/*----------  Tabla de tallas (visor 3D del maniquí) ----------*/
 	// Coloca tu archivo en: app/views/models/maniqui.glb (por defecto)
 	// Si usas otro nombre/ruta, ajusta esta constante.

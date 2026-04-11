@@ -27,6 +27,7 @@
 	// Página (paginación) vía querystring (?page=2)
 	$pagina = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 	if($pagina < 1){ $pagina = 1; }
+	$mostrarReco = $clienteLogueado && isset($_GET['reco']) && (string)$_GET['reco'] !== '0';
 	$categoriaNombre = "";
 	if($categoria>0){
 		$categoriaNombre = $insProductoCliente->obtenerNombreCategoriaPorIdControlador($categoria);
@@ -59,6 +60,201 @@
 			Descubre nuestros productos disponibles.
 		<?php } ?>
 	</p>
+
+	<?php if($mostrarReco){ ?>
+		<?php
+			// Construir URL de cierre conservando filtros, quitando "reco"
+			$closeGet = $_GET;
+			unset($closeGet['reco']);
+			$qs = http_build_query($closeGet);
+			$closeUrl = APP_URL.'productosCliente/'.($categoria>0 ? ((int)$categoria.'/') : '');
+			if(is_string($qs) && $qs !== ''){
+				$closeUrl .= '?'.$qs;
+			}
+		?>
+		<div id="recoFoto" class="modal is-active">
+			<div class="modal-background" id="recoCloseBg"></div>
+			<div class="modal-card" style="max-width: 980px; width: calc(100% - 2rem);">
+				<header class="modal-card-head">
+					<p class="modal-card-title"><i class="fas fa-camera"></i> &nbsp; SUGERENCIAS DE VESTIDO</p>
+					<button class="delete" aria-label="close" id="recoCloseBtn"></button>
+				</header>
+				<section class="modal-card-body">
+					<p class="has-text-grey mb-3">
+						Sube una foto para colores y elige tu tipo de cuerpo para recomendar cortes.
+					</p>
+					<form id="recoForm" class="mb-3" enctype="multipart/form-data">
+				<input type="hidden" name="modulo_reco" value="sugerir">
+				<input type="hidden" name="categoria_id" value="<?php echo (int)$categoria; ?>">
+				<input type="hidden" name="talla" value="<?php echo htmlspecialchars($talla, ENT_QUOTES, 'UTF-8'); ?>">
+				<input type="hidden" name="max_price" value="<?php echo ($maxPrice !== null ? (int)$maxPrice : ''); ?>">
+				<div class="columns is-variable is-3">
+					<div class="column is-6">
+						<div class="field">
+							<label class="label">Tipo de cuerpo (opcional)</label>
+							<div class="control">
+								<div class="select is-fullwidth">
+									<select name="tipo_cuerpo">
+										<option value="" selected>Sin especificar</option>
+										<option value="reloj_arena">Reloj de arena (cintura marcada)</option>
+										<option value="pera">Pera (caderas más marcadas)</option>
+										<option value="manzana">Manzana (más volumen en torso)</option>
+										<option value="rectangular">Rectangular (pocas curvas)</option>
+										<option value="triangulo_invertido">Triángulo invertido (hombros más anchos)</option>
+										<option value="no_se">No estoy segura</option>
+									</select>
+								</div>
+							</div>
+						</div>
+						<div class="field">
+							<label class="label">Contorno de cintura (cm) (opcional)</label>
+							<div class="control">
+								<input class="input" type="number" name="cintura_cm" min="40" max="160" step="1" placeholder="Ej: 74">
+							</div>
+						</div>
+					</div>
+					<div class="column is-6">
+						<div class="field">
+							<label class="label">Foto (para colores)</label>
+							<div class="file has-name is-fullwidth">
+								<label class="file-label">
+									<input class="file-input" type="file" name="foto" accept="image/jpeg,image/png" required>
+									<span class="file-cta">
+										<span class="file-icon"><i class="fas fa-upload"></i></span>
+										<span class="file-label">Elegir foto (JPG/PNG)</span>
+									</span>
+									<span class="file-name" id="recoFileName">Ningún archivo seleccionado</span>
+								</label>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="field is-grouped">
+					<div class="control">
+						<button id="recoBtn" class="button is-info" type="submit">Sugerir</button>
+					</div>
+					<div class="control">
+						<span id="recoStatus" class="has-text-grey"></span>
+					</div>
+				</div>
+					</form>
+					<div id="recoError" class="message is-danger" style="display:none;"><div class="message-body"></div></div>
+					<div id="recoResults" class="columns is-multiline" style="display:none;"></div>
+				</section>
+				<footer class="modal-card-foot" style="justify-content:flex-end;">
+					<a class="button is-light" href="<?php echo htmlspecialchars($closeUrl, ENT_QUOTES, 'UTF-8'); ?>">Cerrar</a>
+				</footer>
+			</div>
+		</div>
+
+		<script>
+			(function(){
+				const closeUrl = <?php echo json_encode($closeUrl, JSON_UNESCAPED_SLASHES); ?>;
+				const close = () => { window.location.href = closeUrl; };
+				const closeBtn = document.getElementById('recoCloseBtn');
+				const closeBg = document.getElementById('recoCloseBg');
+				if(closeBtn){ closeBtn.addEventListener('click', function(e){ e.preventDefault(); close(); }); }
+				if(closeBg){ closeBg.addEventListener('click', function(e){ e.preventDefault(); close(); }); }
+				document.addEventListener('keydown', function(e){
+					if(e && e.key === 'Escape'){
+						close();
+					}
+				});
+
+				const form = document.getElementById('recoForm');
+				const results = document.getElementById('recoResults');
+				const errBox = document.getElementById('recoError');
+				const errBody = errBox ? errBox.querySelector('.message-body') : null;
+				const statusEl = document.getElementById('recoStatus');
+				const btn = document.getElementById('recoBtn');
+				const fileInput = form ? form.querySelector('input[type="file"][name="foto"]') : null;
+				const fileNameEl = document.getElementById('recoFileName');
+				const escapeHtml = (s) => (s || '').toString().replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+				const setError = (msg) => {
+					if(errBox && errBody){
+						errBody.textContent = msg || 'Ocurrió un error.';
+						errBox.style.display = '';
+					}
+					if(results){ results.style.display = 'none'; results.innerHTML = ''; }
+				};
+				const clearError = () => {
+					if(errBox){ errBox.style.display = 'none'; }
+				};
+
+				if(fileInput && fileNameEl){
+					fileInput.addEventListener('change', function(){
+						const f = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+						fileNameEl.textContent = f ? f.name : 'Ningún archivo seleccionado';
+					});
+				}
+
+				if(!form) return;
+				form.addEventListener('submit', async function(e){
+					e.preventDefault();
+					clearError();
+					if(statusEl){ statusEl.textContent = 'Procesando...'; }
+					if(btn){ btn.classList.add('is-loading'); btn.disabled = true; }
+
+					try{
+						const fd = new FormData(form);
+						const resp = await fetch('<?php echo APP_URL; ?>app/ajax/recomendadorAjax.php', {
+							method: 'POST',
+							body: fd,
+							credentials: 'same-origin'
+						});
+						const data = await resp.json();
+						if(!data || data.ok !== true){
+							setError((data && (data.message || data.error)) ? (data.message || data.error) : 'No se pudo generar sugerencias.');
+							if(statusEl){ statusEl.textContent = ''; }
+							return;
+						}
+
+						const items = Array.isArray(data.items) ? data.items : [];
+						if(items.length === 0){
+							setError('No se encontraron sugerencias con el catálogo actual.');
+							if(statusEl){ statusEl.textContent = ''; }
+							return;
+						}
+
+						if(statusEl){ statusEl.textContent = data.message || ''; }
+						if(results){
+							results.innerHTML = '';
+							items.forEach(function(it){
+								const col = document.createElement('div');
+								col.className = 'column is-3';
+								const nombre = escapeHtml(it.nombre);
+								const fotoUrl = (it.foto_url || '').toString();
+								const detalleUrl = (it.detalle_url || '').toString();
+								const precio = Number(it.precio || 0);
+								col.innerHTML = `
+									<div class="card">
+										<div class="card-image">
+											<figure class="image is-4by5">
+												<img src="${fotoUrl}" alt="">
+											</figure>
+										</div>
+										<div class="card-content">
+											<p class="title is-6">${nombre}</p>
+											<p class="subtitle is-6 has-text-success"><?php echo MONEDA_SIMBOLO; ?>${precio.toFixed(2)}</p>
+											<a href="${detalleUrl}" class="button is-dark is-fullwidth">Ver detalle</a>
+										</div>
+									</div>
+								`;
+								results.appendChild(col);
+							});
+							results.style.display = '';
+						}
+					}catch(err){
+						setError('No se pudo conectar con el recomendador.');
+						if(statusEl){ statusEl.textContent = ''; }
+					}finally{
+						if(btn){ btn.classList.remove('is-loading'); btn.disabled = false; }
+					}
+				});
+			})();
+		</script>
+	<?php } ?>
 
 	<div class="columns is-multiline">
 

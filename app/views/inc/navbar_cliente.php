@@ -72,6 +72,9 @@
 		<div class="navbar-end">
 			<?php if($clienteLogueado){ ?>
 				<div class="navbar-item">
+					<a class="button is-info is-light mr-2" href="<?php echo APP_URL; ?>productosCliente/?reco=1#recoFoto">
+						<i class="fas fa-camera"></i> &nbsp; SUGERENCIAS DE VESTIDO
+					</a>
 					<span class="mr-2">Hola, <?php echo htmlspecialchars($_SESSION['cliente_nombre']); ?></span>
 					<a class="button is-light" href="<?php echo APP_URL; ?>clienteLogOut/">Cerrar sesión</a>
 				</div>

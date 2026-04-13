@@ -18,8 +18,18 @@ CREATE TABLE IF NOT EXISTS `tela` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- Datos de ejemplo (puedes editar/eliminar)
-INSERT IGNORE INTO `tela` (`tela_nombre`,`tela_descripcion`,`tela_precio`,`tela_stock`,`tela_textura_imagen`,`tela_activo`) VALUES
-('Algodón','Tela fresca y cómoda',25.00,50,NULL,1),
-('Seda','Tela premium con brillo',80.00,20,NULL,1),
-('Encaje','Acabado elegante',60.00,15,NULL,1),
-('Lino','Tela ligera',35.00,30,NULL,1);
+INSERT INTO `tela` (`tela_nombre`,`tela_descripcion`,`tela_precio`,`tela_stock`,`tela_textura_imagen`,`tela_activo`) VALUES
+('Tull español',NULL,35.00,50,NULL,1),
+('Tull diamante',NULL,55.00,50,NULL,1),
+('Gasa azucarada',NULL,70.00,50,NULL,1),
+('Tull americano brilloso',NULL,70.00,50,NULL,1),
+('Gasa boal',NULL,35.00,50,NULL,1),
+('Visón americano',NULL,30.00,50,NULL,1),
+('Tull jarrón (con bordes incluidos)',NULL,115.00,50,NULL,1),
+('Tull con pestaña (con bordes incluidos)',NULL,115.00,50,NULL,1)
+ON DUPLICATE KEY UPDATE
+  `tela_descripcion`=VALUES(`tela_descripcion`),
+  `tela_precio`=VALUES(`tela_precio`),
+  `tela_stock`=VALUES(`tela_stock`),
+  `tela_textura_imagen`=VALUES(`tela_textura_imagen`),
+  `tela_activo`=VALUES(`tela_activo`);

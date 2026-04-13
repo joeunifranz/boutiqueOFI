@@ -28,6 +28,10 @@ if(isset($_POST['modulo_reserva'])){
         echo $insReserva->guardarHorariosAdminControlador();
     }
 
+    if($_POST['modulo_reserva']=="personalizada_crear"){
+        echo $insReserva->crearSolicitudPersonalizadaControlador();
+    }
+
     if($_POST['modulo_reserva']=="confirmar"){
         echo $insReserva->confirmarReservaControlador();
     }

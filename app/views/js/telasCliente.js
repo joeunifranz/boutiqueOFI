@@ -1,5 +1,15 @@
 (function(){
 	function qs(sel){ return document.querySelector(sel); }
+	function qsa(sel){ return Array.from(document.querySelectorAll(sel)); }
+	function eventTargetElement(e){
+		const t = e && e.target ? e.target : null;
+		if(!t) return null;
+		// Si es un nodo de texto, usar el elemento padre
+		if(t.nodeType === 3){
+			return t.parentElement;
+		}
+		return t;
+	}
 
 	const estado = qs('#telasEstado');
 	const listWrap = qs('#telasList');
@@ -11,11 +21,54 @@
 	const dressModalCanvas = qs('#dress3dCanvasModal');
 	const tallaSel = qs('#tallaVestido');
 
+	const wizardMsg = qs('#wizardMsg');
+	const wizardTabs = qs('#wizardTabs');
+	const steps = {
+		1: qs('#wizardStep1'),
+		2: qs('#wizardStep2'),
+		3: qs('#wizardStep3'),
+		4: qs('#wizardStep4'),
+	};
+	let currentStep = 1;
+
+	const vestidoDetalle = qs('#vestidoDetalle');
+
+	const encajeCarousel = qs('#encajeCarousel');
+	const encajeSelTexto = qs('#encajeSeleccionTexto');
+	const encajePrevBtn = qs('#encajePrev');
+	const encajeNextBtn = qs('#encajeNext');
+
+	const citaFecha = qs('#cita_fecha_personalizada');
+	const citaHora = qs('#cita_hora_personalizada');
+	const citaHelp = qs('#cita_help_personalizada');
+	const btnEnviar = qs('#btnEnviarSolicitud');
+
+	const resumenTalla = qs('#resumenTalla');
+	const resumenTela = qs('#resumenTela');
+	const resumenEncaje = qs('#resumenEncaje');
+
+	const CLIENTE_LOGUEADO = (window.CLIENTE_LOGUEADO === true);
+
+	let ENCAJES = [];
+
 	function showEstado(msg, type){
 		if(!estado) return;
 		estado.style.display = 'block';
 		estado.className = 'notification is-' + (type || 'info') + ' is-light';
 		estado.textContent = msg;
+	}
+
+	function showWizardMsg(msg, type){
+		if(!wizardMsg) return;
+		wizardMsg.style.display = 'block';
+		wizardMsg.className = 'notification is-' + (type || 'light');
+		wizardMsg.textContent = msg;
+	}
+
+	function clearWizardMsg(){
+		if(!wizardMsg) return;
+		wizardMsg.style.display = 'none';
+		wizardMsg.textContent = '';
 	}
 
 	function formatMoney(value){
@@ -49,6 +102,101 @@
 		const mult = getAutoComplexityMultiplier();
 		// Redondeo al 0.1
 		return Math.round((base * mult) * 10) / 10;
+	}
+
+	function getSelectedTela(){
+		const sel = listWrap ? listWrap.querySelector('input[type="radio"][name="tela_id"]:checked') : null;
+		if(!sel) return null;
+		const nombreStrong = sel.closest('.box') ? sel.closest('.box').querySelector('strong') : null;
+		return {
+			id: String(sel.value || ''),
+			precio: Number(sel.getAttribute('data-precio')),
+			textura: sel.getAttribute('data-textura') || '',
+			nombre: nombreStrong ? (nombreStrong.textContent || '') : '',
+		};
+	}
+
+	function getSelectedEncaje(){
+		const sel = document.querySelector('input[type="radio"][name="encaje_id"]:checked');
+		if(!sel) return null;
+		const id = String(sel.value || '');
+		return ENCAJES.find(e => String(e.encaje_id) === id) || null;
+	}
+
+	function updateResumen(){
+		const talla = tallaSel ? String(tallaSel.value || '') : '';
+		const tela = getSelectedTela();
+		const encaje = getSelectedEncaje();
+
+		if(resumenTalla) resumenTalla.textContent = talla || '—';
+		if(resumenTela){
+			if(tela && tela.id){
+				const metros = estimateMeters(talla || 'M');
+				const precioTxt = isFinite(tela.precio) ? (formatMoney(tela.precio) + ' / m') : '—';
+				resumenTela.textContent = (tela.nombre ? (tela.nombre + ' — ') : '') + precioTxt + (isFinite(metros) ? (' — ' + metros.toFixed(1) + ' m aprox.') : '');
+			}else{
+				resumenTela.textContent = '—';
+			}
+		}
+		if(resumenEncaje){
+			resumenEncaje.textContent = encaje ? (String(encaje.encaje_nombre || '') + ' — ' + formatMoney(encaje.encaje_precio) + ' / 1.5 m') : '—';
+		}
+	}
+
+	function canSubmit(){
+		if(!CLIENTE_LOGUEADO) return false;
+		const tela = getSelectedTela();
+		const encaje = getSelectedEncaje();
+		if(!tela || !tela.id) return false;
+		if(!encaje) return false;
+		if(!citaFecha || !citaHora) return false;
+		if(!citaFecha.value) return false;
+		if(!citaHora.value) return false;
+		return true;
+	}
+
+	function refreshSubmitState(){
+		if(!btnEnviar) return;
+		btnEnviar.disabled = !canSubmit();
+	}
+
+	function setActiveTab(step){
+		if(!wizardTabs) return;
+		qsa('#wizardTabs li[data-step]').forEach(li => {
+			const s = Number(li.getAttribute('data-step'));
+			if(s === step) li.classList.add('is-active');
+			else li.classList.remove('is-active');
+		});
+	}
+
+	function showStep(step){
+		clearWizardMsg();
+		const s = Number(step);
+		if(!steps[s]) return;
+		Object.keys(steps).forEach(k => {
+			const el = steps[k];
+			if(!el) return;
+			el.style.display = (Number(k) === s) ? '' : 'none';
+		});
+		currentStep = s;
+		setActiveTab(s);
+
+		// Recalcular renders al mostrar el paso 2 (canvas suele medir 0 si estaba oculto)
+		if(s === 2){
+			setTimeout(() => {
+				if(fabricPreview) fabricPreview.resize();
+				if(dressScene) dressScene.resize();
+			}, 60);
+		}
+		if(s === 3){
+			setTimeout(() => {
+				if(encajeCarousel){
+					encajeCarousel.scrollLeft = 0;
+				}
+			}, 10);
+		}
+		updateResumen();
+		refreshSubmitState();
 	}
 
 	function resolveTextureUrl(url){
@@ -278,6 +426,8 @@
 		if(metrosTexto) metrosTexto.textContent = formatMeters(metros);
 		const p = Number(precioPorMetro);
 		if(totalTexto) totalTexto.textContent = (isFinite(p) ? formatMoney(metros * p) : '—');
+		updateResumen();
+		refreshSubmitState();
 	}
 
 	function syncModalFabric(){
@@ -310,7 +460,8 @@
 
 	// Cuando se abre el modal, sincronizar la tela y ajustar el renderer
 	document.addEventListener('click', (e) => {
-		const btn = (e.target && e.target.closest) ? e.target.closest('.js-modal-trigger') : null;
+		const el = eventTargetElement(e);
+		const btn = (el && el.closest) ? el.closest('.js-modal-trigger') : null;
 		if(!btn) return;
 		const targetId = btn.getAttribute('data-target') || '';
 		// Dar tiempo a que Bulma muestre el modal
@@ -385,6 +536,36 @@
 		}
 	}
 
+	async function cargarEncajes(){
+		try{
+			if(encajeCarousel){
+				encajeCarousel.innerHTML = '<div class="notification is-light">Cargando encajes...</div>';
+			}
+			const fd = new FormData();
+			fd.append('modulo_encaje','listarPublico');
+			const res = await fetch((window.APP_URL || '') + 'app/ajax/encajeAjax.php', { method: 'POST', body: fd });
+			const json = await res.json();
+			if(!json || json.ok !== true){
+				if(encajeCarousel){
+					encajeCarousel.innerHTML = '<div class="notification is-warning">No se pudieron cargar los encajes.</div>';
+				}
+				ENCAJES = [];
+				updateResumen();
+				refreshSubmitState();
+				return;
+			}
+			ENCAJES = Array.isArray(json.data) ? json.data : [];
+			renderEncajes();
+		}catch(err){
+			if(encajeCarousel){
+				encajeCarousel.innerHTML = '<div class="notification is-warning">No se pudieron cargar los encajes.</div>';
+			}
+			ENCAJES = [];
+			updateResumen();
+			refreshSubmitState();
+		}
+	}
+
 	function applySelection(radio){
 		const textura = radio.getAttribute('data-textura');
 		const precio = radio.getAttribute('data-precio');
@@ -396,6 +577,222 @@
 		if(dressPreviewModal) dressPreviewModal.setFabric(textura, seed);
 	}
 
+	function renderEncajes(){
+		if(!encajeCarousel) return;
+		encajeCarousel.innerHTML = '';
+		const base = (window.APP_URL || '').replace(/\/$/, '');
+		const defaultImg = base + '/app/views/productos/default.png';
+
+		if(!Array.isArray(ENCAJES) || ENCAJES.length === 0){
+			encajeCarousel.innerHTML = '<div class="notification is-light">No hay encajes activos para mostrar.</div>';
+			if(encajeSelTexto) encajeSelTexto.textContent = '—';
+			updateResumen();
+			refreshSubmitState();
+			return;
+		}
+
+		ENCAJES.forEach((e, idx) => {
+			const card = document.createElement('div');
+			card.className = 'card encaje-card';
+
+			const rawImg = String(e.encaje_imagen || '').trim();
+			const imgUrl = rawImg ? (base + '/' + rawImg.replace(/^\.\//, '')) : defaultImg;
+			const id = String(e.encaje_id || '');
+			const nombre = String(e.encaje_nombre || 'Encaje');
+			const precio = Number(e.encaje_precio);
+
+			card.innerHTML =
+				'<div class="card-image">' +
+					'<figure class="image is-4by3">' +
+						'<img src="' + imgUrl.replace(/"/g,'') + '" alt="" loading="lazy" onerror="this.onerror=null;this.src=\'' + defaultImg + '\'' + ';">' +
+					'</figure>' +
+				'</div>' +
+				'<div class="card-content" style="padding: .9rem;">' +
+					'<label class="radio" style="display:block;">' +
+						'<input type="radio" name="encaje_id" value="' + id.replace(/"/g,'') + '" ' + (idx===0 ? 'checked' : '') + '> ' +
+						'<strong>' + escapeHtml(nombre) + '</strong>' +
+						'<span class="is-pulled-right">' + escapeHtml(formatMoney(precio)) + '</span>' +
+					'</label>' +
+					'<p class="mt-2 mb-0 has-text-grey is-size-7">Precio por 1.5 m</p>' +
+				'</div>';
+
+			encajeCarousel.appendChild(card);
+		});
+
+		const updateEncajeTexto = () => {
+			const enc = getSelectedEncaje();
+			if(encajeSelTexto){
+				encajeSelTexto.textContent = enc ? (String(enc.encaje_nombre || '') + ' — ' + formatMoney(enc.encaje_precio) + ' / 1.5 m') : '—';
+			}
+			updateResumen();
+			refreshSubmitState();
+		};
+
+		updateEncajeTexto();
+		document.addEventListener('change', (ev) => {
+			const t = ev.target;
+			if(t && t.matches && t.matches('input[type="radio"][name="encaje_id"]')){
+				updateEncajeTexto();
+			}
+		});
+	}
+
+	function initCarouselControls(){
+		if(!encajeCarousel) return;
+		const scrollBy = (dir) => {
+			const amount = 260;
+			encajeCarousel.scrollBy({ left: dir * amount, behavior: 'smooth' });
+		};
+		if(encajePrevBtn) encajePrevBtn.addEventListener('click', () => scrollBy(-1));
+		if(encajeNextBtn) encajeNextBtn.addEventListener('click', () => scrollBy(1));
+	}
+
+	function initWizardNav(){
+		// Tabs click
+		if(wizardTabs){
+			wizardTabs.addEventListener('click', (e) => {
+				const el = eventTargetElement(e);
+				const li = (el && el.closest) ? el.closest('li[data-step]') : null;
+				if(!li) return;
+				const step = Number(li.getAttribute('data-step'));
+				if(!step) return;
+				showStep(step);
+			});
+		}
+
+		// Next/prev buttons
+		document.addEventListener('click', (e) => {
+			const el = eventTargetElement(e);
+			const next = (el && el.closest) ? el.closest('[data-next-step]') : null;
+			const prev = (el && el.closest) ? el.closest('[data-prev-step]') : null;
+			if(next){
+				const step = Number(next.getAttribute('data-next-step'));
+				if(step) showStep(step);
+			}
+			if(prev){
+				const step = Number(prev.getAttribute('data-prev-step'));
+				if(step) showStep(step);
+			}
+		});
+	}
+
+	function initCita(){
+		if(!citaFecha || !citaHora || !citaHelp) return;
+		const today = new Date();
+		const y = today.getFullYear();
+		const m = String(today.getMonth()+1).padStart(2,'0');
+		const d = String(today.getDate()).padStart(2,'0');
+		citaFecha.min = `${y}-${m}-${d}`;
+
+		const resetTimes = (msg) => {
+			citaHora.innerHTML = `<option value="">${msg}</option>`;
+			citaHora.disabled = true;
+			refreshSubmitState();
+		};
+
+		const loadTimes = async () => {
+			const fecha = citaFecha.value;
+			if(!fecha){
+				citaHelp.textContent = 'Horario: 10:00 am a 07:00 pm';
+				return resetTimes('Selecciona una fecha primero');
+			}
+
+			citaHelp.textContent = 'Cargando horarios disponibles...';
+			citaHora.innerHTML = '<option value="">Cargando...</option>';
+			citaHora.disabled = true;
+			refreshSubmitState();
+
+			try{
+				const fd = new FormData();
+				fd.append('modulo_reserva','horarios');
+				fd.append('cita_fecha', fecha);
+
+				const resp = await fetch((window.APP_URL || '') + 'app/ajax/reservaAjax.php', {
+					method: 'POST',
+					body: fd
+				});
+				const json = await resp.json();
+				if(!json || json.ok !== true){
+					citaHelp.textContent = (json && json.mensaje) ? json.mensaje : 'No se pudieron cargar horarios';
+					return resetTimes('Sin horarios');
+				}
+
+				const available = Array.isArray(json.available) ? json.available : [];
+				if(available.length === 0){
+					citaHelp.textContent = 'No hay horarios disponibles para esta fecha';
+					return resetTimes('Sin horarios disponibles');
+				}
+
+				citaHora.innerHTML = '<option value="">Selecciona una hora</option>' +
+					available.map(h => `<option value="${h}">${h}</option>`).join('');
+				citaHora.disabled = false;
+				citaHelp.textContent = 'Horario: 10:00 am a 07:00 pm';
+				refreshSubmitState();
+			}catch(e){
+				citaHelp.textContent = 'No se pudieron cargar horarios';
+				resetTimes('Sin horarios');
+			}
+		};
+
+		citaFecha.addEventListener('change', loadTimes);
+		citaHora.addEventListener('change', refreshSubmitState);
+	}
+
+	async function enviarSolicitud(){
+		if(!CLIENTE_LOGUEADO){
+			showWizardMsg('Debes iniciar sesión para enviar la solicitud.', 'warning');
+			return;
+		}
+
+		const tela = getSelectedTela();
+		const encaje = getSelectedEncaje();
+		if(!tela || !tela.id){
+			showWizardMsg('Selecciona una tela antes de enviar.', 'warning');
+			showStep(2);
+			return;
+		}
+		if(!encaje){
+			showWizardMsg('Selecciona un encaje antes de enviar.', 'warning');
+			showStep(3);
+			return;
+		}
+		if(!citaFecha || !citaHora || !citaFecha.value || !citaHora.value){
+			showWizardMsg('Selecciona fecha y hora de la cita.', 'warning');
+			return;
+		}
+
+		if(btnEnviar) btnEnviar.disabled = true;
+		showWizardMsg('Enviando solicitud...', 'info');
+
+		try{
+			const fd = new FormData();
+			fd.append('modulo_reserva', 'personalizada_crear');
+			fd.append('cita_fecha', citaFecha.value);
+			fd.append('cita_hora', citaHora.value);
+			fd.append('talla', tallaSel ? String(tallaSel.value || 'M') : 'M');
+			fd.append('tela_id', tela.id);
+			fd.append('encaje_id', String(encaje.encaje_id || ''));
+			fd.append('vestido_detalle', vestidoDetalle ? String(vestidoDetalle.value || '') : '');
+
+			const resp = await fetch((window.APP_URL || '') + 'app/ajax/reservaAjax.php', {
+				method: 'POST',
+				body: fd
+			});
+			const json = await resp.json();
+			if(!json || json.ok !== true){
+				showWizardMsg((json && json.mensaje) ? json.mensaje : 'No se pudo enviar la solicitud.', 'danger');
+				refreshSubmitState();
+				return;
+			}
+
+			showWizardMsg(json.mensaje || 'Solicitud enviada. Te contactaremos pronto.', 'success');
+			if(btnEnviar) btnEnviar.disabled = true;
+		}catch(e){
+			showWizardMsg('No se pudo enviar la solicitud. Intenta nuevamente.', 'danger');
+			refreshSubmitState();
+		}
+	}
+
 	function escapeHtml(str){
 		return String(str)
 			.replace(/&/g,'&amp;')
@@ -405,12 +802,23 @@
 			.replace(/\'/g,'&#039;');
 	}
 
-	document.addEventListener('DOMContentLoaded', cargarTelas);
+	document.addEventListener('DOMContentLoaded', () => {
+		cargarTelas();
+		cargarEncajes();
+		initCarouselControls();
+		initWizardNav();
+		initCita();
+		showStep(1);
+		if(btnEnviar){
+			btnEnviar.addEventListener('click', enviarSolicitud);
+		}
+	});
 	if(tallaSel){
 		tallaSel.addEventListener('change', () => {
 			const sel = currentSelection();
 			if(sel) applySelection(sel);
 			else refreshSummary(NaN);
+			refreshSubmitState();
 		});
 	}
 })();

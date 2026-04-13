@@ -9,6 +9,7 @@ use app\services\BisaQrService;
 class reservationController extends mainModel{
 
     private static $reservaTallaColDisponible = null;
+	private static $tablaSolicitudPersonalizadaDisponible = null;
 
     private function columnaReservaTallaDisponible(): bool{
         if(self::$reservaTallaColDisponible !== null){
@@ -657,7 +658,8 @@ class reservationController extends mainModel{
 
     private function obtenerHorasOcupadas($fechaYmd){
         if(!$this->tablaReservaExiste()){
-            return [];
+            // Aún si no existe la tabla reserva, puede existir la tabla de solicitudes personalizadas.
+            return $this->obtenerHorasOcupadasSolicitudesPersonalizadas($fechaYmd);
         }
         try{
             $stmt = $this->conectar()->prepare("SELECT reserva_hora FROM reserva WHERE reserva_fecha=:f AND reserva_estado<>'rechazada'");
@@ -665,7 +667,7 @@ class reservationController extends mainModel{
             $stmt->execute();
             $rows = $stmt->fetchAll(\PDO::FETCH_COLUMN);
             if(!is_array($rows)){
-                return [];
+                $rows = [];
             }
             $out = [];
             foreach($rows as $h){
@@ -674,9 +676,527 @@ class reservationController extends mainModel{
                     $out[] = $nh;
                 }
             }
+
+            // Agregar citas de solicitudes personalizadas
+            $extra = $this->obtenerHorasOcupadasSolicitudesPersonalizadas($fechaYmd);
+            if(!empty($extra)){
+                $out = array_merge($out, $extra);
+            }
+
+            return array_values(array_unique($out));
+        }catch(\Throwable $e){
+            return $this->obtenerHorasOcupadasSolicitudesPersonalizadas($fechaYmd);
+        }
+    }
+
+    private function tablaSolicitudPersonalizadaExiste(): bool{
+        if(self::$tablaSolicitudPersonalizadaDisponible !== null){
+            return (bool)self::$tablaSolicitudPersonalizadaDisponible;
+        }
+        try{
+            $check = $this->ejecutarConsulta("SHOW TABLES LIKE 'solicitud_personalizada'");
+            self::$tablaSolicitudPersonalizadaDisponible = ($check && $check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            self::$tablaSolicitudPersonalizadaDisponible = false;
+        }
+        return (bool)self::$tablaSolicitudPersonalizadaDisponible;
+    }
+
+    private function crearTablaSolicitudPersonalizadaSiNoExiste(): bool{
+        try{
+            $ok = $this->ejecutarConsulta(
+                "CREATE TABLE IF NOT EXISTS `solicitud_personalizada` (
+                    `solicitud_id` INT NOT NULL AUTO_INCREMENT,
+                    `cliente_id` INT NOT NULL,
+                    `cita_fecha` DATE NOT NULL,
+                    `cita_hora` VARCHAR(12) NOT NULL,
+                    `talla` VARCHAR(10) NULL,
+                    `tela_id` INT NOT NULL,
+                    `tela_nombre` VARCHAR(80) NOT NULL,
+                    `tela_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    `metros_estimados` DECIMAL(10,1) NOT NULL DEFAULT 0.0,
+                    `encaje_id` INT NULL,
+                    `encaje_key` VARCHAR(80) NOT NULL,
+                    `encaje_nombre` VARCHAR(140) NOT NULL,
+                    `encaje_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                    `vestido_detalle` VARCHAR(500) NULL,
+                    `estado` VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+                    `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`solicitud_id`),
+                    KEY `idx_fecha_hora` (`cita_fecha`, `cita_hora`),
+                    KEY `idx_cliente` (`cliente_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8"
+            );
+            self::$tablaSolicitudPersonalizadaDisponible = true;
+            return ($ok !== false);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    private function columnaExiste(string $tabla, string $columna): bool{
+        try{
+            $stmt = $this->conectar()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :c");
+            $stmt->bindValue(':c', $columna);
+            $stmt->execute();
+            return ($stmt->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    private function asegurarColumnaEncajeIdSolicitudPersonalizada(): void{
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return;
+        }
+        if($this->columnaExiste('solicitud_personalizada', 'encaje_id')){
+            return;
+        }
+        try{
+            $this->ejecutarConsulta("ALTER TABLE solicitud_personalizada ADD COLUMN encaje_id INT NULL AFTER metros_estimados");
+        }catch(\Throwable $e){
+            // Sin permisos / no soportado: ignorar
+        }
+    }
+
+    private function tablaEncajeExiste(): bool{
+        try{
+            $check = $this->ejecutarConsulta("SHOW TABLES LIKE 'encaje'");
+            return ($check && $check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    private function obtenerEncajeActivoPorId(int $encajeId): ?array{
+        if($encajeId <= 0){
+            return null;
+        }
+        if(!$this->tablaEncajeExiste()){
+            return null;
+        }
+        try{
+            $stmt = $this->conectar()->prepare('SELECT encaje_id, encaje_nombre, encaje_precio FROM encaje WHERE encaje_id=:id AND encaje_activo=1 LIMIT 1');
+            $stmt->bindValue(':id', $encajeId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $row = $stmt->fetch();
+            return $row ? $row : null;
+        }catch(\Throwable $e){
+            return null;
+        }
+    }
+
+    private function obtenerHorasOcupadasSolicitudesPersonalizadas(string $fechaYmd): array{
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return [];
+        }
+        try{
+            $stmt = $this->conectar()->prepare("SELECT cita_hora FROM solicitud_personalizada WHERE cita_fecha=:f AND estado<>'cancelada'");
+            $stmt->bindParam(':f', $fechaYmd);
+            $stmt->execute();
+            $rows = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+            if(!is_array($rows)){
+                return [];
+            }
+            $out = [];
+            foreach($rows as $h){
+                $nh = $this->normalizarHora12((string)$h);
+                if($nh !== ''){
+                    $out[] = $nh;
+                }
+            }
             return array_values(array_unique($out));
         }catch(\Throwable $e){
             return [];
+        }
+    }
+
+    private function estimarMetrosPorTalla(string $talla): float{
+        $talla = strtoupper(trim($talla));
+        $baseBySize = [
+            'XS' => 2.4,
+            'S' => 2.6,
+            'M' => 2.8,
+            'L' => 3.0,
+            'XL' => 3.2,
+            'XXL' => 3.4,
+        ];
+        $base = $baseBySize[$talla] ?? $baseBySize['M'];
+        $mult = 1.15;
+        $metros = $base * $mult;
+        return round($metros, 1);
+    }
+
+    private function encajesPermitidos(): array{
+        return [
+            'rosas_piedras_color' => ['nombre' => 'Rosas con piedras del color del vestido', 'precio' => 450.00],
+            'rosas_brillo_plateado' => ['nombre' => 'Rosas con brillo pedrería plateada', 'precio' => 570.00],
+            'ramas_pedreria_plateada' => ['nombre' => 'Ramas con pedrería plateada', 'precio' => 570.00],
+            'bordado_pedreria' => ['nombre' => 'Bordado con pedrería', 'precio' => 525.00],
+            'encaje_3d' => ['nombre' => 'Encaje en 3D', 'precio' => 450.00],
+            'vipiur_hojas' => ['nombre' => 'Vipiur de hojas', 'precio' => 525.00],
+            'vipiur_hojas_3d' => ['nombre' => 'Vipiur hojas 3D', 'precio' => 525.00],
+            'encaje_sin_pedreria' => ['nombre' => 'Encaje sin pedrería', 'precio' => 450.00],
+            'vipiur_rosas_poca_pedreria' => ['nombre' => 'Vipiur de rosas con poca pedrería', 'precio' => 450.00],
+            'pedreria_rosas_pura_piedra' => ['nombre' => 'Pedrería diseñada de rosas (pura piedra)', 'precio' => 525.00],
+        ];
+    }
+
+    private function obtenerEmailAdminDestino(): string{
+        // 1) Empresa (configurable desde el sistema)
+        try{
+            $empresaStmt = $this->ejecutarConsulta('SELECT empresa_email FROM empresa LIMIT 1');
+            if($empresaStmt && $empresaStmt->rowCount() >= 1){
+                $row = $empresaStmt->fetch();
+                $email = trim((string)($row['empresa_email'] ?? ''));
+                if($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)){
+                    return $email;
+                }
+            }
+        }catch(\Throwable $e){
+            // ignore
+        }
+
+        // 2) Fallback a config/mail.php (from email)
+        try{
+            $path = __DIR__ . '/../../config/mail.php';
+            if(is_file($path)){
+                $cfg = require $path;
+                if(is_array($cfg)){
+                    $from = $cfg['from'] ?? [];
+                    if(is_array($from)){
+                        $email = trim((string)($from['email'] ?? ''));
+                        if($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)){
+                            return $email;
+                        }
+                    }
+                }
+            }
+        }catch(\Throwable $e){
+            // ignore
+        }
+        return '';
+    }
+
+    private function tablaTelaExiste(): bool{
+        try{
+            $check = $this->ejecutarConsulta("SHOW TABLES LIKE 'tela'");
+            return ($check && $check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    public function crearSolicitudPersonalizadaControlador(){
+        if(!isset($_SESSION['cliente_id']) || (int)$_SESSION['cliente_id'] <= 0){
+            return json_encode(['ok' => false, 'mensaje' => 'Debes iniciar sesión para enviar la solicitud']);
+        }
+
+        $clienteId = (int)$_SESSION['cliente_id'];
+        $fecha = $this->limpiarCadena($_POST['cita_fecha'] ?? '');
+        $horaIn = (string)($_POST['cita_hora'] ?? '');
+        $talla = $this->limpiarCadena($_POST['talla'] ?? 'M');
+        $telaId = (int)($this->limpiarCadena($_POST['tela_id'] ?? '0'));
+        $encajeId = (int)($this->limpiarCadena($_POST['encaje_id'] ?? '0'));
+        $encajeKey = $this->limpiarCadena($_POST['encaje_key'] ?? '');
+        $detalle = $this->limpiarCadena($_POST['vestido_detalle'] ?? '');
+
+        if($fecha==='' || !$this->fechaYmdValida($fecha)){
+            return json_encode(['ok'=>false,'mensaje'=>'Fecha inválida']);
+        }
+
+        $hoy = date('Y-m-d');
+        if($fecha < $hoy){
+            return json_encode(['ok'=>false,'mensaje'=>'No puedes elegir una fecha pasada']);
+        }
+        if($this->esDomingo($fecha)){
+            return json_encode(['ok'=>false,'mensaje'=>'Los domingos no atendemos']);
+        }
+        if($this->esFeriado($fecha)){
+            return json_encode(['ok'=>false,'mensaje'=>'Este día es feriado y no está disponible']);
+        }
+
+        $hora = $this->normalizarHoraCita($horaIn);
+        if($hora === null){
+            return json_encode(['ok'=>false,'mensaje'=>'Hora inválida']);
+        }
+
+        if($telaId <= 0){
+            return json_encode(['ok'=>false,'mensaje'=>'Debes seleccionar una tela']);
+        }
+
+        $encajeNombre = '';
+        $encajePrecio = 0.0;
+        $encajeRow = $this->obtenerEncajeActivoPorId($encajeId);
+        if($encajeRow){
+            $encajeNombre = (string)($encajeRow['encaje_nombre'] ?? '');
+            $encajePrecio = (float)($encajeRow['encaje_precio'] ?? 0);
+            // Para compatibilidad: guardamos un "key" basado en ID
+            $encajeKey = (string)$encajeId;
+        }else{
+            // Fallback por si aún se envía encaje_key hardcode
+            $encajes = $this->encajesPermitidos();
+            if($encajeKey==='' || !isset($encajes[$encajeKey])){
+                return json_encode(['ok'=>false,'mensaje'=>'Debes seleccionar un encaje válido']);
+            }
+            $encajeNombre = (string)$encajes[$encajeKey]['nombre'];
+            $encajePrecio = (float)$encajes[$encajeKey]['precio'];
+            $encajeId = 0;
+        }
+
+        // Validar hora contra reglas actuales
+        $permitidos = $this->generarHorariosPermitidos();
+        if(!in_array($hora, $permitidos, true)){
+            return json_encode(['ok'=>false,'mensaje'=>'La hora seleccionada no está permitida']);
+        }
+        $ocupados = $this->obtenerHorasOcupadas($fecha);
+        if(in_array($hora, $ocupados, true)){
+            return json_encode(['ok'=>false,'mensaje'=>'Ese horario ya no está disponible']);
+        }
+        $bloqueados = $this->obtenerHorasBloqueadas($fecha);
+        if(in_array($hora, $bloqueados, true)){
+            return json_encode(['ok'=>false,'mensaje'=>'Ese horario no está disponible']);
+        }
+        if($fecha === $hoy){
+            $nowMinutes = ((int)date('H'))*60 + (int)date('i');
+            $hm = $this->minutosDeHora12($hora);
+            if($hm !== null && $hm < $nowMinutes){
+                return json_encode(['ok'=>false,'mensaje'=>'Ese horario ya pasó']);
+            }
+        }
+
+        // Obtener datos de tela
+        if(!$this->tablaTelaExiste()){
+            return json_encode(['ok'=>false,'mensaje'=>'No está configurado el inventario de telas']);
+        }
+        try{
+            $stmtTela = $this->conectar()->prepare('SELECT tela_id, tela_nombre, tela_precio FROM tela WHERE tela_id=:id AND tela_activo=1 LIMIT 1');
+            $stmtTela->bindValue(':id', $telaId, \PDO::PARAM_INT);
+            $stmtTela->execute();
+            $telaRow = $stmtTela->fetch();
+            if(!$telaRow){
+                return json_encode(['ok'=>false,'mensaje'=>'La tela seleccionada no existe o está inactiva']);
+            }
+        }catch(\Throwable $e){
+            return json_encode(['ok'=>false,'mensaje'=>'No se pudo validar la tela']);
+        }
+
+        $telaNombre = (string)($telaRow['tela_nombre'] ?? '');
+        $telaPrecio = (float)($telaRow['tela_precio'] ?? 0);
+        $metros = $this->estimarMetrosPorTalla($talla);
+
+
+        if(!$this->crearTablaSolicitudPersonalizadaSiNoExiste()){
+            return json_encode(['ok'=>false,'mensaje'=>'No se pudo crear la tabla de solicitudes. Verifica tu BD.']);
+        }
+
+        $this->asegurarColumnaEncajeIdSolicitudPersonalizada();
+        $tieneEncajeId = $this->columnaExiste('solicitud_personalizada', 'encaje_id');
+
+        $pdo = null;
+        try{
+            $pdo = $this->conectar();
+            $pdo->beginTransaction();
+
+            $sql = 'INSERT INTO solicitud_personalizada (cliente_id, cita_fecha, cita_hora, talla, tela_id, tela_nombre, tela_precio, metros_estimados';
+            if($tieneEncajeId){
+                $sql .= ', encaje_id';
+            }
+            $sql .= ', encaje_key, encaje_nombre, encaje_precio, vestido_detalle, estado) VALUES (:cid, :f, :h, :talla, :tela_id, :tela_nombre, :tela_precio, :metros';
+            if($tieneEncajeId){
+                $sql .= ', :encaje_id';
+            }
+            $sql .= ', :ek, :en, :ep, :det, \'pendiente\')';
+
+            $ins = $pdo->prepare($sql);
+            $ins->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $ins->bindValue(':f', $fecha);
+            $ins->bindValue(':h', $hora);
+            $ins->bindValue(':talla', $talla);
+            $ins->bindValue(':tela_id', $telaId, \PDO::PARAM_INT);
+            $ins->bindValue(':tela_nombre', $telaNombre);
+            $ins->bindValue(':tela_precio', $telaPrecio);
+            $ins->bindValue(':metros', $metros);
+            if($tieneEncajeId){
+                $ins->bindValue(':encaje_id', $encajeId > 0 ? $encajeId : null, $encajeId > 0 ? \PDO::PARAM_INT : \PDO::PARAM_NULL);
+            }
+            $ins->bindValue(':ek', $encajeKey);
+            $ins->bindValue(':en', $encajeNombre);
+            $ins->bindValue(':ep', $encajePrecio);
+            $ins->bindValue(':det', $detalle);
+            $ins->execute();
+            $solId = (int)$pdo->lastInsertId();
+
+            $pdo->commit();
+
+            // Correo al administrador (best-effort)
+            try{
+                $adminEmail = $this->obtenerEmailAdminDestino();
+                if($adminEmail !== ''){
+                    $cliStmt = $this->conectar()->prepare('SELECT cliente_nombre, cliente_apellido, cliente_email FROM cliente WHERE cliente_id=:id LIMIT 1');
+                    $cliStmt->bindValue(':id', $clienteId, \PDO::PARAM_INT);
+                    $cliStmt->execute();
+                    $cli = $cliStmt->fetch();
+                    $cliNombre = trim((string)($cli['cliente_nombre'] ?? '').' '.(string)($cli['cliente_apellido'] ?? ''));
+                    $cliEmail = trim((string)($cli['cliente_email'] ?? ''));
+                    if($cliNombre === ''){ $cliNombre = 'Cliente'; }
+
+                    $subject = 'Nueva solicitud personalizada - '.(defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE');
+                    $telaCosto = $metros * $telaPrecio;
+                    $totalEstimado = $telaCosto + $encajePrecio;
+
+                    $html = "
+                        <div style=\"font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111;\">
+                            <p>Se registró una <strong>solicitud de vestido personalizado</strong>.</p>
+                            <ul>
+                                <li><strong>ID:</strong> ".htmlspecialchars((string)$solId,ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Cliente:</strong> ".htmlspecialchars($cliNombre,ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Email cliente:</strong> ".htmlspecialchars($cliEmail,ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Cita:</strong> ".htmlspecialchars($fecha.' '.$hora,ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Talla:</strong> ".htmlspecialchars($talla,ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Tela:</strong> ".htmlspecialchars($telaNombre,ENT_QUOTES,'UTF-8')." — ".htmlspecialchars(MONEDA_SIMBOLO.number_format($telaPrecio,2).' '.MONEDA_NOMBRE.' / m',ENT_QUOTES,'UTF-8')." — ".htmlspecialchars((string)$metros.' m aprox.',ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Encaje:</strong> ".htmlspecialchars($encajeNombre,ENT_QUOTES,'UTF-8')." — ".htmlspecialchars(MONEDA_SIMBOLO.number_format($encajePrecio,2).' '.MONEDA_NOMBRE.' / 1.5 m',ENT_QUOTES,'UTF-8')."</li>
+                                <li><strong>Total estimado:</strong> ".htmlspecialchars(MONEDA_SIMBOLO.number_format($totalEstimado,2).' '.MONEDA_NOMBRE,ENT_QUOTES,'UTF-8')."</li>
+                            </ul>
+                            <p><strong>Detalle del vestido:</strong><br>
+                                ".nl2br(htmlspecialchars($detalle !== '' ? $detalle : '—',ENT_QUOTES,'UTF-8'))."
+                            </p>
+                        </div>
+                    ";
+
+                    $mailer = new \app\services\MailService();
+                    $okMail = $mailer->sendHtml($adminEmail, $subject, $html);
+                    if(!$okMail){
+                        $err = $mailer->getLastError() ?: 'Falló envío (sin detalle)';
+                        error_log('[BOUTIQUE][MAIL] Fallo solicitud personalizada id='.$solId.' to='.$adminEmail.' :: '.$err);
+                    }
+                }
+            }catch(\Throwable $e){
+                error_log('[BOUTIQUE][MAIL] Excepción solicitud personalizada id='.$solId.' :: '.$e->getMessage());
+            }
+
+            return json_encode(['ok'=>true,'mensaje'=>'Solicitud enviada. Te contactaremos pronto.']);
+        }catch(\Throwable $e){
+            if($pdo instanceof \PDO){
+                try{ $pdo->rollBack(); }catch(\Throwable $x){ /* ignore */ }
+            }
+            return json_encode(['ok'=>false,'mensaje'=>'No se pudo registrar la solicitud']);
+        }
+    }
+
+    public function listarSolicitudesPersonalizadasAdminControlador(string $busqueda = '', string $estado = ''): string{
+        if(!$this->sesionEsAdmin()){
+            return "<article class='message is-danger'><div class='message-body'>Acceso restringido</div></article>";
+        }
+
+        $busqueda = trim($this->limpiarCadena($busqueda));
+        $estado = trim($this->limpiarCadena($estado));
+
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return "<article class='message is-warning'><div class='message-body'>Aún no hay solicitudes personalizadas registradas (o falta crear la tabla). Puedes crear la tabla ejecutando <strong>DB/solicitud_personalizada.sql</strong> o enviar una solicitud desde <strong>telasCliente</strong>.</div></article>";
+        }
+
+        $where = [];
+        $params = [];
+        if($estado !== ''){
+            $where[] = 'sp.estado = :estado';
+            $params[':estado'] = $estado;
+        }
+        if($busqueda !== ''){
+            $where[] = '(sp.solicitud_id = :idExact OR c.cliente_nombre LIKE :q OR c.cliente_apellido LIKE :q OR c.cliente_email LIKE :q)';
+            $params[':q'] = '%'.$busqueda.'%';
+            $params[':idExact'] = ctype_digit($busqueda) ? (int)$busqueda : -1;
+        }
+
+        $whereSql = '';
+        if(!empty($where)){
+            $whereSql = 'WHERE '.implode(' AND ', $where);
+        }
+
+        try{
+            $sql = "SELECT sp.solicitud_id, sp.cita_fecha, sp.cita_hora, sp.talla, sp.tela_nombre, sp.tela_precio, sp.metros_estimados,
+                sp.encaje_nombre, sp.encaje_precio, sp.vestido_detalle, sp.estado, sp.creado_en,
+                c.cliente_nombre, c.cliente_apellido, c.cliente_email
+                FROM solicitud_personalizada sp
+                INNER JOIN cliente c ON c.cliente_id = sp.cliente_id
+                {$whereSql}
+                ORDER BY sp.solicitud_id DESC
+                LIMIT 200";
+
+            $stmt = $this->conectar()->prepare($sql);
+            foreach($params as $k => $v){
+                if($k === ':idExact'){
+                    $stmt->bindValue($k, (int)$v, \PDO::PARAM_INT);
+                }else{
+                    $stmt->bindValue($k, $v);
+                }
+            }
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+            if(!is_array($rows) || empty($rows)){
+                return "<article class='message is-light'><div class='message-body'>Sin resultados.</div></article>";
+            }
+
+            $html = "";
+            $html .= "<div class='table-container'>";
+            $html .= "<table class='table is-fullwidth is-striped is-hoverable'>";
+            $html .= "<thead><tr>";
+            $html .= "<th>ID</th><th>Cliente</th><th>Contacto</th><th>Cita</th><th>Tela</th><th>Encaje</th><th>Estado</th><th>Detalle</th><th>Creado</th>";
+            $html .= "</tr></thead><tbody>";
+
+            foreach($rows as $r){
+                $id = (int)($r['solicitud_id'] ?? 0);
+                $cliente = trim((string)($r['cliente_nombre'] ?? '').' '.(string)($r['cliente_apellido'] ?? ''));
+                $email = (string)($r['cliente_email'] ?? '');
+                $cita = trim((string)($r['cita_fecha'] ?? '').' '.(string)($r['cita_hora'] ?? ''));
+                $talla = (string)($r['talla'] ?? '');
+                $tela = (string)($r['tela_nombre'] ?? '');
+                $telaPrecio = (float)($r['tela_precio'] ?? 0);
+                $metros = (float)($r['metros_estimados'] ?? 0);
+                $encaje = (string)($r['encaje_nombre'] ?? '');
+                $encajePrecio = (float)($r['encaje_precio'] ?? 0);
+                $est = (string)($r['estado'] ?? '');
+                $detalle = (string)($r['vestido_detalle'] ?? '');
+                $creado = (string)($r['creado_en'] ?? '');
+
+                $detalleSafe = htmlspecialchars($detalle !== '' ? $detalle : '—', ENT_QUOTES, 'UTF-8');
+                $clienteSafe = htmlspecialchars($cliente !== '' ? $cliente : '—', ENT_QUOTES, 'UTF-8');
+                $emailSafe = htmlspecialchars($email !== '' ? $email : '—', ENT_QUOTES, 'UTF-8');
+                $citaSafe = htmlspecialchars($cita !== '' ? $cita : '—', ENT_QUOTES, 'UTF-8');
+                $tallaSafe = htmlspecialchars($talla !== '' ? $talla : '—', ENT_QUOTES, 'UTF-8');
+                $telaSafe = htmlspecialchars($tela, ENT_QUOTES, 'UTF-8');
+                $encajeSafe = htmlspecialchars($encaje, ENT_QUOTES, 'UTF-8');
+                $estSafe = htmlspecialchars($est !== '' ? $est : '—', ENT_QUOTES, 'UTF-8');
+                $creadoSafe = htmlspecialchars($creado !== '' ? $creado : '—', ENT_QUOTES, 'UTF-8');
+
+                $telaTxt = $telaSafe;
+                if($tela !== ''){
+                    $telaTxt .= "<br><small>".htmlspecialchars(MONEDA_SIMBOLO.number_format($telaPrecio,2)." ".MONEDA_NOMBRE." / m",ENT_QUOTES,'UTF-8')."</small>";
+                    $telaTxt .= "<br><small>".htmlspecialchars(number_format($metros,1)." m aprox.",ENT_QUOTES,'UTF-8')."</small>";
+                }
+                $encajeTxt = $encajeSafe;
+                if($encaje !== ''){
+                    $encajeTxt .= "<br><small>".htmlspecialchars(MONEDA_SIMBOLO.number_format($encajePrecio,2)." ".MONEDA_NOMBRE." / 1.5 m",ENT_QUOTES,'UTF-8')."</small>";
+                }
+
+                $html .= "<tr>";
+                $html .= "<td>".htmlspecialchars((string)$id,ENT_QUOTES,'UTF-8')."</td>";
+                $html .= "<td>{$clienteSafe}<br><small>Talla: {$tallaSafe}</small></td>";
+                $html .= "<td>{$emailSafe}</td>";
+                $html .= "<td>{$citaSafe}</td>";
+                $html .= "<td>{$telaTxt}</td>";
+                $html .= "<td>{$encajeTxt}</td>";
+                $html .= "<td><span class='tag is-light'>${estSafe}</span></td>";
+                $html .= "<td style='max-width: 420px; white-space: normal;'>".nl2br($detalleSafe)."</td>";
+                $html .= "<td>{$creadoSafe}</td>";
+                $html .= "</tr>";
+            }
+
+            $html .= "</tbody></table></div>";
+            $html .= "<p class='help'>Mostrando hasta 200 registros (los más recientes).</p>";
+            return $html;
+        }catch(\Throwable $e){
+            return "<article class='message is-danger'><div class='message-body'>No se pudo cargar la lista.</div></article>";
         }
     }
 

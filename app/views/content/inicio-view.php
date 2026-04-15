@@ -81,12 +81,12 @@
 					<span>Cerrar sesión</span>
 				</a>
 			<?php }else{ ?>
-				<a class="inicio-login-btn" href="<?php echo APP_URL; ?>clienteLogin/">
+				<a class="inicio-login-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/" data-auth-intent="login" data-redirect-to="inicio/">
 					<i class="fas fa-sign-in-alt"></i>
 					<span>Iniciar sesión</span>
 				</a>
 
-				<a class="inicio-register-btn" href="<?php echo APP_URL; ?>registroCliente/">
+				<a class="inicio-register-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/" data-auth-intent="register" data-redirect-to="inicio/">
 					<i class="fas fa-user-plus"></i>
 					<span>Registrar</span>
 				</a>
@@ -251,6 +251,13 @@
 	</button>
 
 </div>
+
+<?php
+	if(!$clienteLogueado){
+		$cliente_auth_redirect_to = 'inicio/';
+		require_once "./app/views/inc/cliente_auth_modal.php";
+	}
+?>
 
 <style>
 .inicio-wrapper{
@@ -925,25 +932,39 @@ document.addEventListener('DOMContentLoaded', function(){
 		let startX = 0;
 		let startScrollLeft = 0;
 		let moved = false;
+		let isDragging = false;
 		let suppressClickUntil = 0;
+		let capturedPointerId = null;
 
 		fila.addEventListener('pointerdown', function(e){
 			if(e.pointerType === 'mouse' && e.button !== 0) return;
 			isDown = true;
 			moved = false;
+			isDragging = false;
+			capturedPointerId = null;
 			startX = e.clientX;
 			startScrollLeft = fila.scrollLeft;
-			fila.classList.add('is-dragging');
 			pauseAuto();
-			try{ fila.setPointerCapture(e.pointerId); }catch(err){}
 		});
 
 		fila.addEventListener('pointermove', function(e){
 			if(!isDown) return;
 			const dx = e.clientX - startX;
-			if(Math.abs(dx) > 6){
+
+			// No bloquear el click: solo empezar el arrastre cuando el movimiento supera el umbral
+			if(!isDragging){
+				if(Math.abs(dx) <= 6){
+					return;
+				}
+				isDragging = true;
 				moved = true;
+				fila.classList.add('is-dragging');
+				try{
+					fila.setPointerCapture(e.pointerId);
+					capturedPointerId = e.pointerId;
+				}catch(err){}
 			}
+
 			fila.scrollLeft = startScrollLeft - dx;
 			e.preventDefault();
 		});
@@ -955,8 +976,12 @@ document.addEventListener('DOMContentLoaded', function(){
 			if(moved){
 				suppressClickUntil = Date.now() + 350;
 			}
+			isDragging = false;
 			resumeAutoSoon();
-			try{ fila.releasePointerCapture(e.pointerId); }catch(err){}
+			if(capturedPointerId !== null){
+				try{ fila.releasePointerCapture(capturedPointerId); }catch(err){}
+				capturedPointerId = null;
+			}
 		};
 		fila.addEventListener('pointerup', endDrag);
 		fila.addEventListener('pointercancel', endDrag);

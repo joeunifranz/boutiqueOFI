@@ -122,6 +122,19 @@
 		/*----------  Controlador redirigir a Google (cliente)  ----------*/
 		public function redirigirGoogleClienteControlador(){
 
+			$redirect_to = "";
+			if(isset($_GET['redirect_to'])){
+				$tmp = $this->limpiarCadena($_GET['redirect_to']);
+				if($tmp!="" && preg_match('/^[a-zA-Z0-9_\/-]{1,200}$/', $tmp)){
+					$redirect_to = $tmp;
+				}
+			}
+			if($redirect_to!==""){
+				$_SESSION['google_cliente_redirect_to'] = $redirect_to;
+			}else{
+				unset($_SESSION['google_cliente_redirect_to']);
+			}
+
 			$googleAuth = new GoogleClientAuth();
 
 			if(!$googleAuth->configuracionValida()){
@@ -218,10 +231,19 @@
 				$_SESSION['cliente_apellido'] = $check_cliente['cliente_apellido'];
 				$_SESSION['cliente_email']    = $check_cliente['cliente_email'];
 
+				$destino = APP_URL."productosCliente/";
+				if(isset($_SESSION['google_cliente_redirect_to'])){
+					$tmp = (string)$_SESSION['google_cliente_redirect_to'];
+					if($tmp!=="" && preg_match('/^[a-zA-Z0-9_\/-]{1,200}$/', $tmp)){
+						$destino = APP_URL.$tmp;
+					}
+					unset($_SESSION['google_cliente_redirect_to']);
+				}
+
 				if(headers_sent()){
-					echo "<script> window.location.href='".APP_URL."productosCliente/'; </script>";
+					echo "<script> window.location.href='".$destino."'; </script>";
 				}else{
-					header("Location: ".APP_URL."productosCliente/");
+					header("Location: ".$destino);
 				}
 				return;
 			}

@@ -291,9 +291,16 @@
 								<i class="fas fa-qrcode"></i> Reservar con 50%
 							</a>
 						<?php }else{ ?>
-							<a class="button is-danger is-fullwidth" href="<?php echo APP_URL; ?>reservaNueva/<?php echo (int)$producto['producto_id']; ?>/">
+							<button
+								type="button"
+								class="button is-danger is-fullwidth js-cliente-auth-open"
+								data-auth-intent="login"
+								data-auth-title="Para reservar necesitas una cuenta"
+								data-auth-subtitle="Regístrate o inicia sesión para continuar con tu reserva."
+								data-redirect-to="<?php echo htmlspecialchars('reservaNueva/'.(int)$producto['producto_id'].'/', ENT_QUOTES, 'UTF-8'); ?>"
+							>
 								<i class="fas fa-qrcode"></i> Reservar con 50%
-							</a>
+							</button>
 						<?php } ?>
 
 					</div>
@@ -324,6 +331,7 @@
 		</a>
 	</p>
 </div>	
+
 <style>
 .productos-publicos-wrapper{
 	overflow: hidden;

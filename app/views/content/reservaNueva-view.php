@@ -9,27 +9,24 @@ if(isset($url[1]) && $url[1]!==""){
 }
 
 if(!isset($_SESSION['cliente_id']) || $_SESSION['cliente_id']===""){
-    $redirect_to = ($id>0) ? "reservaNueva/".$id."/" : "productosCliente/";
-    echo "<div class='container py-6'>";
-    echo "  <div class='columns is-centered'>";
-    echo "    <div class='column is-7 is-6-desktop'>";
-    echo "      <div class='box reserva-auth-box has-text-centered'>";
-    echo "        <p class='title is-5 mb-2'>Para reservar necesitas una cuenta</p>";
-    echo "        <p class='has-text-grey mb-5'>Regístrate o inicia sesión para continuar con tu reserva.</p>";
-    echo "        <div class='buttons is-centered are-medium reserva-auth-actions'>";
-    echo "          <a class='button is-info is-rounded is-fullwidth-mobile' href='".APP_URL."registroCliente/?redirect_to=".urlencode($redirect_to)."'>Registrarme</a>";
-    echo "          <a class='button is-link is-light is-rounded is-fullwidth-mobile' href='".APP_URL."clienteLogin/?redirect_to=".urlencode($redirect_to)."'>Iniciar sesión</a>";
-    echo "        </div>";
-    echo "      </div>";
-    echo "    </div>";
-    echo "  </div>";
-    echo "</div>";
-	echo "<style>\n";
-	echo ".reserva-auth-box{ border-radius: 18px; border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 18px 45px rgba(0,0,0,0.10); }\n";
-	echo ".reserva-auth-actions .button{ min-width: 220px; }\n";
-	echo "@media (max-width: 768px){ .is-fullwidth-mobile{ width: 100%; } }\n";
-	echo "</style>";
-    return;
+	$redirect_to = ($id>0) ? "reservaNueva/".$id."/" : "productosCliente/";
+    $cliente_auth_redirect_to = $redirect_to;
+    $cliente_auth_title = 'Para reservar necesitas una cuenta';
+    $cliente_auth_subtitle = 'Regístrate o inicia sesión para continuar con tu reserva.';
+	require_once "./app/views/inc/navbar_cliente.php";
+    ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function(){
+            if(window.BoutiqueClienteAuthModalOpen){
+                window.BoutiqueClienteAuthModalOpen('login', <?php echo json_encode($redirect_to, JSON_UNESCAPED_SLASHES); ?>, {
+                    title: 'Para reservar necesitas una cuenta',
+                    subtitle: 'Regístrate o inicia sesión para continuar con tu reserva.'
+                });
+            }
+        });
+    </script>
+    <?php
+	return;
 }
 
 $insProducto = new productController();

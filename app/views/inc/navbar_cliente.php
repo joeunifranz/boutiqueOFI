@@ -81,8 +81,8 @@
 			<?php }else{ ?>
 				<div class="navbar-item">
 					<div class="buttons">
-						<a class="button is-light" href="<?php echo APP_URL; ?>clienteLogin/">Iniciar sesión</a>
-						<a class="button is-info" href="<?php echo APP_URL; ?>registroCliente/">Registrar</a>
+						<a class="button is-light js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/" data-auth-intent="login">Iniciar sesión</a>
+						<a class="button is-info js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/" data-auth-intent="register">Registrar</a>
 					</div>
 				</div>
 			<?php } ?>
@@ -138,11 +138,15 @@
 	})();
 </script>
 
+<?php
+	if(!$clienteLogueado){
+		require_once "./app/views/inc/cliente_auth_modal.php";
+	}
+?>
+
 <?php if(defined('AGENTE_IA_ENABLED') && AGENTE_IA_ENABLED === true){ ?>
 	<script>
-		// Base URL de la app para que el widget arme rutas internas
 		window.APP_URL = <?php echo json_encode(APP_URL, JSON_UNESCAPED_SLASHES); ?>;
-		// Identificador opcional de cliente para persistir el chat por usuario
 		window.BOUTIQUE_CLIENTE_ID = <?php echo json_encode((isset($_SESSION['cliente_id']) ? (int)$_SESSION['cliente_id'] : 0)); ?>;
 	</script>
 	<script src="<?php echo APP_URL; ?>agente_ia/agent.js"></script>

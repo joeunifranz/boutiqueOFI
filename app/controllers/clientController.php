@@ -234,7 +234,12 @@
 						$_SESSION['cliente_email']    = $nuevo_cliente['cliente_email'];
 					}
 
-					unset($_SESSION['google_cliente_email'], $_SESSION['google_cliente_nombre'], $_SESSION['google_cliente_apellido']);
+					unset(
+						$_SESSION['google_cliente_email'],
+						$_SESSION['google_cliente_nombre'],
+						$_SESSION['google_cliente_apellido'],
+						$_SESSION['google_cliente_redirect_to']
+					);
 
 					$alerta=[
 						"tipo"=>"redireccionar",

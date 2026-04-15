@@ -80,7 +80,24 @@ $qrResult = $_GET['qr_result'] ?? '';
                     </article>
                 <?php }else{ ?>
                     <div class="buttons is-centered mt-4">
-                        <form action="<?php echo APP_URL; ?>pagoBisaQR/" method="POST" style="display:inline-block;">
+                        <?php
+                            $usaBnb = false;
+                            if(file_exists(__DIR__."/../../../config/bnb_qr.php")){
+                                require_once __DIR__."/../../../config/bnb_qr.php";
+                                if(defined('BNB_API_BASE_URL') && defined('BNB_ACCOUNT_ID') && defined('BNB_AUTHORIZATION_ID')
+                                    && (string)BNB_API_BASE_URL !== ''
+                                    && (string)BNB_API_BASE_URL !== 'https://API_BASE_URL_DE_BNB'
+                                    && (string)BNB_ACCOUNT_ID !== ''
+                                    && (string)BNB_ACCOUNT_ID !== 'TU_ACCOUNT_ID'
+                                    && (string)BNB_AUTHORIZATION_ID !== ''
+                                    && (string)BNB_AUTHORIZATION_ID !== 'TU_AUTHORIZATION_ID'){
+                                    $usaBnb = true;
+                                }
+                            }
+                            $rutaQr = $usaBnb ? 'pagoBnbQR/' : 'pagoBisaQR/';
+                        ?>
+
+                        <form action="<?php echo APP_URL.$rutaQr; ?>" method="POST" style="display:inline-block;">
                             <input type="hidden" name="reserva_codigo" value="<?php echo htmlspecialchars($reserva['reserva_codigo'],ENT_QUOTES,'UTF-8'); ?>">
                             <input type="hidden" name="monto_tipo" value="minimo">
                             <button type="submit" class="button is-link">
@@ -88,7 +105,7 @@ $qrResult = $_GET['qr_result'] ?? '';
                             </button>
                         </form>
 
-                        <form action="<?php echo APP_URL; ?>pagoBisaQR/" method="POST" style="display:inline-block;">
+                        <form action="<?php echo APP_URL.$rutaQr; ?>" method="POST" style="display:inline-block;">
                             <input type="hidden" name="reserva_codigo" value="<?php echo htmlspecialchars($reserva['reserva_codigo'],ENT_QUOTES,'UTF-8'); ?>">
                             <input type="hidden" name="monto_tipo" value="total">
                             <button type="submit" class="button is-success">
@@ -100,7 +117,8 @@ $qrResult = $_GET['qr_result'] ?? '';
                     <?php if($pagoQr && !empty($pagoQr['pago_qr_string'])){ ?>
                         <?php
                             $qrData = (string)$pagoQr['pago_qr_string'];
-                            $qrImg = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=".urlencode($qrData);
+                            $esDataUri = (stripos($qrData, 'data:image') === 0);
+                            $qrImg = $esDataUri ? $qrData : ("https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=".urlencode($qrData));
                         ?>
                         <div class="has-text-centered mt-5">
                             <p class="has-text-grey mb-2">Escanea este QR para pagar:</p>
@@ -109,7 +127,11 @@ $qrResult = $_GET['qr_result'] ?? '';
                             </figure>
                             <div id="qrFallbackPay" class="notification is-warning" style="display:none;">
                                 No se pudo cargar la imagen del QR.<br>
-                                Datos del QR: <code><?php echo htmlspecialchars($qrData,ENT_QUOTES,'UTF-8'); ?></code>
+                                <?php if(!$esDataUri){ ?>
+                                    Datos del QR: <code><?php echo htmlspecialchars($qrData,ENT_QUOTES,'UTF-8'); ?></code>
+                                <?php }else{ ?>
+                                    El QR fue generado como imagen (base64) y no se pudo renderizar.
+                                <?php } ?>
                             </div>
                             <p class="has-text-grey is-size-7 mt-2">Generado: <?php echo htmlspecialchars($pagoQr['pago_creado_en'] ?? ''); ?></p>
                         </div>
@@ -117,7 +139,11 @@ $qrResult = $_GET['qr_result'] ?? '';
 
                     <article class="message is-warning mt-4">
                         <div class="message-body">
-                            Importante: el pago se procesa con QR BISA. La aprobación automática depende de que el webhook esté accesible públicamente.
+                            <?php if($usaBnb){ ?>
+                                Importante: el pago se procesa con QR BNB. La aprobación automática depende de la verificación periódica (cron) o del mecanismo de notificación que habilite el banco.
+                            <?php }else{ ?>
+                                Importante: el pago se procesa con QR BISA. La aprobación automática depende de que el webhook esté accesible públicamente.
+                            <?php } ?>
                         </div>
                     </article>
                 <?php } ?>

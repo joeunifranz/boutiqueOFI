@@ -164,8 +164,8 @@
 					<div class="message-body">
 						Debes iniciar sesión para enviar la solicitud.
 						<div class="buttons mt-3">
-							<a class="button is-link is-light is-rounded" href="<?php echo APP_URL; ?>clienteLogin/?redirect_to=<?php echo urlencode($redirectTo); ?>">Iniciar sesión</a>
-							<a class="button is-info is-rounded" href="<?php echo APP_URL; ?>registroCliente/?redirect_to=<?php echo urlencode($redirectTo); ?>">Registrarme</a>
+							<a class="button is-link is-light is-rounded js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Iniciar sesión</a>
+							<a class="button is-info is-rounded js-cliente-auth-open" href="#" data-auth-intent="register" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Registrarme</a>
 						</div>
 					</div>
 				</article>

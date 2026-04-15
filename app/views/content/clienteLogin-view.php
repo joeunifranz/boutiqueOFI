@@ -10,53 +10,73 @@
 		}
 	?>
 
-	<form class="box login" action="" method="POST" autocomplete="off">
+	<div class="box cliente-login-princess-card">
+		<p class="has-text-centered cliente-login-icon">
+			<i class="fas fa-crown fa-3x" aria-hidden="true"></i>
+		</p>
+		<h5 class="title is-4 has-text-centered cliente-login-title">Bienvenida</h5>
+		<p class="has-text-centered cliente-login-subtitle mb-5">
+			Inicia sesión con tu cuenta de Google para continuar.
+		</p>
+
 		<p class="has-text-centered">
-			<i class="fas fa-user-circle fa-5x"></i>
-		</p>
-		<h5 class="title is-5 has-text-centered">Acceso de clientes</h5>
-		<p class="has-text-centered mb-3">
-			Ingresa con el <strong>correo</strong> que usaste al registrarte
-			o utiliza tu cuenta de Google.
-		</p>
-
-		<?php
-			if(isset($_POST['cliente_email'])){
-				$insLogin->iniciarSesionClientePorCorreoControlador();
-			}
-		?>
-
-		<div class="field">
-			<input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($redirect_to,ENT_QUOTES,'UTF-8'); ?>">
-			<label class="label"><i class="fas fa-envelope"></i> &nbsp; Correo electrónico</label>
-			<div class="control">
-				<input class="input" type="email" name="cliente_email" maxlength="70" required>
-			</div>
-		</div>
-
-		<p class="has-text-centered mb-4 mt-3">
-			<button type="submit" class="button is-info is-rounded">ENTRAR</button>
-		</p>
-
-		<p class="has-text-centered mb-4">
-			<span class="has-text-grey">o</span>
-		</p>
-
-		<p class="has-text-centered mb-4">
-			<a href="<?php echo APP_URL; ?>googleClienteAuth/" class="button is-light is-rounded">
+			<a href="<?php echo APP_URL; ?>googleClienteAuth/?redirect_to=<?php echo urlencode($redirect_to); ?>" class="button is-rounded cliente-login-google-btn">
 				<span class="icon">
-					<i class="fab fa-google"></i>
+					<i class="fab fa-google" aria-hidden="true"></i>
 				</span>
 				<span>Continuar con Google</span>
 			</a>
 		</p>
 
-		<p class="has-text-centered">
-			<small>¿Aún no tienes cuenta? 
-				<a href="<?php echo APP_URL; ?>registroCliente/?redirect_to=<?php echo urlencode($redirect_to); ?>">Regístrate aquí</a>.
-			</small>
+		<p class="has-text-centered mt-4 cliente-login-footnote">
+			<small>Si es tu primera vez, te pediremos unos datos para completar tu registro.</small>
 		</p>
-
-	</form>
+	</div>
 </div>
+
+<style>
+.cliente-login-princess-card{
+	max-width: 560px;
+	margin: 2.25rem auto;
+	border-radius: 18px;
+	background: #0b0f1a;
+	border: 1px solid rgba(255,255,255,0.08);
+	box-shadow: 0 22px 70px rgba(0,0,0,0.55);
+}
+
+.cliente-login-icon{
+	color: rgba(255,255,255,0.92);
+	margin-bottom: 0.85rem;
+}
+
+.cliente-login-title{
+	color: rgba(255,255,255,0.98);
+	font-weight: 800;
+}
+
+.cliente-login-subtitle{
+	color: rgba(255,255,255,0.78);
+}
+
+.cliente-login-google-btn{
+	background: linear-gradient(135deg, #ff4fa3 0%, #ff8cc8 100%);
+	border: none;
+	color: #fff;
+	box-shadow: 0 14px 34px rgba(255, 79, 163, 0.25);
+	min-width: 280px;
+}
+
+.cliente-login-google-btn:hover{
+	color: #fff;
+	filter: brightness(1.02);
+}
+
+.cliente-login-footnote{
+	color: rgba(255,255,255,0.62);
+}
+
+@media (max-width: 768px){
+	.cliente-login-google-btn{ width: 100%; min-width: 0; }
+}
+</style>
 

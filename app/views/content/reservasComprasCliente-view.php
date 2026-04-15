@@ -46,7 +46,7 @@ $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clie
 			<div class="message-body">
 				Debes iniciar sesión para ver tus reservas y compras.
 				<div class="buttons mt-3">
-					<a class="button is-link" href="<?php echo APP_URL; ?>clienteLogin/?redirect_to=<?php echo urlencode('reservasComprasCliente/'); ?>">Iniciar sesión</a>
+					<a class="button is-link js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="reservasComprasCliente/">Iniciar sesión</a>
 				</div>
 			</div>
 		</article>

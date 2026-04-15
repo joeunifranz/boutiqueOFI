@@ -81,6 +81,13 @@
         exit();
     }
 
+    /*---------- BNB QR: generar QR dinámico ----------*/
+    if(isset($url[0]) && $url[0]=="pagoBnbQR"){
+        $insReserva = new \app\controllers\reservationController();
+        $insReserva->generarPagoBnbQrControlador();
+        exit();
+    }
+
     /*---------- BISA QR: webhook (confirmación de pago) ----------*/
     if(isset($url[0]) && $url[0]=="bisaWebhook"){
         header('Content-Type: application/json; charset=utf-8');

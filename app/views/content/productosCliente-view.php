@@ -46,7 +46,7 @@
 		<?php if($categoria>0 && $categoriaNombre!=""){ ?>
 			<?php echo htmlspecialchars($categoriaNombre); ?>
 		<?php }else{ ?>
-			Productos disponibles
+			Vestidos disponibles
 		<?php } ?>
 	</h1>
 
@@ -55,9 +55,9 @@
 		Bienvenido <?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".$_SESSION['cliente_apellido']); ?>,
 	<?php } ?>
 		<?php if($categoria>0 && $categoriaNombre!=""){ ?>
-			Explora los productos de esta categoría.
+			Explora los vestidos de esta categoría.
 		<?php }else{ ?>
-			Descubre nuestros productos disponibles.
+			Descubre nuestros vestidos disponibles.
 		<?php } ?>
 	</p>
 
@@ -312,7 +312,7 @@
 	<?php }else{ ?>
 
 		<div class="column is-12 has-text-centered">
-			<p>No hay productos disponibles.</p>
+			<p>No hay vestidos disponibles.</p>
 		</div>
 
 	<?php } ?>

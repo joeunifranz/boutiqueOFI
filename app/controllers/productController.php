@@ -669,7 +669,7 @@
 				}else{
 					$tabla.='
 						<p class="has-text-centered pb-6"><i class="far fa-grin-beam-sweat fa-5x"></i></p>
-						<p class="has-text-centered">No hay productos disponibles en este momento</p>
+						<p class="has-text-centered">No hay vestidos disponibles en este momento</p>
 					';
 				}
 			}
@@ -773,7 +773,7 @@
 			$productos = array_slice($productos, 0, $limite);
 
 			if(empty($productos)){
-				return '<p class="has-text-centered has-text-grey-lighter mt-5">No hay productos disponibles en este momento.</p>';
+				return '<p class="has-text-centered has-text-grey-lighter mt-5">No hay vestidos disponibles en este momento.</p>';
 			}
 		
 			$html='

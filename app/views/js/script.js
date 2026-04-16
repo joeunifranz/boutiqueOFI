@@ -130,7 +130,70 @@ document.addEventListener("DOMContentLoaded", () => {
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
+                width: 74px;
+                height: 74px;
+                border-radius: 999px;
                 cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+
+                background:
+                    linear-gradient(180deg,
+                        #fff3c4 0%,
+                        #ffe08a 16%,
+                        #f6c84b 34%,
+                        #d7a21a 55%,
+                        #b57f00 78%,
+                        #ffdf85 100%
+                    );
+                border: 1px solid rgba(255, 238, 190, 0.85);
+                box-shadow:
+                    0 16px 44px rgba(0, 0, 0, 0.35),
+                    0 0 22px rgba(255, 205, 92, 0.45),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+                    inset 0 -10px 18px rgba(120, 75, 0, 0.35);
+                overflow: hidden;
+            }
+
+            #bot-icon::after{
+                content: "";
+                position: absolute;
+                top: -20%;
+                left: -60%;
+                width: 45%;
+                height: 140%;
+                transform: skewX(-20deg);
+                background: linear-gradient(90deg,
+                    rgba(255,255,255,0.0) 0%,
+                    rgba(255,255,255,0.65) 45%,
+                    rgba(255,255,255,0.0) 80%
+                );
+                opacity: 0.75;
+                mix-blend-mode: soft-light;
+                pointer-events: none;
+                animation: botIconSweep 2.2s linear infinite;
+            }
+
+            #bot-icon .bot-icon-svg{
+                width: 44px;
+                height: 44px;
+                position: relative;
+                z-index: 1;
+                filter:
+                    drop-shadow(0 1px 0 rgba(255,255,255,0.25))
+                    drop-shadow(0 0 10px rgba(255,205,92,0.20));
+            }
+
+            @keyframes botIconSweep{
+                0%{ left: -60%; }
+                100%{ left: 120%; }
+            }
+
+            @media (prefers-reduced-motion: reduce){
+                #bot-icon::after{ animation: none; }
             }
         </style>
         <div id="chatbot">
@@ -144,8 +207,12 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
         </div>
         <div id="bot-icon">
-            <svg t="1733665227834" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="5148" width="120" height="120">
-                <path d="M802.133333 256H512V166.4c25.6-8.533333 42.666667-34.133333 42.666667-59.733333 0-34.133333-29.866667-64-64-64S426.666667 72.533333 426.666667 106.666667c0 29.866667 17.066667 51.2 42.666666 59.733333V256H221.866667C174.933333 256 132.266667 298.666667 132.266667 349.866667v413.866666c0 46.933333 42.666667 89.6 89.6 89.6h580.266666c46.933333 0 89.6-42.666667 89.6-93.866666V349.866667c0-51.2-42.666667-93.866667-89.6-93.866667zM320 640c-34.133333 0-64-29.866667-64-64 0-12.8 4.266667-21.333333 8.533333-29.866667 17.066667-29.866667 55.466667-42.666667 85.333334-21.333333 21.333333 8.533333 34.133333 29.866667 34.133333 51.2 0 34.133333-29.866667 64-64 64z m405.333333-64c0 34.133333-29.866667 64-64 64s-64-29.866667-64-64 29.866667-64 64-64 64 29.866667 64 64zM68.266667 392.533333h-42.666667c-17.066667 0-25.6 8.533333-25.6 25.6v277.333334c0 12.8 8.533333 21.333333 21.333333 21.333333h42.666667c12.8 0 21.333333-8.533333 21.333333-21.333333V418.133333c4.266667-17.066667-4.266667-25.6-17.066666-25.6zM1002.666667 392.533333h-42.666667c-12.8 0-21.333333 8.533333-21.333333 21.333334v277.333333c0 12.8 8.533333 21.333333 21.333333 21.333333h42.666667c12.8 0 21.333333-8.533333 21.333333-21.333333V418.133333c0-17.066667-8.533333-25.6-21.333333-25.6z" fill="#1296db" p-id="5149"></path>
+            <svg class="bot-icon-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <!-- Cabeza -->
+                <circle cx="32" cy="20" r="8" fill="#1c1406" />
+                <!-- Torso + vestido -->
+                <path d="M32 30c-5.8 0-10.6 4.0-12.4 9.6L12 56h40l-7.6-16.4C42.6 34 37.8 30 32 30z" fill="#1c1406" />
+                <path d="M22 56l10-22 10 22H22z" fill="#1c1406" />
             </svg>
         </div>
     `;

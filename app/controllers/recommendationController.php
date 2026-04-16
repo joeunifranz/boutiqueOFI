@@ -97,7 +97,7 @@ class recommendationController extends mainModel{
 
 		$productos = $this->obtenerProductosParaRecomendacion($categoriaId, $talla, $maxPrecio, $maxProducts);
 		if(empty($productos)){
-			return json_encode(['ok'=>false,'error'=>'no_products','message'=>'No hay productos disponibles para recomendar.'], JSON_UNESCAPED_UNICODE);
+			return json_encode(['ok'=>false,'error'=>'no_products','message'=>'No hay vestidos disponibles para recomendar.'], JSON_UNESCAPED_UNICODE);
 		}
 
 		$baseDir = dirname(dirname(__DIR__));

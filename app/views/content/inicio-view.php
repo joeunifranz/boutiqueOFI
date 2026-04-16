@@ -81,12 +81,12 @@
 					<span>Cerrar sesión</span>
 				</a>
 			<?php }else{ ?>
-				<a class="inicio-login-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/" data-auth-intent="login" data-redirect-to="inicio/">
+				<a class="inicio-login-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/?redirect_to=productosCliente/" data-auth-intent="login" data-redirect-to="productosCliente/">
 					<i class="fas fa-sign-in-alt"></i>
 					<span>Iniciar sesión</span>
 				</a>
 
-				<a class="inicio-register-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/" data-auth-intent="register" data-redirect-to="inicio/">
+				<a class="inicio-register-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/?redirect_to=productosCliente/" data-auth-intent="register" data-redirect-to="productosCliente/">
 					<i class="fas fa-user-plus"></i>
 					<span>Registrar</span>
 				</a>
@@ -142,7 +142,7 @@
 			</h2>
 
 			<p class="has-text-centered inicio-catalogo-subtitle">
-				Colecciones por categoría con productos disponibles ahora mismo.
+				Colecciones por categoría con vestidos disponibles ahora mismo.
 			</p>
 
 			<?php echo $insProductoInicio->catalogoInicioHTMLControlador(); ?>
@@ -277,95 +277,98 @@
 }
 
 .inicio-btn-gold{
-	/* Mantener mismo tamaño visual en los 3 botones */
-	min-height: 44px;
-	padding-left: 1.25rem;
-	padding-right: 1.25rem;
+	/* Sin margen externo */
+	margin: 0 !important;
+
+	/* Tamaño consistente */
+	min-height: 46px;
+	padding: 0 1.3rem;
+
+	/* Bordes suaves */
+	border-radius: 14px !important;
 	position: relative;
 	overflow: hidden;
 
-	/* Negro brilloso (glossy) */
-	background-color: #0b0f1a !important;
+	/* Sin fondo (solo texto con efecto) */
+	background: transparent !important;
+
+	border: 1px solid rgba(255, 221, 150, 0.70);
+	box-shadow:
+		0 14px 36px rgba(0,0,0,0.34),
+		0 0 0 1px rgba(255, 208, 120, 0.10),
+		0 0 22px rgba(255, 200, 90, 0.28);
+	backdrop-filter: blur(6px);
+
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.inicio-btn-gold .icon{
+	display: inline-flex;
+	align-items: center;
+}
+
+/* Icono en dorado sólido (FontAwesome usa ::before, no soporta bien background-clip) */
+.inicio-btn-gold .icon i{
+	color: #ffe08a !important;
+	filter:
+		drop-shadow(0 1px 0 rgba(0,0,0,0.25))
+		drop-shadow(0 0 10px rgba(255, 205, 92, 0.28));
+}
+
+/* Efecto solo en el texto (sin fondo) */
+.inicio-btn-gold span:not(.icon){
+	display: inline-block;
 	background-image:
 		linear-gradient(180deg,
-			rgba(255,255,255,0.22) 0%,
-			rgba(255,255,255,0.10) 22%,
-			rgba(255,255,255,0.02) 48%,
-			rgba(0,0,0,0.22) 100%
+			#fff4cf 0%,
+			#ffe08a 18%,
+			#f2c24a 40%,
+			#d9a61d 60%,
+			#b57f00 82%,
+			#ffe6a0 100%
 		),
-		linear-gradient(135deg,
-			rgba(255,255,255,0.10) 0%,
-			rgba(255,255,255,0.00) 40%,
-			rgba(0,0,0,0.28) 100%
-		) !important;
-	background-blend-mode: screen, normal;
-	filter: contrast(1.08) saturate(1.05);
-
-	border: 1px solid rgba(255,255,255,.22);
-	color: #fff !important;
-	text-shadow: 0 1px 0 rgba(0,0,0,0.18);
-
-	/* Relieve: sombra externa + sombra interna */
-	box-shadow:
-		0 16px 42px rgba(0,0,0,0.38),
-		0 10px 24px rgba(0,0,0,0.24),
-		inset 0 1px 0 rgba(255,255,255,0.22),
-		inset 0 -10px 22px rgba(0,0,0,0.42);
-
-	backdrop-filter: blur(6px);
-	transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+		linear-gradient(90deg,
+			rgba(255,255,255,0.0) 0%,
+			rgba(255,255,255,0.95) 50%,
+			rgba(255,255,255,0.0) 80%
+		);
+	background-size: 100% 100%, 38% 100%;
+	background-position: 0 0, -60% 0;
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent !important;
+	-webkit-text-fill-color: transparent;
+	filter:
+		drop-shadow(0 1px 0 rgba(0,0,0,0.25))
+		drop-shadow(0 0 10px rgba(255, 205, 92, 0.28));
+	animation: inicioGoldTextSweep 2.2s linear infinite;
 }
 
-.inicio-btn-gold .icon,
-.inicio-btn-gold .icon i,
-.inicio-btn-gold span{
-	color: #fff !important;
+@keyframes inicioGoldTextSweep{
+	0%{ background-position: 0 0, -60% 0; }
+	100%{ background-position: 0 0, 160% 0; }
 }
 
-/* Brillo tipo "gloss" arriba */
-.inicio-btn-gold::before{
-	content: "";
-	position: absolute;
-	left: 10%;
-	top: -60%;
-	width: 80%;
-	height: 140%;
-	background: radial-gradient(circle at 50% 35%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.0) 62%);
-	transform: rotate(-8deg);
-	pointer-events: none;
-	opacity: 0.55;
-}
-
-/* Reflejo fino (metal) */
-.inicio-btn-gold::after{
-	content: "";
-	position: absolute;
-	left: 8%;
-	top: 10px;
-	width: 84%;
-	height: 2px;
-	background: linear-gradient(90deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.38) 50%, rgba(255,255,255,0.0) 100%);
-	opacity: 0.65;
-	pointer-events: none;
+@media (prefers-reduced-motion: reduce){
+	.inicio-btn-gold span:not(.icon){ animation: none; }
+	.inicio-btn-gold{ transition: none; }
 }
 
 .inicio-btn-gold:hover,
 .inicio-btn-gold:focus{
 	transform: translateY(-1px);
-	filter: contrast(1.10) saturate(1.08) brightness(1.05);
+	border-color: rgba(255, 238, 190, 0.95);
 	box-shadow:
-		0 20px 54px rgba(0,0,0,0.42),
-		0 16px 28px rgba(0,0,0,0.26),
-		inset 0 1px 0 rgba(255,255,255,0.26),
-		inset 0 -10px 24px rgba(0,0,0,0.46);
+		0 18px 46px rgba(0,0,0,0.40),
+		0 0 0 1px rgba(255, 210, 120, 0.16),
+		0 0 30px rgba(255, 205, 92, 0.45);
 }
 
 .inicio-btn-gold:active{
 	transform: translateY(0px);
 	box-shadow:
-		0 10px 24px rgba(0,0,0,0.20),
-		inset 0 2px 6px rgba(0,0,0,0.22),
-		inset 0 1px 0 rgba(255,255,255,0.35);
+		0 10px 24px rgba(0,0,0,0.22),
+		0 0 18px rgba(255, 205, 92, 0.30);
 }
 
 .inicio-slider,

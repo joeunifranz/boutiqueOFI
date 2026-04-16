@@ -92,42 +92,96 @@
         /* Contenedor Principal */
         #rag-agent-container { position: fixed; bottom: 20px; right: 20px; z-index: 99999; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; align-items: flex-end; }
         
-        /* Botón Flotante */
+        /* Botón Flotante (dorado metálico + shimmer) */
         #rag-agent-button {
             width: 60px;
             height: 60px;
             border-radius: 999px;
-            background: linear-gradient(145deg, #8b5cf6, #7c3aed);
-            color: white;
-            border: 1px solid rgba(255,255,255,0.55);
+            margin: 0;
+            position: relative;
+            overflow: hidden;
+
+            background-color: #0b0f1a;
+            background-image:
+                linear-gradient(180deg,
+                    rgba(255,255,255,0.22) 0%,
+                    rgba(255,255,255,0.06) 35%,
+                    rgba(0,0,0,0.30) 100%
+                ),
+                radial-gradient(120% 140% at 24% 18%, rgba(255, 224, 138, 0.18) 0%, rgba(255, 224, 138, 0.0) 58%),
+                radial-gradient(120% 160% at 82% 130%, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.0) 56%);
+            background-blend-mode: screen, normal, normal;
+
+            border: 1px solid rgba(255, 221, 150, 0.58);
             cursor: pointer;
             box-shadow:
-                0 14px 30px rgba(139, 92, 246, 0.28),
-                0 6px 12px rgba(0,0,0,0.12);
-            font-size: 28px;
+                0 16px 45px rgba(0,0,0,0.42),
+                0 0 26px rgba(255, 205, 92, 0.26),
+                inset 0 1px 0 rgba(255,255,255,0.18),
+                inset 0 -12px 20px rgba(0,0,0,0.55);
+
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: transform 0.2s, filter 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
         }
-        #rag-agent-button:hover { transform: translateY(-1px) scale(1.04); filter: brightness(1.03); }
-        #rag-agent-button:active { transform: translateY(0px) scale(0.98); }
+
+        #rag-agent-button::after{
+            content: "";
+            position: absolute;
+            top: -20%;
+            left: -60%;
+            width: 45%;
+            height: 140%;
+            transform: skewX(-20deg);
+            background: linear-gradient(90deg,
+                rgba(255,255,255,0.0) 0%,
+                rgba(255,255,255,0.70) 45%,
+                rgba(255,255,255,0.0) 80%
+            );
+            opacity: 0.70;
+            mix-blend-mode: soft-light;
+            pointer-events: none;
+            animation: ragAgentGoldSweep 2.2s linear infinite;
+        }
+
+        @keyframes ragAgentGoldSweep{
+            0%{ left: -60%; }
+            100%{ left: 120%; }
+        }
+
+        .rag-agent-icon{
+            width: 30px;
+            height: 30px;
+            display: block;
+            filter:
+                drop-shadow(0 1px 0 rgba(0,0,0,0.35))
+                drop-shadow(0 0 10px rgba(255,205,92,0.18));
+        }
+
+        #rag-agent-button:hover { transform: translateY(-1px) scale(1.05); filter: brightness(1.04); }
+        #rag-agent-button:active { transform: translateY(0px) scale(0.98); filter: brightness(0.98); }
+
+        @media (prefers-reduced-motion: reduce){
+            #rag-agent-button::after{ animation: none; }
+        }
 
         /* Etiqueta arriba del botón */
         #rag-agent-label {
             margin-bottom: 10px;
             padding: 7px 12px;
             border-radius: 999px;
-            background: rgba(139, 92, 246, 0.10);
-            color: #7c3aed;
-            border: 1px solid rgba(139, 92, 246, 0.28);
+            background: rgba(255, 205, 92, 0.12);
+            color: rgba(255, 224, 138, 0.95);
+            border: 1px solid rgba(255, 221, 150, 0.35);
             font-size: 12px;
-            font-weight: 700;
-            letter-spacing: 0.6px;
+            font-weight: 800;
+            letter-spacing: 0.7px;
             text-transform: uppercase;
             box-shadow:
-                0 10px 22px rgba(139, 92, 246, 0.14),
-                0 6px 12px rgba(0,0,0,0.10);
+                0 10px 22px rgba(0,0,0,0.18),
+                0 0 18px rgba(255, 205, 92, 0.12);
             user-select: none;
             backdrop-filter: blur(6px);
         }
@@ -200,7 +254,8 @@
         /* Responsive tweaks */
         @media (max-width: 480px){
             #rag-agent-container{ bottom: 12px; right: 12px; }
-            #rag-agent-button{ width: 56px; height: 56px; font-size: 26px; }
+            #rag-agent-button{ width: 56px; height: 56px; }
+            .rag-agent-icon{ width: 28px; height: 28px; }
             #rag-agent-label{ font-size: 11px; }
             #rag-messages{ padding: 14px; }
             .rag-header{ padding: 14px 16px; }
@@ -277,7 +332,24 @@
             <div class="rag-input-area"><input type="text" id="rag-input" placeholder="Ej: busco sirena para 1.65m, presupuesto 2500 Bs"><button id="rag-send">Enviar</button></div>
         </div>
         <div id="rag-agent-label">HABLA CON TU ASESORA</div>
-        <button id="rag-agent-button">👗</button>
+        <button id="rag-agent-button" type="button" aria-label="Abrir chat con tu asesora">
+            <svg class="rag-agent-icon" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <defs>
+                    <linearGradient id="ragFemaleGold" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#fff3c4" />
+                        <stop offset="0.28" stop-color="#ffe08a" />
+                        <stop offset="0.55" stop-color="#f6c84b" />
+                        <stop offset="0.78" stop-color="#b57f00" />
+                        <stop offset="1" stop-color="#ffdf85" />
+                    </linearGradient>
+                </defs>
+
+                <!-- Silueta femenina -->
+                <circle cx="32" cy="18" r="9" fill="url(#ragFemaleGold)" />
+                <path d="M22 56l7.2-18.2c1.8-4.5 6.1-7.6 10.8-7.6s9 3.1 10.8 7.6L58 56H22z" fill="url(#ragFemaleGold)" />
+                <path d="M25 56l7-16 7 16H25z" fill="url(#ragFemaleGold)" opacity="0.95" />
+            </svg>
+        </button>
     `;
     document.body.appendChild(container);
 

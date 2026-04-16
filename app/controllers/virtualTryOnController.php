@@ -513,7 +513,7 @@
 
 			$html = "";
 			if(count($productos) == 0){
-				$html = '<p class="has-text-centered">No hay productos disponibles</p>';
+				$html = '<p class="has-text-centered">No hay vestidos disponibles</p>';
 			}else{
 				foreach($productos as $prod){
 					# Verificar si la imagen existe usando ruta absoluta

@@ -26,7 +26,7 @@
 			</p>
 			<h2 class="title is-4 has-text-centered cliente-registro-title">Registro de cliente</h2>
 			<p class="has-text-centered mb-5 cliente-registro-subtitle">
-				Crea tu cuenta para ver los productos disponibles y reservar tu cita.
+				Crea tu cuenta para ver los vestidos disponibles y reservar tu cita.
 			</p>
 
 			<p class="has-text-centered mb-4">

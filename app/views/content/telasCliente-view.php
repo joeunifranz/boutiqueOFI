@@ -145,7 +145,6 @@
 
 			<hr>
 			<p class="mb-1"><strong>Encaje seleccionado:</strong> <span id="encajeSeleccionTexto">—</span></p>
-			<p class="has-text-grey is-size-7">Los encajes se administran desde el panel (Encajes) y las fotos se guardan en <code>app/views/fotos/encajes/</code>.</p>
 
 			<div class="buttons is-right mt-4">
 				<button type="button" class="button is-light is-rounded" data-prev-step="2">Atrás</button>

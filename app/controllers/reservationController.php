@@ -1201,6 +1201,36 @@ class reservationController extends mainModel{
         }
     }
 
+    public function listarSolicitudesPersonalizadasClienteControlador(): string{
+        if(!isset($_SESSION['cliente_id']) || (int)$_SESSION['cliente_id'] <= 0){
+            return json_encode(['ok' => false, 'mensaje' => 'Debes iniciar sesión']);
+        }
+        $clienteId = (int)$_SESSION['cliente_id'];
+
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return json_encode(['ok' => true, 'data' => [], 'mensaje' => 'Sin solicitudes registradas']);
+        }
+
+        try{
+            $sql = "SELECT solicitud_id, cita_fecha, cita_hora, talla, tela_nombre, tela_precio, metros_estimados,
+                encaje_nombre, encaje_precio, vestido_detalle, estado, creado_en
+                FROM solicitud_personalizada
+                WHERE cliente_id = :cid
+                ORDER BY solicitud_id DESC
+                LIMIT 50";
+            $stmt = $this->conectar()->prepare($sql);
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+            if(!is_array($rows)){
+                $rows = [];
+            }
+            return json_encode(['ok' => true, 'data' => $rows]);
+        }catch(\Throwable $e){
+            return json_encode(['ok' => false, 'mensaje' => 'No se pudo cargar el historial']);
+        }
+    }
+
     /*---------- Horarios disponibles (cliente) ----------*/
     public function horariosDisponiblesControlador(){
         $fecha = $this->limpiarCadena($_POST['cita_fecha'] ?? '');

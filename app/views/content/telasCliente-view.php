@@ -16,6 +16,15 @@
 		<?php } ?>
 	</p>
 
+	<?php if($clienteLogueado){ ?>
+		<div class="wizard-history-bar mb-3">
+			<button id="btnSolicitudesAnteriores" type="button" class="button is-rounded js-modal-trigger wizard-history-btn" data-target="modalSolicitudesAnteriores">
+				Ver solicitudes anteriores
+			</button>
+		</div>
+	<?php } ?>
+
+	<div class="box wizard-float">
 	<div class="tabs is-boxed is-fullwidth" id="wizardTabs">
 		<ul>
 			<li class="is-active" data-step="1"><a><span class="has-text-weight-semibold">Paso 1</span>&nbsp;Vestido</a></li>
@@ -214,6 +223,68 @@
 			<p class="help">Se enviará: detalle del vestido, tela, encaje y tu cita.</p>
 		</div>
 	</section>
+
+	</div>
+
+</div>
+
+<!-- Modal: Solicitudes anteriores -->
+<div id="modalSolicitudesAnteriores" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(94vw, 980px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Mis solicitudes personalizadas</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<div id="solicitudesAnterioresEstado" class="notification is-light">Cargando...</div>
+			<div class="table-container" id="solicitudesAnterioresWrap" style="display:none;">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Cita</th>
+							<th>Estado</th>
+							<th>Creado</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody id="solicitudesAnterioresTbody"></tbody>
+				</table>
+			</div>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Modal: Detalle de solicitud personalizada -->
+<div id="modalSolicitudDetalle" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(92vw, 760px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Detalle de tu solicitud</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<div class="content">
+				<ul>
+					<li><strong>Fecha:</strong> <span id="solDetalleFecha">—</span></li>
+					<li><strong>Hora:</strong> <span id="solDetalleHora">—</span></li>
+					<li><strong>Talla:</strong> <span id="solDetalleTalla">—</span></li>
+					<li><strong>Tela:</strong> <span id="solDetalleTela">—</span></li>
+					<li><strong>Encaje:</strong> <span id="solDetalleEncaje">—</span></li>
+				</ul>
+				<hr>
+				<p class="mb-2"><strong>Descripción del vestido</strong></p>
+				<p id="solDetalleVestido" style="white-space: pre-wrap;">—</p>
+			</div>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
 </div>
 
 <!-- Modal: Previsualización 3D grande -->
@@ -260,7 +331,164 @@
 <script src="<?php echo APP_URL; ?>app/views/js/telasCliente.js"></script>
 
 <style>
-.wizard-step{ scroll-margin-top: 1rem; }
+
+/* Contenedor flotante del personalizador */
+.wizard-float{
+	max-width: 1440px;
+	margin: 0 auto;
+	--wizard-grad: linear-gradient(135deg, #3a2418 0%, #7a4a2c 40%, #f6e8d2 100%);
+	background: var(--wizard-grad);
+	background-size: 200% 200%;
+	animation: wizard-step-bg-shift 16s ease-in-out infinite;
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border-radius: 18px;
+}
+
+@media (max-width: 768px){
+	.wizard-float{ padding: 1rem; }
+}
+
+/* Tabs neutros (sin degradé) */
+#wizardTabs{
+	background: transparent;
+	border-radius: 14px;
+	padding: 0;
+}
+#wizardTabs ul{ align-items: stretch; }
+#wizardTabs li a{
+	border-radius: 12px;
+	background: rgba(0,0,0,0.25);
+	color: #fff;
+	border: 1px solid rgba(255,255,255,0.12);
+	font-size: 1.18rem;
+	padding: 1.05rem 1.35rem;
+}
+
+#wizardTabs li a:hover{
+	background: rgba(0,0,0,0.32);
+}
+
+/* Tab activo (cuando haces click) */
+#wizardTabs li.is-active a{
+	background: rgba(0,0,0,0.45);
+	border-color: rgba(255,255,255,0.18);
+}
+
+/* Botón superior (historial) */
+ .wizard-history-bar{
+	display: flex;
+	justify-content: flex-start;
+}
+
+.wizard-history-btn{
+	background: #7a4a2c;
+	border-color: transparent;
+	color: #fff;
+}
+
+.wizard-history-btn:hover{
+	background: #3a2418;
+	color: #fff;
+}
+
+/* Botones "Ver detalle" del historial */
+#modalSolicitudesAnteriores .js-ver-solicitud{
+	color: #111;
+}
+
+/* Detalle: asegurar texto visible */
+#modalSolicitudDetalle .modal-card-body{
+	color: #111;
+}
+
+/* Fondo de cada PASO (café → crema) */
+.wizard-step{
+	scroll-margin-top: 1rem;
+	padding: 0.75rem;
+	border-radius: 16px;
+	background: var(--wizard-grad);
+	background-size: 200% 200%;
+	animation: wizard-step-bg-shift 16s ease-in-out infinite;
+}
+
+@keyframes wizard-step-bg-shift{
+	0%{ background-position: 0% 50%; }
+	50%{ background-position: 100% 50%; }
+	100%{ background-position: 0% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce){
+	.wizard-step{ animation: none; }
+}
+
+/* Separación entre pasos visibles */
+.wizard-step > .box{
+	margin-bottom: 0;
+	position: relative;
+	overflow: hidden;
+	background: var(--wizard-grad);
+	background-size: 200% 200%;
+	animation: wizard-step-bg-shift 16s ease-in-out infinite;
+	color: #fff;
+}
+
+/* Overlay claro para que el texto se lea (sin perder el color de fondo) */
+.wizard-step > .box::before{
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: rgba(0,0,0,0.38);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+}
+
+.wizard-step > .box > *{
+	position: relative;
+}
+
+/* Afinar textos sobre fondo oscuro */
+.wizard-step > .box .title,
+.wizard-step > .box .subtitle,
+.wizard-step > .box .label,
+.wizard-step > .box strong{
+	color: inherit;
+}
+
+.wizard-step > .box .help,
+.wizard-step > .box .has-text-grey{
+	color: rgba(255,255,255,0.82) !important;
+}
+
+.wizard-step > .box hr{
+	background-color: rgba(255,255,255,0.28);
+}
+
+/* Mensajes 'is-light' deben mantener texto oscuro por su fondo claro */
+.wizard-step > .box .message.is-light .message-body{
+	color: rgba(0,0,0,0.85);
+}
+
+/* Botones del wizard: mismo degradé + texto blanco */
+.wizard-step .button,
+.wizard-step .button.is-link,
+.wizard-step .button.is-danger,
+.wizard-step .button.is-info,
+.wizard-step .button.is-light{
+	background-image: var(--wizard-grad) !important;
+	background-color: transparent !important;
+	border-color: rgba(255,255,255,0.25) !important;
+	color: #fff !important;
+}
+
+.wizard-step .button:hover{
+	filter: brightness(1.04);
+}
+
+.wizard-step .button[disabled],
+.wizard-step .button.is-disabled{
+	opacity: 0.55;
+}
 .encaje-carousel-toolbar{ display:flex; gap: .5rem; justify-content:flex-end; margin-bottom: .75rem; }
 .encaje-carousel{ display:flex; gap: 1rem; overflow-x: auto; padding-bottom: .75rem; scroll-snap-type: x mandatory; }
 .encaje-card{ min-width: 240px; max-width: 240px; scroll-snap-align: start; }

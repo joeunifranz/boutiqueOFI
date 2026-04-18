@@ -42,6 +42,17 @@
 	const citaHora = qs('#cita_hora_personalizada');
 	const citaHelp = qs('#cita_help_personalizada');
 	const btnEnviar = qs('#btnEnviarSolicitud');
+	const btnSolicitudesAnteriores = qs('#btnSolicitudesAnteriores');
+	const solicitudesAnterioresEstado = qs('#solicitudesAnterioresEstado');
+	const solicitudesAnterioresWrap = qs('#solicitudesAnterioresWrap');
+	const solicitudesAnterioresTbody = qs('#solicitudesAnterioresTbody');
+
+	const solDetalleFecha = qs('#solDetalleFecha');
+	const solDetalleHora = qs('#solDetalleHora');
+	const solDetalleTalla = qs('#solDetalleTalla');
+	const solDetalleTela = qs('#solDetalleTela');
+	const solDetalleEncaje = qs('#solDetalleEncaje');
+	const solDetalleVestido = qs('#solDetalleVestido');
 
 	const resumenTalla = qs('#resumenTalla');
 	const resumenTela = qs('#resumenTela');
@@ -50,6 +61,136 @@
 	const CLIENTE_LOGUEADO = (window.CLIENTE_LOGUEADO === true);
 
 	let ENCAJES = [];
+	let lastSolicitudSnapshot = null;
+	let SOLICITUDES_ANTERIORES = [];
+
+	function openModalById(modalId){
+		const id = String(modalId || '').trim();
+		if(!id) return;
+		const el = document.getElementById(id);
+		if(el) el.classList.add('is-active');
+	}
+
+	function closeModalById(modalId){
+		const id = String(modalId || '').trim();
+		if(!id) return;
+		const el = document.getElementById(id);
+		if(el) el.classList.remove('is-active');
+	}
+
+	function buildSolicitudSnapshot(){
+		const talla = tallaSel ? String(tallaSel.value || 'M') : 'M';
+		const tela = getSelectedTela();
+		const encaje = getSelectedEncaje();
+		const metros = estimateMeters(talla || 'M');
+		const total = (tela && isFinite(tela.precio) && isFinite(metros)) ? (tela.precio * metros) : NaN;
+		return {
+			fecha: citaFecha ? String(citaFecha.value || '') : '',
+			hora: citaHora ? String(citaHora.value || '') : '',
+			talla,
+			telaNombre: tela ? String(tela.nombre || '') : '',
+			telaPrecio: tela ? Number(tela.precio) : NaN,
+			metros,
+			total,
+			encajeNombre: encaje ? String(encaje.encaje_nombre || '') : '',
+			encajePrecio: encaje ? Number(encaje.encaje_precio) : NaN,
+			vestidoDetalle: vestidoDetalle ? String(vestidoDetalle.value || '') : '',
+		};
+	}
+
+	function renderSolicitudDetalle(snapshot){
+		if(!snapshot) snapshot = {};
+		if(solDetalleFecha) solDetalleFecha.textContent = snapshot.fecha ? snapshot.fecha : '—';
+		if(solDetalleHora) solDetalleHora.textContent = snapshot.hora ? snapshot.hora : '—';
+		if(solDetalleTalla) solDetalleTalla.textContent = snapshot.talla ? snapshot.talla : '—';
+
+		if(solDetalleTela){
+			if(snapshot.telaNombre || isFinite(snapshot.telaPrecio)){
+				const parts = [];
+				if(snapshot.telaNombre) parts.push(snapshot.telaNombre);
+				if(isFinite(snapshot.telaPrecio)) parts.push(formatMoney(snapshot.telaPrecio) + ' / m');
+				if(isFinite(snapshot.metros)) parts.push(snapshot.metros.toFixed(1) + ' m');
+				if(isFinite(snapshot.total)) parts.push('Total: ' + formatMoney(snapshot.total));
+				solDetalleTela.textContent = parts.join(' — ');
+			}else{
+				solDetalleTela.textContent = '—';
+			}
+		}
+
+		if(solDetalleEncaje){
+			if(snapshot.encajeNombre || isFinite(snapshot.encajePrecio)){
+				const parts = [];
+				if(snapshot.encajeNombre) parts.push(snapshot.encajeNombre);
+				if(isFinite(snapshot.encajePrecio)) parts.push(formatMoney(snapshot.encajePrecio) + ' / 1.5 m');
+				solDetalleEncaje.textContent = parts.join(' — ');
+			}else{
+				solDetalleEncaje.textContent = '—';
+			}
+		}
+
+		if(solDetalleVestido){
+			const txt = snapshot.vestidoDetalle ? snapshot.vestidoDetalle.trim() : '';
+			solDetalleVestido.textContent = txt ? txt : '—';
+		}
+	}
+
+	function showSolicitudesEstado(msg, type){
+		if(!solicitudesAnterioresEstado) return;
+		solicitudesAnterioresEstado.style.display = 'block';
+		solicitudesAnterioresEstado.className = 'notification is-' + (type || 'light');
+		solicitudesAnterioresEstado.textContent = msg;
+		if(solicitudesAnterioresWrap) solicitudesAnterioresWrap.style.display = 'none';
+	}
+
+	function renderSolicitudesAnteriores(rows){
+		SOLICITUDES_ANTERIORES = Array.isArray(rows) ? rows : [];
+		if(!solicitudesAnterioresTbody || !solicitudesAnterioresWrap || !solicitudesAnterioresEstado) return;
+		solicitudesAnterioresTbody.innerHTML = '';
+		if(SOLICITUDES_ANTERIORES.length === 0){
+			showSolicitudesEstado('Aún no tienes solicitudes personalizadas.', 'light');
+			return;
+		}
+		solicitudesAnterioresEstado.style.display = 'none';
+		solicitudesAnterioresWrap.style.display = '';
+
+		SOLICITUDES_ANTERIORES.forEach((r) => {
+			const id = String(r.solicitud_id || '');
+			const cita = String((r.cita_fecha || '') + ' ' + (r.cita_hora || '')).trim();
+			const estado = String(r.estado || '');
+			const creado = String(r.creado_en || '');
+			const tr = document.createElement('tr');
+			tr.innerHTML =
+				'<td>' + escapeHtml(id) + '</td>' +
+				'<td>' + escapeHtml(cita || '—') + '</td>' +
+				'<td>' + escapeHtml(estado || '—') + '</td>' +
+				'<td>' + escapeHtml(creado || '—') + '</td>' +
+				'<td class="has-text-right">' +
+					'<button type="button" class="button is-small is-link is-light is-rounded js-modal-trigger js-ver-solicitud" data-target="modalSolicitudDetalle" data-sol-id="' + escapeHtml(id) + '">Ver detalle</button>' +
+				'</td>';
+			solicitudesAnterioresTbody.appendChild(tr);
+		});
+	}
+
+	async function cargarSolicitudesAnteriores(){
+		if(!CLIENTE_LOGUEADO){
+			showSolicitudesEstado('Debes iniciar sesión para ver tus solicitudes.', 'warning');
+			return;
+		}
+		showSolicitudesEstado('Cargando...', 'light');
+		try{
+			const fd = new FormData();
+			fd.append('modulo_reserva', 'personalizada_listar_cliente');
+			const resp = await fetch((window.APP_URL || '') + 'app/ajax/reservaAjax.php', { method: 'POST', body: fd });
+			const json = await resp.json();
+			if(!json || json.ok !== true){
+				showSolicitudesEstado((json && json.mensaje) ? json.mensaje : 'No se pudo cargar el historial.', 'danger');
+				return;
+			}
+			renderSolicitudesAnteriores(Array.isArray(json.data) ? json.data : []);
+		}catch(e){
+			showSolicitudesEstado('No se pudo cargar el historial.', 'danger');
+		}
+	}
 
 	function showEstado(msg, type){
 		if(!estado) return;
@@ -467,6 +608,37 @@
 		// Dar tiempo a que Bulma muestre el modal
 		if(targetId === 'modalFabricPreview') setTimeout(syncModalFabric, 80);
 		if(targetId === 'modalDressPreview') setTimeout(syncModalDress, 80);
+		if(targetId === 'modalSolicitudesAnteriores') setTimeout(cargarSolicitudesAnteriores, 80);
+	});
+
+	// Abrir detalle desde el historial
+	document.addEventListener('click', (e) => {
+		const el = eventTargetElement(e);
+		const btn = (el && el.closest) ? el.closest('.js-ver-solicitud') : null;
+		if(!btn) return;
+		const id = String(btn.getAttribute('data-sol-id') || '');
+		if(!id) return;
+		const r = SOLICITUDES_ANTERIORES.find(x => String(x.solicitud_id || '') === id);
+		if(!r) return;
+		const telaPrecio = Number(r.tela_precio);
+		const metros = Number(r.metros_estimados);
+		const encajePrecio = Number(r.encaje_precio);
+		lastSolicitudSnapshot = {
+			fecha: String(r.cita_fecha || ''),
+			hora: String(r.cita_hora || ''),
+			talla: String(r.talla || ''),
+			telaNombre: String(r.tela_nombre || ''),
+			telaPrecio: telaPrecio,
+			metros: metros,
+			total: (isFinite(telaPrecio) && isFinite(metros)) ? (telaPrecio * metros) : NaN,
+			encajeNombre: String(r.encaje_nombre || ''),
+			encajePrecio: encajePrecio,
+			vestidoDetalle: String(r.vestido_detalle || ''),
+		};
+		renderSolicitudDetalle(lastSolicitudSnapshot);
+		// Los botones "Ver detalle" son dinámicos, así que abrimos el modal manualmente
+		closeModalById('modalSolicitudesAnteriores');
+		openModalById('modalSolicitudDetalle');
 	});
 
 	async function cargarTelas(){
@@ -786,6 +958,7 @@
 			}
 
 			showWizardMsg(json.mensaje || 'Solicitud enviada. Te contactaremos pronto.', 'success');
+			lastSolicitudSnapshot = buildSolicitudSnapshot();
 			if(btnEnviar) btnEnviar.disabled = true;
 		}catch(e){
 			showWizardMsg('No se pudo enviar la solicitud. Intenta nuevamente.', 'danger');

@@ -20,6 +20,7 @@
 	<div id="navbarCliente" class="navbar-menu">
 		<div class="navbar-start">
 			<a class="navbar-item" href="<?php echo APP_URL; ?>productosCliente/">Tienda</a>
+			<a class="navbar-item" href="<?php echo APP_URL; ?>telasCliente/">PERSONALIZA TU VESTIDO</a>
 			<div class="navbar-item">
 				<div id="categoriasDropdownNavbar" class="dropdown">
 					<div class="dropdown-trigger">

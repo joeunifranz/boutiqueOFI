@@ -43,6 +43,7 @@
 	const citaHelp = qs('#cita_help_personalizada');
 	const btnEnviar = qs('#btnEnviarSolicitud');
 	const btnSolicitudesAnteriores = qs('#btnSolicitudesAnteriores');
+	const solicitudesBadge = qs('#solicitudesBadge');
 	const solicitudesAnterioresEstado = qs('#solicitudesAnterioresEstado');
 	const solicitudesAnterioresWrap = qs('#solicitudesAnterioresWrap');
 	const solicitudesAnterioresTbody = qs('#solicitudesAnterioresTbody');
@@ -176,6 +177,7 @@
 			showSolicitudesEstado('Debes iniciar sesión para ver tus solicitudes.', 'warning');
 			return;
 		}
+		if(solicitudesBadge) solicitudesBadge.style.display = 'none';
 		showSolicitudesEstado('Cargando...', 'light');
 		try{
 			const fd = new FormData();
@@ -959,6 +961,7 @@
 
 			showWizardMsg(json.mensaje || 'Solicitud enviada. Te contactaremos pronto.', 'success');
 			lastSolicitudSnapshot = buildSolicitudSnapshot();
+			if(solicitudesBadge) solicitudesBadge.style.display = 'inline-flex';
 			if(btnEnviar) btnEnviar.disabled = true;
 		}catch(e){
 			showWizardMsg('No se pudo enviar la solicitud. Intenta nuevamente.', 'danger');

@@ -20,6 +20,7 @@
 		<div class="wizard-history-bar mb-3">
 			<button id="btnSolicitudesAnteriores" type="button" class="button is-rounded js-modal-trigger wizard-history-btn" data-target="modalSolicitudesAnteriores">
 				Ver solicitudes anteriores
+				<span id="solicitudesBadge" class="tag is-danger is-rounded is-size-7" style="display:none;">Nuevo</span>
 			</button>
 		</div>
 	<?php } ?>
@@ -385,6 +386,14 @@
 	background: #5a2f1d;
 	border-color: transparent;
 	color: #fff;
+	position: relative;
+}
+
+#solicitudesBadge{
+	position: absolute;
+	top: -0.45rem;
+	right: -0.45rem;
+	pointer-events: none;
 }
 
 .wizard-history-btn:hover{

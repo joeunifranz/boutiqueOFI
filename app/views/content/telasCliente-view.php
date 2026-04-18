@@ -382,13 +382,13 @@
 }
 
 .wizard-history-btn{
-	background: #7a4a2c;
+	background: #5a2f1d;
 	border-color: transparent;
 	color: #fff;
 }
 
 .wizard-history-btn:hover{
-	background: #3a2418;
+	background: #3a1f14;
 	color: #fff;
 }
 

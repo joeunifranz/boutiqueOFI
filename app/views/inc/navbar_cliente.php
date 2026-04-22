@@ -43,7 +43,7 @@
 					<span class="icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
 					<span>RESERVAS Y COMPRAS</span>
 					<?php if($notifReservas > 0){ ?>
-						<span class="tag is-rounded ml-2 has-background-danger has-text-white" style="min-width:1.9em; height:1.9em; justify-content:center; padding-left:.6em; padding-right:.6em;">
+						<span class="tag is-rounded ml-2 boutique-notif-badge">
 							<?php echo (int)$notifReservas; ?>
 						</span>
 					<?php } ?>
@@ -129,6 +129,20 @@
 	backdrop-filter: blur(10px);
 	-webkit-backdrop-filter: blur(10px);
 	border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Badge numérico (Reservas y Compras): círculo rojo claro intenso y número blanco */
+.boutique-notif-badge{
+	background-color: #ff3b3b !important;
+	color: #fff !important;
+	min-width: 1.9em;
+	height: 1.9em;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding-left: .6em;
+	padding-right: .6em;
+	font-weight: 800;
 }
 
 /* Tipografía/tamaño uniforme en todo el navbar */

@@ -50,6 +50,23 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 	<?php } ?>
 
 	<?php
+		$notifVeces = (int)($reserva['reserva_cliente_notificacion'] ?? 0);
+		$esNuevo = $notifVeces > 0;
+		if($esNuevo){
+			$codigoTmp = (string)($reserva['reserva_codigo'] ?? '');
+			if($codigoTmp !== ''){
+				$insReserva->marcarNotificacionReservaClienteVistaPorCodigoControlador($codigoTmp, $clienteId);
+			}
+		}
+	?>
+
+	<?php if($esNuevo){ ?>
+		<div class="notification is-danger">
+			<strong>NUEVO<?php echo ($notifVeces > 1) ? (' x'.(int)$notifVeces) : ''; ?>:</strong> Hay una actualización en esta reserva. Revisa el estado y los detalles.
+		</div>
+	<?php } ?>
+
+	<?php
 		$codigo = (string)($reserva['reserva_codigo'] ?? '');
 		$estado = (string)($reserva['reserva_estado'] ?? '');
 		$total = (float)($reserva['reserva_total'] ?? 0);

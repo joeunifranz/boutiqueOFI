@@ -31,6 +31,8 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 $reservas = $clienteLogueado ? $insReserva->obtenerReservasPorClienteControlador($clienteId) : [];
 $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clienteId) : [];
 
+$notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReservaClienteControlador($clienteId) : 0;
+
 ?>
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
@@ -53,6 +55,14 @@ $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clie
 		<?php return; ?>
 	<?php } ?>
 
+	<?php if($notifCountReservas > 0){ ?>
+		<article class="message is-info">
+			<div class="message-body has-text-centered">
+				Tienes <strong><?php echo (int)$notifCountReservas; ?></strong> actualización(es) en tus reservas. Revisa las marcadas como <strong>NUEVO</strong>.
+			</div>
+		</article>
+	<?php } ?>
+
 	<div class="columns is-variable is-6">
 		<div class="column is-8">
 			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-calendar-check"></i> &nbsp; Reservas</h2>
@@ -71,19 +81,24 @@ $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clie
 					<?php foreach($reservas as $r){
 						$codigo = (string)($r['reserva_codigo'] ?? '');
 						$seguimientoUrl = APP_URL.'seguimientoReservaCliente/'.urlencode($codigo).'/';
+						$notifVeces = (int)($r['reserva_cliente_notificacion'] ?? 0);
+						$isNuevo = $notifVeces > 0;
 					?>
 						<tr class="has-text-centered">
-							<td class="has-text-left">
+							<td class="has-text-left<?php echo $isNuevo ? ' is-success' : ''; ?>">
+								<?php if($isNuevo){ ?>
+									<span class="tag is-danger is-rounded is-small mb-1">NUEVO<?php echo ($notifVeces > 1) ? (' x'.(int)$notifVeces) : ''; ?></span><br>
+								<?php } ?>
 								<a href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">
 									<?php echo htmlspecialchars((string)($r['producto_nombre'] ?? ''),ENT_QUOTES,'UTF-8'); ?>
 								</a>
 							</td>
-							<td>
-								<span class="tag is-light is-rounded">
+							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
+								<span class="tag <?php echo $isNuevo ? 'is-success' : 'is-light'; ?> is-rounded">
 									<?php echo htmlspecialchars(trim((string)($r['reserva_fecha'] ?? '').' '.(string)($r['reserva_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?>
 								</span>
 							</td>
-							<td>
+							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
 								<div class="buttons is-centered">
 									<a class="button is-link is-small is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
 								</div>
@@ -99,6 +114,13 @@ $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clie
 					</table>
 				</div>
 			</div>
+
+			<?php
+				// Al entrar a esta pantalla, marcamos como vistas las notificaciones de reservas (best-effort)
+				if($clienteLogueado && $notifCountReservas > 0){
+					$insReserva->marcarNotificacionesReservaClienteVistasControlador($clienteId);
+				}
+			?>
 
 			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-shopping-bag"></i> &nbsp; Compras</h2>
 			<div class="box">

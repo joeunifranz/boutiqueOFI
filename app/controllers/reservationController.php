@@ -11,6 +11,7 @@ class reservationController extends mainModel{
 
     private static $reservaTallaColDisponible = null;
 	private static $tablaSolicitudPersonalizadaDisponible = null;
+    private static $reservaClienteNotifColDisponible = null;
 
     private function columnaReservaTallaDisponible(): bool{
         if(self::$reservaTallaColDisponible !== null){
@@ -24,6 +25,20 @@ class reservationController extends mainModel{
             self::$reservaTallaColDisponible = false;
         }
         return (bool)self::$reservaTallaColDisponible;
+    }
+
+    private function columnaReservaClienteNotificacionDisponible(): bool{
+        if(self::$reservaClienteNotifColDisponible !== null){
+            return (bool)self::$reservaClienteNotifColDisponible;
+        }
+        try{
+            $check = $this->conectar()->prepare("SHOW COLUMNS FROM `reserva` LIKE 'reserva_cliente_notificacion'");
+            $check->execute();
+            self::$reservaClienteNotifColDisponible = ($check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            self::$reservaClienteNotifColDisponible = false;
+        }
+        return (bool)self::$reservaClienteNotifColDisponible;
     }
 
     private function parseTallasProducto(?string $raw): array{
@@ -76,9 +91,10 @@ class reservationController extends mainModel{
         }
 
         $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
+        $colsNotif = $this->columnaReservaClienteNotificacionDisponible() ? ', r.reserva_cliente_notificacion' : '';
         try{
             $stmt = $this->conectar()->prepare(
-                    "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla}{$colsNotif},
                     p.producto_id, p.producto_nombre, p.producto_foto
                  FROM reserva r
                  INNER JOIN producto p ON p.producto_id=r.producto_id
@@ -102,9 +118,10 @@ class reservationController extends mainModel{
         }
 
         $colsTalla = $this->columnaReservaTallaDisponible() ? ', r.reserva_talla' : '';
+        $colsNotif = $this->columnaReservaClienteNotificacionDisponible() ? ', r.reserva_cliente_notificacion' : '';
         try{
             $stmt = $this->conectar()->prepare(
-                    "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla},
+                "SELECT r.reserva_id, r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado, r.reserva_observacion{$colsTalla}{$colsNotif},
                     c.cliente_id, c.cliente_nombre, c.cliente_apellido, c.cliente_email,
                     p.producto_id, p.producto_nombre, p.producto_foto
                  FROM reserva r
@@ -120,6 +137,86 @@ class reservationController extends mainModel{
             return $row ? $row : null;
         }catch(\Throwable $e){
             return null;
+        }
+    }
+
+    public function contarNotificacionesReservaClienteControlador(int $clienteId): int{
+        $clienteId = (int)$clienteId;
+        if($clienteId <= 0){
+            return 0;
+        }
+        if(!$this->tablaReservaExiste()){
+            return 0;
+        }
+        if(!$this->columnaReservaClienteNotificacionDisponible()){
+            return 0;
+        }
+        try{
+            $stmt = $this->conectar()->prepare(
+                "SELECT COALESCE(SUM(reserva_cliente_notificacion),0) as c
+                 FROM reserva
+                 WHERE cliente_id=:cid
+                   AND reserva_cliente_notificacion>0
+                   AND reserva_estado NOT IN ('rechazada','completada')"
+            );
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $val = $stmt->fetchColumn();
+            return (int)$val;
+        }catch(\Throwable $e){
+            return 0;
+        }
+    }
+
+    public function marcarNotificacionesReservaClienteVistasControlador(int $clienteId): void{
+        $clienteId = (int)$clienteId;
+        if($clienteId <= 0){
+            return;
+        }
+        if(!$this->tablaReservaExiste()){
+            return;
+        }
+        if(!$this->columnaReservaClienteNotificacionDisponible()){
+            return;
+        }
+        try{
+            $stmt = $this->conectar()->prepare(
+                "UPDATE reserva
+                 SET reserva_cliente_notificacion=0
+                 WHERE cliente_id=:cid
+                   AND reserva_cliente_notificacion>0"
+            );
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+        }catch(\Throwable $e){
+            // silencio
+        }
+    }
+
+    public function marcarNotificacionReservaClienteVistaPorCodigoControlador(string $codigo, int $clienteId): void{
+        $codigo = trim($this->limpiarCadena($codigo));
+        $clienteId = (int)$clienteId;
+        if($codigo === '' || $clienteId <= 0){
+            return;
+        }
+        if(!$this->tablaReservaExiste()){
+            return;
+        }
+        if(!$this->columnaReservaClienteNotificacionDisponible()){
+            return;
+        }
+        try{
+            $stmt = $this->conectar()->prepare(
+                "UPDATE reserva
+                 SET reserva_cliente_notificacion=0
+                 WHERE reserva_codigo=:c AND cliente_id=:cid
+                 LIMIT 1"
+            );
+            $stmt->bindValue(':c', $codigo);
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+        }catch(\Throwable $e){
+            // silencio
         }
     }
 
@@ -306,6 +403,9 @@ class reservationController extends mainModel{
             $sql = "UPDATE reserva SET reserva_fecha=:f, reserva_hora=:h, reserva_estado='reprogramada', reserva_observacion=:o";
             if($setReminderCols){
                 $sql .= ", reserva_recordatorio_1d_enviado=0, reserva_recordatorio_1d_enviado_en=NULL, reserva_recordatorio_1d_ultimo_intento=NULL, reserva_recordatorio_1d_error=NULL";
+            }
+            if($this->columnaReservaClienteNotificacionDisponible()){
+                $sql .= ", reserva_cliente_notificacion=(reserva_cliente_notificacion+1)";
             }
             $sql .= " WHERE reserva_codigo=:c AND reserva_estado IN ('confirmada','reprogramada') LIMIT 1";
 
@@ -2174,12 +2274,16 @@ class reservationController extends mainModel{
                 throw new \Exception('No se pudo actualizar stock');
             }
 
-            $stmtUpRes = $pdo->prepare("UPDATE reserva
+            $sqlUpRes = "UPDATE reserva
                     SET reserva_abono=:a,
                         reserva_estado='confirmada',
                         usuario_id=:uid,
-                        caja_id=NULL
-                    WHERE reserva_codigo=:c AND reserva_estado='pendiente'");
+                        caja_id=NULL";
+            if($this->columnaReservaClienteNotificacionDisponible()){
+                $sqlUpRes .= ", reserva_cliente_notificacion=(reserva_cliente_notificacion+1)";
+            }
+            $sqlUpRes .= " WHERE reserva_codigo=:c AND reserva_estado='pendiente'";
+            $stmtUpRes = $pdo->prepare($sqlUpRes);
             $stmtUpRes->bindParam(':a', $abonoFmt);
             $stmtUpRes->bindParam(':uid', $usuarioAuto, \PDO::PARAM_INT);
             $stmtUpRes->bindParam(':c', $codigo);
@@ -3740,6 +3844,14 @@ class reservationController extends mainModel{
             ]
         ];
 
+        if($this->columnaReservaClienteNotificacionDisponible()){
+            $datos_reserva[] = [
+                "campo_nombre"=>"reserva_cliente_notificacion",
+                "campo_marcador"=>":Notif",
+                "campo_valor"=>"1"
+            ];
+        }
+
         if($this->columnaReservaTallaDisponible() && $reserva_talla !== ''){
             $datos_reserva[] = [
                 "campo_nombre"=>"reserva_talla",
@@ -3759,6 +3871,9 @@ class reservationController extends mainModel{
             ];
             return json_encode($alerta);
         }
+
+        // Enviar ticket de reserva al cliente (best-effort)
+        $this->enviarTicketReservaPorCorreo($codigo);
 
         $alerta=[
             "tipo"=>"redireccionar",
@@ -3942,12 +4057,16 @@ class reservationController extends mainModel{
             }
 
             // Confirmar reserva
-            $stmtUpRes = $pdo->prepare("UPDATE reserva 
+            $sqlUpRes = "UPDATE reserva 
                                          SET reserva_abono=:a,
                                              reserva_estado='confirmada',
                                              usuario_id=:uid,
-                                             caja_id=:cid
-                                         WHERE reserva_codigo=:c AND reserva_estado='pendiente'");
+                                             caja_id=:cid";
+            if($this->columnaReservaClienteNotificacionDisponible()){
+                $sqlUpRes .= ", reserva_cliente_notificacion=(reserva_cliente_notificacion+1)";
+            }
+            $sqlUpRes .= " WHERE reserva_codigo=:c AND reserva_estado='pendiente'";
+            $stmtUpRes = $pdo->prepare($sqlUpRes);
             $stmtUpRes->bindParam(":a", $abono_fmt);
             $stmtUpRes->bindParam(":uid", $_SESSION['id'], \PDO::PARAM_INT);
             $stmtUpRes->bindParam(":cid", $caja_id, \PDO::PARAM_INT);
@@ -4121,12 +4240,16 @@ class reservationController extends mainModel{
             }
 
             // Confirmar reserva (sin sumar a caja_efectivo)
-            $stmtUpRes = $pdo->prepare("UPDATE reserva
+            $sqlUpRes = "UPDATE reserva
                                          SET reserva_abono=:a,
                                              reserva_estado='confirmada',
                                              usuario_id=:uid,
-                                             caja_id=:cid
-                                         WHERE reserva_codigo=:c AND reserva_estado='pendiente'");
+                                             caja_id=:cid";
+            if($this->columnaReservaClienteNotificacionDisponible()){
+                $sqlUpRes .= ", reserva_cliente_notificacion=(reserva_cliente_notificacion+1)";
+            }
+            $sqlUpRes .= " WHERE reserva_codigo=:c AND reserva_estado='pendiente'";
+            $stmtUpRes = $pdo->prepare($sqlUpRes);
             $stmtUpRes->bindParam(":a", $abono_fmt);
             $stmtUpRes->bindParam(":uid", $_SESSION['id'], \PDO::PARAM_INT);
             $stmtUpRes->bindParam(":cid", $caja_id, \PDO::PARAM_INT);

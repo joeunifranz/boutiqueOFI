@@ -110,6 +110,14 @@
 
 		<!-- (Los accesos rápidos ahora están arriba a la izquierda) -->
 
+		<!-- CATÁLOGO (carrusel) -->
+		<section class="inicio-catalogo">
+			<div class="container">
+				<?php echo $insProductoInicio->catalogoInicioHTMLControlador(); ?>
+			</div>
+		</section>
+	</main>
+
 		<section class="inicio-ubicacion" aria-label="Ubicación de la Boutique">
 			<div class="inicio-ubicacion-texto">
 				<h2 class="inicio-ubicacion-titulo">Ubicación</h2>
@@ -132,22 +140,6 @@
 				</div>
 			</div>
 		</section>
-	</main>
-
-	<!-- CATÁLOGO -->
-	<section class="inicio-catalogo">
-		<div class="container">
-			<h2 class="title is-3 has-text-centered has-text-white">
-				Explora nuestro catálogo
-			</h2>
-
-			<p class="has-text-centered inicio-catalogo-subtitle">
-				Colecciones por categoría con vestidos disponibles ahora mismo.
-			</p>
-
-			<?php echo $insProductoInicio->catalogoInicioHTMLControlador(); ?>
-		</div>
-	</section>
 
 </div>
 
@@ -322,31 +314,55 @@
 	z-index: 30;
 	display: flex;
 	gap: .75rem;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	max-width: calc(100vw - 2rem);
 }
 .inicio-login-btn,
 .inicio-register-btn{
 	display: inline-flex;
 	align-items: center;
-	gap: .5rem;
-	padding: .6rem 1rem;
-	border-radius: 999px;
+	justify-content: center;
+	gap: .55rem;
+	margin: 0;
+	min-height: 46px;
+	padding: 0 1.15rem;
+	border-radius: 14px;
+	position: relative;
+	overflow: hidden;
 	color: #fff;
-	background: rgba(255,255,255,.12);
-	border: 1px solid rgba(255,255,255,.25);
-	backdrop-filter: blur(10px);
-	-webkit-backdrop-filter: blur(10px);
-	font-weight: 600;
+	background: transparent;
+	border: 1px solid rgba(255, 221, 150, 0.70);
+	box-shadow:
+		0 14px 36px rgba(0,0,0,0.34),
+		0 0 0 1px rgba(255, 208, 120, 0.10),
+		0 0 22px rgba(255, 200, 90, 0.28);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	font-weight: 700;
 	font-size: 0.85rem;
+	letter-spacing: .04em;
+	transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 .inicio-login-btn:hover,
 .inicio-register-btn:hover{
 	color: #fff;
-	background: rgba(255,255,255,.18);
+	background: rgba(255,255,255,.06);
 	transform: translateY(-1px);
+	border-color: rgba(255, 221, 150, 0.88);
+	box-shadow:
+		0 16px 42px rgba(0,0,0,0.44),
+		0 0 0 1px rgba(255, 208, 120, 0.16),
+		0 0 28px rgba(255, 200, 90, 0.34);
+}
+.inicio-login-btn:focus-visible,
+.inicio-register-btn:focus-visible{
+	outline: 2px solid rgba(255, 221, 150, 0.75);
+	outline-offset: 3px;
 }
 .inicio-login-btn i,
 .inicio-register-btn i{
-	margin-right: .4rem;
+	margin-right: 0;
 }
 
 .inicio-admin-link{
@@ -371,12 +387,12 @@
 	align-items: center;
 	justify-content: center;
 	min-height: 100vh;
-	padding: 2rem;
+	padding: 3.25rem 2rem 2rem;
 	text-align: center;
 	width: 100%;
 }
 .inicio-titulo{
-	margin: 0;
+	margin: 1.15rem 0 0;
 	font-size: clamp(2.5rem, 8vw, 5rem);
 	font-weight: 200;
 	letter-spacing: 0.35em;
@@ -407,7 +423,7 @@
 }
 .inicio-descripcion{
 	max-width: 420px;
-	margin: 2rem auto 0;
+	margin: 1.6rem auto 0;
 	font-size: 1.05rem;
 	line-height: 1.8;
 	color: rgba(255,255,255,.92);
@@ -418,7 +434,11 @@
 
 /* Ubicación + mapa (derecha) */
 .inicio-ubicacion{
+	position: relative;
+	z-index: 10;
 	margin-top: 2.25rem;
+	margin-left: auto;
+	margin-right: auto;
 	width: min(980px, 100%);
 	display: flex;
 	gap: 1.25rem;
@@ -503,6 +523,12 @@
 	z-index: 5;
 	margin-top: -2rem;
 	padding: 4rem 1rem 5rem;
+}
+
+/* Cuando el carrusel vive dentro del hero, evitamos el offset/padding extra */
+.inicio-hero .inicio-catalogo{
+	margin-top: 3.25rem;
+	padding: 0;
 }
 .inicio-catalogo-subtitle{
 	color: rgba(255,255,255,.85);

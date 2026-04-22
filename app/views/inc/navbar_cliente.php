@@ -2,13 +2,24 @@
 	$clienteLogueado = (isset($_SESSION['cliente_id']) && !empty($_SESSION['cliente_id']));
 
 	use app\controllers\productController;
+	use app\controllers\reservationController;
 	$insProductoNavbar = new productController();
+	$notifReservas = 0;
+	if($clienteLogueado){
+		try{
+			$insReservaNavbar = new reservationController();
+			$notifReservas = $insReservaNavbar->contarNotificacionesReservaClienteControlador((int)$_SESSION['cliente_id']);
+			if($notifReservas < 0){ $notifReservas = 0; }
+		}catch(Throwable $e){
+			$notifReservas = 0;
+		}
+	}
 ?>
 
-<nav class="navbar is-white" role="navigation" aria-label="main navigation">
+<nav class="navbar is-white boutique-navbar" role="navigation" aria-label="main navigation">
 	<div class="navbar-brand">
-		<a class="navbar-item" href="<?php echo APP_URL; ?>inicio/">
-			<strong><?php echo APP_NAME; ?></strong>
+		<a class="navbar-item boutique-brand" href="<?php echo APP_URL; ?>inicio/">
+			<strong class="boutique-brand-text"><?php echo APP_NAME; ?></strong>
 		</a>
 		<a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarCliente">
 			<span aria-hidden="true"></span>
@@ -19,12 +30,30 @@
 
 	<div id="navbarCliente" class="navbar-menu">
 		<div class="navbar-start">
-			<a class="navbar-item" href="<?php echo APP_URL; ?>productosCliente/">Tienda</a>
-			<a class="navbar-item" href="<?php echo APP_URL; ?>telasCliente/">PERSONALIZA TU VESTIDO</a>
+			<a class="navbar-item boutique-nav-pill" href="<?php echo APP_URL; ?>productosCliente/">
+				<span class="icon" aria-hidden="true"><i class="fas fa-store"></i></span>
+				<span>TIENDA</span>
+			</a>
+			<a class="navbar-item boutique-nav-pill boutique-nav-pill-strong" href="<?php echo APP_URL; ?>telasCliente/">
+				<span class="icon" aria-hidden="true"><i class="fas fa-magic"></i></span>
+				<span>PERSONALIZA TU VESTIDO</span>
+			</a>
+			<?php if($clienteLogueado){ ?>
+				<a class="navbar-item boutique-nav-pill" href="<?php echo APP_URL; ?>reservasComprasCliente/">
+					<span class="icon" aria-hidden="true"><i class="fas fa-receipt"></i></span>
+					<span>RESERVAS Y COMPRAS</span>
+					<?php if($notifReservas > 0){ ?>
+						<span class="tag is-rounded ml-2 has-background-danger has-text-white" style="min-width:1.9em; height:1.9em; justify-content:center; padding-left:.6em; padding-right:.6em;">
+							<?php echo (int)$notifReservas; ?>
+						</span>
+					<?php } ?>
+				</a>
+			<?php } ?>
 			<div class="navbar-item">
 				<div id="categoriasDropdownNavbar" class="dropdown">
 					<div class="dropdown-trigger">
-						<button id="btnCategoriasNavbar" class="button is-light" aria-haspopup="true" aria-controls="dropdown-menu-categorias-navbar">
+						<button id="btnCategoriasNavbar" class="button is-light boutique-nav-btn" aria-haspopup="true" aria-controls="dropdown-menu-categorias-navbar">
+							<span class="icon" aria-hidden="true"><i class="fas fa-bars"></i></span>
 							<span>Categorías</span>
 							<span class="icon is-small">
 								<i class="fas fa-angle-down" aria-hidden="true"></i>
@@ -43,7 +72,8 @@
 			<div class="navbar-item">
 				<div id="tallasDropdownNavbar" class="dropdown">
 					<div class="dropdown-trigger">
-						<button id="btnTallasNavbar" class="button is-light" aria-haspopup="true" aria-controls="dropdown-menu-tallas">
+						<button id="btnTallasNavbar" class="button is-light boutique-nav-btn" aria-haspopup="true" aria-controls="dropdown-menu-tallas">
+							<span class="icon" aria-hidden="true"><i class="fas fa-ruler"></i></span>
 							<span>Tallas</span>
 							<span class="icon is-small">
 								<i class="fas fa-angle-down" aria-hidden="true"></i>
@@ -65,31 +95,106 @@
 					</div>
 				</div>
 			</div>
-			<?php if($clienteLogueado){ ?>
-				<a class="navbar-item" href="<?php echo APP_URL; ?>reservasComprasCliente/">Reservas y compras</a>
-			<?php } ?>
+
 		</div>
 
 		<div class="navbar-end">
 			<?php if($clienteLogueado){ ?>
 				<div class="navbar-item">
-					<a class="button is-info is-light mr-2" href="<?php echo APP_URL; ?>productosCliente/?reco=1#recoFoto">
+					<a class="button is-success is-light mr-2 boutique-nav-btn" href="<?php echo APP_URL; ?>productosCliente/?reco=1#recoFoto">
 						<i class="fas fa-camera"></i> &nbsp; SUGERENCIAS DE VESTIDO
 					</a>
-					<span class="mr-2">Hola, <?php echo htmlspecialchars($_SESSION['cliente_nombre']); ?></span>
-					<a class="button is-light" href="<?php echo APP_URL; ?>clienteLogOut/">Cerrar sesión</a>
+					<span class="mr-2 boutique-nav-greeting">Hola, <?php echo htmlspecialchars($_SESSION['cliente_nombre']); ?></span>
+					<a class="button is-light boutique-nav-btn" href="<?php echo APP_URL; ?>clienteLogOut/">Cerrar sesión</a>
 				</div>
 			<?php }else{ ?>
 				<div class="navbar-item">
 					<div class="buttons">
-						<a class="button is-light js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/" data-auth-intent="login">Iniciar sesión</a>
-						<a class="button is-info js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/" data-auth-intent="register">Registrar</a>
+						<a class="button is-light boutique-nav-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>clienteLogin/" data-auth-intent="login">Iniciar sesión</a>
+						<a class="button is-info boutique-nav-btn js-cliente-auth-open" href="<?php echo APP_URL; ?>registroCliente/" data-auth-intent="register">Registrar</a>
 					</div>
 				</div>
 			<?php } ?>
 		</div>
 	</div>
 </nav>
+
+<style>
+/* Navbar cliente: estilo más uniforme y sofisticado */
+.boutique-navbar{
+	position: sticky;
+	top: 0;
+	z-index: 50;
+	background: rgba(255,255,255,0.78) !important;
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+/* Tipografía/tamaño uniforme en todo el navbar */
+.boutique-navbar .navbar-item,
+.boutique-navbar .navbar-item a,
+.boutique-navbar .button,
+.boutique-navbar .dropdown-item,
+.boutique-navbar .navbar-link{
+	font-size: 0.9rem;
+	line-height: 1.2;
+	letter-spacing: .03em;
+	text-transform: uppercase;
+}
+
+.boutique-navbar .navbar-item,
+.boutique-navbar .button{
+	font-weight: 700;
+}
+
+.boutique-brand{ padding-left: 1rem; }
+.boutique-brand-text{ font-size: 0.9rem; letter-spacing: .14em; text-transform: uppercase; }
+
+/* Links del lado izquierdo como “pills” */
+.boutique-nav-pill{
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 42px;
+	margin: .25rem .15rem;
+	padding: 0 .95rem;
+	border-radius: 14px;
+	border: 1px solid rgba(255, 221, 150, 0.45);
+	background: rgba(255,255,255,0.55);
+	box-shadow: 0 10px 22px rgba(0,0,0,0.08);
+	transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease;
+}
+.boutique-nav-pill:hover{
+	background: rgba(255,255,255,0.72);
+	border-color: rgba(255, 221, 150, 0.70);
+	transform: translateY(-1px);
+	box-shadow: 0 14px 30px rgba(0,0,0,0.12);
+}
+.boutique-nav-pill-strong{
+	text-transform: uppercase;
+	letter-spacing: .06em;
+}
+
+/* Botones (dropdowns y acciones de la derecha) con mismo tamaño */
+.boutique-navbar .boutique-nav-btn{
+	min-height: 42px;
+	border-radius: 14px;
+	font-weight: 700;
+	letter-spacing: .03em;
+}
+
+.boutique-nav-greeting{
+	font-weight: 700;
+	letter-spacing: .03em;
+	color: rgba(0,0,0,0.70);
+}
+
+@media (max-width: 1023px){
+	.boutique-nav-pill{ width: 100%; justify-content: flex-start; }
+	.boutique-navbar .navbar-start .navbar-item{ width: 100%; }
+}
+</style>
 
 <script>
 	(function(){

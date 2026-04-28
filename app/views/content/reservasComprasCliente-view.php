@@ -69,12 +69,12 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 			<div class="box">
 				<div class="table-container">
 					<table class="table is-hoverable is-fullwidth is-size-6">
-						<thead class="has-background-light">
-				<tr>
-					<th class="has-text-centered">Vestido</th>
-					<th class="has-text-centered">Día de su cita</th>
-					<th class="has-text-centered">Ver más detalles</th>
-				</tr>
+						<thead class="has-background-light is-size-7">
+							<tr>
+								<th class="has-text-centered">Vestido</th>
+								<th class="has-text-centered">Día de tu cita</th>
+								<th class="has-text-centered">Ver más detalles</th>
+							</tr>
 						</thead>
 						<tbody>
 				<?php if(!empty($reservas)){ ?>
@@ -89,18 +89,18 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 								<?php if($isNuevo){ ?>
 									<span class="tag is-danger is-rounded is-small mb-1">NUEVO<?php echo ($notifVeces > 1) ? (' x'.(int)$notifVeces) : ''; ?></span><br>
 								<?php } ?>
-								<a href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">
+								<a class="has-text-weight-semibold is-size-5" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">
 									<?php echo htmlspecialchars((string)($r['producto_nombre'] ?? ''),ENT_QUOTES,'UTF-8'); ?>
 								</a>
 							</td>
 							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
-								<span class="tag <?php echo $isNuevo ? 'is-success' : 'is-light'; ?> is-rounded">
+								<span class="tag <?php echo $isNuevo ? 'is-success' : 'is-light'; ?> is-rounded is-medium">
 									<?php echo htmlspecialchars(trim((string)($r['reserva_fecha'] ?? '').' '.(string)($r['reserva_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?>
 								</span>
 							</td>
 							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
 								<div class="buttons is-centered">
-									<a class="button is-link is-small is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
+									<a class="button is-link is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
 								</div>
 							</td>
 						</tr>
@@ -126,14 +126,14 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 			<div class="box">
 				<div class="table-container">
 					<table class="table is-hoverable is-fullwidth is-size-6">
-						<thead class="has-background-light">
-				<tr>
-					<th class="has-text-centered">Código</th>
-					<th class="has-text-centered">Fecha</th>
-					<th class="has-text-centered">Total</th>
-					<th class="has-text-centered">Ítems</th>
-					<th class="has-text-centered">Acción</th>
-				</tr>
+						<thead class="has-background-light is-size-7">
+							<tr>
+								<th class="has-text-centered">Código</th>
+								<th class="has-text-centered">Fecha</th>
+								<th class="has-text-centered">Total</th>
+								<th class="has-text-centered">Ítems</th>
+								<th class="has-text-centered">Acción</th>
+							</tr>
 						</thead>
 						<tbody>
 				<?php if(!empty($ventas)){ ?>
@@ -144,18 +144,20 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 						$items = (int)($v['items'] ?? 0);
 					?>
 						<tr class="has-text-centered">
-							<td><?php echo htmlspecialchars($cod,ENT_QUOTES,'UTF-8'); ?></td>
 							<td>
-								<span class="tag is-light is-rounded">
+								<span class="tag is-dark is-light is-rounded is-medium">#<?php echo htmlspecialchars($cod,ENT_QUOTES,'UTF-8'); ?></span>
+							</td>
+							<td>
+								<span class="tag is-light is-rounded is-medium">
 									<?php echo htmlspecialchars(trim((string)($v['venta_fecha'] ?? '').' '.(string)($v['venta_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?>
 								</span>
 							</td>
-							<td><span class="tag is-light"><?php echo MONEDA_SIMBOLO.number_format((float)($v['venta_total'] ?? 0),2); ?></span></td>
-							<td><span class="tag is-light"><?php echo $items; ?></span></td>
+							<td><span class="tag is-light is-rounded is-medium"><?php echo MONEDA_SIMBOLO.number_format((float)($v['venta_total'] ?? 0),2); ?></span></td>
+							<td><span class="tag is-light is-rounded is-medium"><?php echo $items; ?></span></td>
 							<td>
 								<div class="buttons is-centered">
-									<a class="button is-link is-small is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
-									<a class="button is-light is-small is-rounded" href="<?php echo htmlspecialchars($ticketUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ticket</a>
+									<a class="button is-link is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
+									<a class="button is-light is-rounded" href="<?php echo htmlspecialchars($ticketUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ticket</a>
 								</div>
 							</td>
 						</tr>

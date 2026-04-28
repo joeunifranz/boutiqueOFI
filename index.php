@@ -124,8 +124,14 @@
         $viewsController= new viewsController();
         $vista=$viewsController->obtenerVistasControlador($url[0]);
 
-        # Si ya está logueado y visita inicio, redirigir según rol #
-        if($vista=="inicio" && isset($_SESSION['id']) && $_SESSION['id']!="" && isset($_SESSION['usuario']) && $_SESSION['usuario']!=""){
+        # Si ya está logueado y entra a la raíz (sin views), redirigir según rol #
+        # Nota: NO redirigir cuando la ruta es explícitamente /inicio/.
+        if(
+            $vista=="inicio" &&
+            (!isset($_GET['views']) || trim((string)$_GET['views'])==="") &&
+            isset($_SESSION['id']) && $_SESSION['id']!="" &&
+            isset($_SESSION['usuario']) && $_SESSION['usuario']!=""
+        ){
             $destino = $insLogin->sessionEsAdmin() ? "dashboard/" : "saleNew/";
             if(headers_sent()){
                 echo "<script> window.location.href='".APP_URL.$destino."'; </script>";

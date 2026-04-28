@@ -2736,25 +2736,13 @@ class reservationController extends mainModel{
             $conteo = [];
         }
 
-        $citasDia = [];
-                $sqlDia = "SELECT r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_total, r.reserva_abono, r.reserva_estado,
-                                                    c.cliente_nombre, c.cliente_apellido, c.cliente_email,
-                                                    p.producto_nombre
-                                     FROM reserva r
-                                     INNER JOIN cliente c ON c.cliente_id = r.cliente_id
-                                     INNER JOIN producto p ON p.producto_id = r.producto_id
-                                     WHERE r.reserva_fecha = :fecha
-                                         AND r.reserva_estado <> 'rechazada'
-                                     ORDER BY STR_TO_DATE(r.reserva_hora, '%h:%i %p') ASC, r.reserva_id ASC
-                                     LIMIT :lim";
-        try{
-            $stmt = $this->conectar()->prepare($sqlDia);
-            $stmt->bindParam(':fecha', $fechaSel);
-            $stmt->bindValue(':lim', $limite, \PDO::PARAM_INT);
-            $stmt->execute();
-            $citasDia = $stmt->fetchAll();
-        }catch(\Throwable $e){
-            $citasDia = [];
+        // Config para el calendario semanal
+        $cfgCitas = $this->obtenerConfigCitas();
+        $minTime = isset($cfgCitas['start']) ? (string)$cfgCitas['start'] : '10:00';
+        $maxTime = isset($cfgCitas['end']) ? (string)$cfgCitas['end'] : '19:00';
+        $slotMinutes = isset($cfgCitas['interval_minutes']) ? (int)$cfgCitas['interval_minutes'] : 30;
+        if($slotMinutes <= 0){
+            $slotMinutes = 30;
         }
 
         $meses = [
@@ -2767,8 +2755,8 @@ class reservationController extends mainModel{
         $html = '';
         $html .= '<div class="columns is-variable is-6">';
 
-        $html .= '<div class="column is-5">';
-        $html .= '<div class="card">';
+        $html .= '<div class="column is-3">';
+        $html .= '<div class="card bq-mini-card">';
         $html .= '<header class="card-header">';
         $html .= '<p class="card-header-title">';
         $html .= '<span class="icon"><i class="fas fa-calendar-alt"></i></span>';
@@ -2783,10 +2771,24 @@ class reservationController extends mainModel{
         $html .= '</header>';
 
         $html .= '<div class="card-content">';
-        $html .= '<p class="is-size-7 has-text-grey">Selecciona un día para ver las citas.</p>';
+
+        // Mini calendario mensual ULTRA compacto
+        $html .= '<style>';
+        $html .= '  .bq-mini-card .card-header-title{padding: .30rem .40rem; font-size: .85rem;}';
+        $html .= '  .bq-mini-card .card-header-icon{padding: .15rem .25rem;}';
+        $html .= '  .bq-mini-card .card-content{padding: .25rem;}';
+        $html .= '  .bq-mini-card .table-container{margin: 0;}';
+        $html .= '  .bq-mini-card table{margin-bottom: 0 !important;}';
+        $html .= '  .bq-mini-cal{table-layout: fixed;}';
+        $html .= '  .bq-mini-cal thead th{padding: .06rem !important; font-size: .70rem;}';
+        $html .= '  .bq-mini-cal th, .bq-mini-cal td{padding: .06rem !important;}';
+        $html .= '  .bq-mini-cal .button{height: 1.55em; padding: 0 .22em; line-height: 1;}';
+        $html .= '  .bq-mini-cal .tag{height: 1.12em; font-size: .60rem; padding: 0 .28em; line-height: 1;}';
+        $html .= '  .bq-mini-card .buttons.has-addons .button{height: 1.85em; padding: 0 .45em;}';
+        $html .= '</style>';
 
         $html .= '<div class="table-container">';
-        $html .= '<table class="table is-bordered is-fullwidth is-narrow">';
+        $html .= '<table class="table is-bordered is-fullwidth is-narrow is-size-7 bq-mini-cal">';
         $html .= '<thead><tr class="has-text-centered is-size-7">';
         $html .= '<th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>';
         $html .= '</tr></thead><tbody>';
@@ -2814,12 +2816,12 @@ class reservationController extends mainModel{
             $count = (int)($conteo[$fechaDia] ?? 0);
             $badge = '';
             if($count>0){
-                $badge = '<div class="mt-1"><span class="tag is-info is-light is-rounded">'.(int)$count.'</span></div>';
+                $badge = '<div style="margin-top:2px;"><span class="tag is-info is-light is-rounded is-small">'.(int)$count.'</span></div>';
             }
 
             $html .= '<td class="'.$claseTd.'">';
-            $html .= '<a href="'.$baseUrl.'?fecha='.urlencode($fechaDia).'" class="button is-white is-fullwidth">';
-            $html .= '<span class="is-size-6 has-text-weight-semibold">'.$dia.'</span>';
+            $html .= '<a href="'.$baseUrl.'?fecha='.urlencode($fechaDia).'" class="button is-white is-small is-fullwidth">';
+            $html .= '<span class="is-size-7 has-text-weight-semibold">'.$dia.'</span>';
             $html .= '</a>';
             $html .= $badge;
             $html .= '</td>';
@@ -2850,42 +2852,211 @@ class reservationController extends mainModel{
         $html .= '</div>';
         $html .= '</div>';
 
-        $html .= '<div class="column is-7">';
+        $html .= '<div class="column is-9">';
         $html .= '<div class="card">';
         $html .= '<header class="card-header">';
         $html .= '<p class="card-header-title">';
-        $html .= '<span class="icon"><i class="fas fa-calendar-check"></i></span>';
-        $html .= '<span>Citas del '.htmlspecialchars(date('d/m/Y', strtotime($fechaSel)), ENT_QUOTES, 'UTF-8').'</span>';
+        $html .= '<span class="icon"><i class="fas fa-calendar-week"></i></span>';
+        $html .= '<span>Agenda semanal</span>';
         $html .= '</p>';
         $html .= '</header>';
         $html .= '<div class="card-content">';
+        $html .= '<p class="is-size-7 has-text-grey mb-3">Haz clic en una cita para ver el detalle. Usa la barra superior para cambiar entre <strong>Semana</strong>, <strong>Día</strong> o <strong>Mes</strong>.</p>';
 
-        if(empty($citasDia)){
-            $html .= '<article class="message is-info"><div class="message-body">No hay citas para este día.</div></article>';
-        }else{
-            $html .= '<p class="mb-3"><span class="tag is-info is-light is-rounded">'.count($citasDia).'</span> <span class="is-size-7 has-text-grey">cita(s)</span></p>';
-            $html .= '<div class="table-container">';
-            $html .= '<table class="table is-striped is-narrow is-hoverable is-fullwidth">';
-            $html .= '<thead><tr>';
-            $html .= '<th class="has-text-centered">Hora</th>';
-            $html .= '<th class="has-text-centered">Cliente</th>';
-            $html .= '<th class="has-text-centered">Vestido</th>';
-            $html .= '</tr></thead><tbody>';
+        $html .= '<style>';
+        $html .= '  .admin-calendar-wrap{overflow-x: auto;}';
+        $html .= '  #adminCitasCalendar{max-width: 100%; min-width: 0;}';
+        $html .= '  .fc{font-size: 0.95rem;}';
+        $html .= '  .fc .fc-toolbar{flex-wrap: wrap; gap: 8px;}';
+        $html .= '  .fc .fc-toolbar-chunk{display: flex; flex-wrap: wrap; gap: 6px; align-items: center;}';
+        $html .= '  .fc .fc-button-group{display: flex; flex-wrap: wrap; gap: 6px;}';
+        $html .= '  .fc .fc-toolbar-title{font-size: 1.25rem; font-weight: 700;}';
+        $html .= '  .fc .fc-button{font-size: .8rem; height: 2.25em; white-space: nowrap;}';
+        $html .= '  .fc .fc-timegrid-slot-label{font-size: .85rem;}';
+        $html .= '  .fc .fc-col-header-cell-cushion{font-weight: 700; white-space: normal; line-height: 1.1;}';
 
-            foreach($citasDia as $r){
-                $cliente = $this->limitarCadena(trim((string)$r['cliente_nombre'].' '.(string)$r['cliente_apellido']), 40, '...');
-                $vestido = $this->limitarCadena((string)$r['producto_nombre'], 50, '...');
-                $hora = (string)($r['reserva_hora'] ?? '');
+        // Horarios (eje izquierdo) más visibles
+        $html .= '  .fc .fc-timegrid-axis{width: 78px !important;}';
+        $html .= '  .fc .fc-timegrid-axis-cushion{font-size: .98rem; font-weight: 700; padding: 0 6px;}';
+        $html .= '  .fc .fc-timegrid-slot-label-cushion{font-size: .95rem; font-weight: 700;}';
+        $html .= '  .fc .fc-timegrid-slot{border-top-style: solid;}';
 
-                $html .= '<tr class="has-text-centered">';
-                $html .= '<td><span class="tag is-light is-rounded">'.htmlspecialchars($hora, ENT_QUOTES, 'UTF-8').'</span></td>';
-                $html .= '<td>'.htmlspecialchars($cliente, ENT_QUOTES, 'UTF-8').'</td>';
-                $html .= '<td>'.htmlspecialchars($vestido, ENT_QUOTES, 'UTF-8').'</td>';
-                $html .= '</tr>';
-            }
+        // Cuadros (slots) más grandes en la agenda
+        $html .= '  .fc{--fc-timegrid-slot-min-height: 3.4em;}';
+        $html .= '  .fc .fc-timegrid-slot{height: 3.4em;}';
 
-            $html .= '</tbody></table></div>';
-        }
+        // En vista "Día" un poco más alto para ver mejor el contenido
+        $html .= '  .fc-timeGridDay-view{--fc-timegrid-slot-min-height: 3.9em;}';
+        $html .= '  .fc-timeGridDay-view .fc-timegrid-slot{height: 3.9em;}';
+
+        // Eventos: permitir 2 líneas (cliente + producto) sin recortes
+        $html .= '  .fc .fc-event{padding: 1px 2px;}';
+        $html .= '  .fc .fc-event .bq-event-wrap{display:block;}';
+        $html .= '  .fc .fc-event .bq-top{display:flex; gap:4px; flex-wrap:wrap; align-items:center; margin-bottom:2px;}';
+        $html .= '  .fc .fc-event .bq-time{font-size:.78rem; padding:0 .4em; height:1.55em; line-height:1.55em; font-weight:700;}';
+        $html .= '  .fc .fc-event .bq-title{display:block; font-weight: 800; white-space: normal; line-height: 1.05;}';
+        $html .= '  .fc .fc-event .bq-sub{display:block; font-size: .78rem; opacity: .95; white-space: normal; line-height: 1.05;}';
+
+        // En vista semanal/diaria, evitar que el texto se salga y "tape" otros eventos
+        $html .= '  .fc .fc-timegrid-event .fc-event-main{overflow:hidden;}';
+        $html .= '  .fc .fc-timegrid-event .bq-title, .fc .fc-timegrid-event .bq-sub{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}';
+
+        // Vista mensual: más compacta para que entre todo el mes
+        $html .= '  .fc .fc-daygrid-day-number{padding: 2px 4px; font-size: .75rem;}';
+        $html .= '  .fc .fc-daygrid-event{font-size: .72rem; padding: 0 2px;}';
+        $html .= '  .fc .fc-daygrid-day-top{flex-direction: row; justify-content: flex-start;}';
+
+        // En pantallas pequeñas, reducir un poco para evitar recortes
+        $html .= '  @media (max-width: 1023px){';
+        $html .= '    .fc{font-size: 0.9rem;}';
+        $html .= '    .fc .fc-toolbar-title{font-size: 1.1rem;}';
+        $html .= '    .fc .fc-button{font-size: .75rem;}';
+        $html .= '  }';
+        $html .= '</style>';
+
+        $html .= '<div class="admin-calendar-wrap">';
+        $html .= '<div id="adminCitasCalendar"></div>';
+        $html .= '</div>';
+
+        $html .= '<hr class="my-4">';
+        $html .= '<div class="content">';
+        $html .= '<p class="mb-2"><strong>Leyenda de colores</strong></p>';
+        $html .= '<div class="tags are-medium">';
+        $html .= '<span class="tag is-warning is-light is-rounded">PENDIENTE</span>';
+        $html .= '<span class="tag is-success is-light is-rounded">CONFIRMADA</span>';
+        $html .= '<span class="tag is-link is-light is-rounded">REPROGRAMADA</span>';
+        $html .= '<span class="tag is-dark is-light is-rounded">COMPLETADA</span>';
+        $html .= '<span class="tag is-danger is-light is-rounded">RECHAZADA</span>';
+        $html .= '<span class="tag is-info is-light is-rounded">OTRA</span>';
+        $html .= '</div>';
+        $html .= '<p class="is-size-7 has-text-grey">La vista de calendario no muestra citas <strong>rechazadas</strong> por defecto.</p>';
+        $html .= '</div>';
+
+        // FullCalendar assets (CDN)
+        $html .= '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css">';
+        $html .= '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>';
+        $html .= '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>';
+
+        $ajaxUrl = APP_URL.'app/ajax/reservaAjax.php';
+        $initialDate = htmlspecialchars($fechaSel, ENT_QUOTES, 'UTF-8');
+        $slotMinTime = htmlspecialchars($minTime.':00', ENT_QUOTES, 'UTF-8');
+        $slotMaxTime = htmlspecialchars($maxTime.':00', ENT_QUOTES, 'UTF-8');
+        $slotDuration = sprintf('00:%02d:00', $slotMinutes);
+        $slotDuration = htmlspecialchars($slotDuration, ENT_QUOTES, 'UTF-8');
+
+        $html .= '<script>';
+        $html .= 'document.addEventListener("DOMContentLoaded", function(){';
+        $html .= '  var el = document.getElementById("adminCitasCalendar");';
+        $html .= '  if(!el || !window.FullCalendar){ return; }';
+        $html .= '  var colorCache = {};';
+        $html .= '  function estadoToBulma(estado){';
+        $html .= '    estado = (estado||"").toLowerCase().trim();';
+        $html .= '    if(estado==="pendiente") return "is-warning";';
+        $html .= '    if(estado==="confirmada") return "is-success";';
+        $html .= '    if(estado==="reprogramada") return "is-link";';
+        $html .= '    if(estado==="completada") return "is-dark";';
+        $html .= '    if(estado==="rechazada") return "is-danger";';
+        $html .= '    return "is-info";';
+        $html .= '  }';
+        $html .= '  function resolveBulmaBg(bulmaClass){';
+        $html .= '    if(colorCache[bulmaClass]) return colorCache[bulmaClass];';
+        $html .= '    var probe = document.createElement("span");';
+        $html .= '    probe.className = "tag "+bulmaClass;';
+        $html .= '    probe.style.position = "absolute";';
+        $html .= '    probe.style.left = "-9999px";';
+        $html .= '    probe.style.top = "-9999px";';
+        $html .= '    document.body.appendChild(probe);';
+        $html .= '    var bg = window.getComputedStyle(probe).backgroundColor;';
+        $html .= '    document.body.removeChild(probe);';
+        $html .= '    colorCache[bulmaClass] = bg;';
+        $html .= '    return bg;';
+        $html .= '  }';
+        $html .= '  var calendar = new FullCalendar.Calendar(el, {';
+        $html .= '    initialView: "timeGridWeek",';
+        $html .= '    initialDate: "'.$initialDate.'",';
+        $html .= '    locale: "es",';
+        $html .= '    firstDay: 1,';
+        $html .= '    nowIndicator: true,';
+        $html .= '    allDaySlot: false,';
+        $html .= '    expandRows: true,';
+        $html .= '    height: 860,';
+        $html .= '    slotMinTime: "'.$slotMinTime.'",';
+        $html .= '    slotMaxTime: "'.$slotMaxTime.'",';
+        $html .= '    slotDuration: "'.$slotDuration.'",';
+        $html .= '    headerToolbar: { left: "prev,next today", center: "title", right: "timeGridWeek,timeGridDay,dayGridMonth" },';
+        $html .= '    buttonText: { today: "Hoy", month: "Mes", week: "Semana", day: "Día" },';
+        $html .= '    eventTimeFormat: { hour: "2-digit", minute: "2-digit", hour12: true },';
+        $html .= '    slotLabelFormat: { hour: "2-digit", minute: "2-digit", hour12: true },';
+        $html .= '    slotLabelInterval: { hours: 1 },';
+        $html .= '    dayHeaderFormat: { weekday: "short", day: "2-digit", month: "2-digit" },';
+        $html .= '    slotEventOverlap: false,';
+        $html .= '    eventDisplay: "block",';
+        $html .= '    eventMinHeight: 40,';
+        $html .= '    views: {';
+        $html .= '      timeGridWeek: { height: 880 },';
+        $html .= '      timeGridDay: { height: 900 },';
+        $html .= '      dayGridMonth: { height: 640, dayMaxEventRows: 2 }';
+        $html .= '    },';
+        $html .= '    moreLinkText: function(n){ return "+ "+n+" más"; },';
+        $html .= '    events: function(info, successCallback, failureCallback){';
+        $html .= '      fetch("'.htmlspecialchars($ajaxUrl, ENT_QUOTES, 'UTF-8').'", {';
+        $html .= '        method: "POST",';
+        $html .= '        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },';
+        $html .= '        body: new URLSearchParams({ modulo_reserva: "calendario_eventos_admin", start: info.startStr, end: info.endStr }).toString()';
+        $html .= '      }).then(function(r){ return r.json(); })';
+        $html .= '      .then(function(data){ successCallback(Array.isArray(data)?data:[]); })';
+        $html .= '      .catch(function(){ failureCallback(); });';
+        $html .= '    },';
+        $html .= '    eventClick: function(arg){';
+        $html .= '      if(arg.event && arg.event.url){ arg.jsEvent.preventDefault(); window.location.href = arg.event.url; }';
+        $html .= '    },';
+        $html .= '    eventDidMount: function(info){';
+        $html .= '      var estado = info.event.extendedProps ? info.event.extendedProps.estado : "";';
+        $html .= '      var bulma = estadoToBulma(estado);';
+        $html .= '      var bg = resolveBulmaBg(bulma);';
+        $html .= '      if(bg){ info.el.style.backgroundColor = bg; info.el.style.borderColor = bg; }';
+        $html .= '    },';
+        $html .= '    eventContent: function(arg){';
+        $html .= '      var estado = arg.event.extendedProps ? arg.event.extendedProps.estado : "";';
+        $html .= '      var producto = arg.event.extendedProps ? (arg.event.extendedProps.producto || "") : "";';
+        $html .= '      var bulma = estadoToBulma(estado);';
+        $html .= '      var wrap = document.createElement("div");';
+        $html .= '      wrap.className = "bq-event-wrap";';
+        $html .= '      var isMonth = (arg.view && arg.view.type === "dayGridMonth");';
+        $html .= '      var top = document.createElement("div");';
+        $html .= '      top.className = "bq-top";';
+        $html .= '      var tag = document.createElement("span");';
+        $html .= '      tag.className = "tag is-light is-rounded "+bulma;';
+        $html .= '      tag.textContent = estado ? estado.toUpperCase() : "CITA";';
+        $html .= '      top.appendChild(tag);';
+        $html .= '      if(!isMonth){';
+        $html .= '        var t = document.createElement("span");';
+        $html .= '        t.className = "tag is-light is-rounded bq-time";';
+        $html .= '        var d = arg.event && arg.event.start ? arg.event.start : null;';
+        $html .= '        if(d){';
+        $html .= '          try{';
+        $html .= '            t.textContent = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit", hour12: true }).format(d);';
+        $html .= '          }catch(e){ t.textContent = arg.timeText || ""; }';
+        $html .= '        }else{ t.textContent = arg.timeText || ""; }';
+        $html .= '        if(t.textContent){ top.appendChild(t); }';
+        $html .= '      }';
+        $html .= '      var title = document.createElement("div");';
+        $html .= '      title.className = "bq-title";';
+        $html .= '      title.textContent = arg.event.title || "";';
+        $html .= '      wrap.appendChild(top);';
+        $html .= '      wrap.appendChild(title);';
+        $html .= '      if(!isMonth && producto){';
+        $html .= '        var sub = document.createElement("div");';
+        $html .= '        sub.className = "bq-sub";';
+        $html .= '        sub.textContent = producto;';
+        $html .= '        wrap.appendChild(sub);';
+        $html .= '      }';
+        $html .= '      return { domNodes: [wrap] };';
+        $html .= '    }';
+        $html .= '  });';
+        $html .= '  calendar.render();';
+        $html .= '});';
+        $html .= '</script>';
 
         $html .= '</div>';
         $html .= '</div>';
@@ -2894,6 +3065,104 @@ class reservationController extends mainModel{
         $html .= '</div>';
 
         return $html;
+    }
+
+
+    /*---------- Eventos para calendario (solo admin, AJAX) ----------*/
+    public function calendarioEventosAdminControlador(): string{
+        if(!$this->tablaReservaExiste()){
+            return json_encode([]);
+        }
+
+        if((!isset($_SESSION['id']) || $_SESSION['id']==="") || (!isset($_SESSION['usuario']) || $_SESSION['usuario']==="")){
+            return json_encode([]);
+        }
+
+        if(!$this->sesionEsAdmin()){
+            return json_encode([]);
+        }
+
+        $startRaw = isset($_POST['start']) ? (string)$this->limpiarCadena($_POST['start']) : '';
+        $endRaw = isset($_POST['end']) ? (string)$this->limpiarCadena($_POST['end']) : '';
+
+        // FullCalendar suele enviar ISO (YYYY-MM-DD o YYYY-MM-DDTHH:mm:ssZ).
+        // Como la BD guarda la fecha en DATE, tomamos solo YYYY-MM-DD para evitar desfases por timezone.
+        $startDate = substr($startRaw, 0, 10);
+        $endExclusive = substr($endRaw, 0, 10);
+        if(!$this->fechaYmdValida($startDate) || !$this->fechaYmdValida($endExclusive)){
+            $startDate = date('Y-m-d');
+            $endExclusive = date('Y-m-d', strtotime($startDate.' +30 days'));
+        }
+
+        // end es exclusivo; consultamos hasta el día anterior
+        $endInclusive = (new \DateTime($endExclusive))->modify('-1 day')->format('Y-m-d');
+
+        $cfg = $this->obtenerConfigCitas();
+        $durMin = isset($cfg['interval_minutes']) ? (int)$cfg['interval_minutes'] : 30;
+        if($durMin <= 0){
+            $durMin = 30;
+        }
+
+        $sql = "SELECT r.reserva_codigo, r.reserva_fecha, r.reserva_hora, r.reserva_estado,
+                       c.cliente_nombre, c.cliente_apellido,
+                       p.producto_nombre
+                FROM reserva r
+                INNER JOIN cliente c ON c.cliente_id = r.cliente_id
+                INNER JOIN producto p ON p.producto_id = r.producto_id
+                WHERE r.reserva_fecha BETWEEN :ini AND :fin
+                  AND r.reserva_estado <> 'rechazada'
+                ORDER BY r.reserva_fecha ASC, STR_TO_DATE(r.reserva_hora, '%h:%i %p') ASC, r.reserva_id ASC
+                LIMIT 5000";
+
+        try{
+            $stmt = $this->conectar()->prepare($sql);
+            $stmt->bindParam(':ini', $startDate);
+            $stmt->bindParam(':fin', $endInclusive);
+            $stmt->execute();
+            $rows = $stmt->fetchAll();
+        }catch(\Throwable $e){
+            $rows = [];
+        }
+
+        $events = [];
+        foreach($rows as $r){
+            $fecha = (string)($r['reserva_fecha'] ?? '');
+            $hora = $this->normalizarHora12((string)($r['reserva_hora'] ?? ''));
+            $codigo = (string)($r['reserva_codigo'] ?? '');
+            $estado = (string)($r['reserva_estado'] ?? '');
+            if($fecha==='' || $hora==='' || $codigo===''){
+                continue;
+            }
+
+            $dtStart = \DateTime::createFromFormat('Y-m-d h:i a', $fecha.' '.$hora);
+            if(!$dtStart){
+                continue;
+            }
+            $dtEnd = (clone $dtStart);
+            $dtEnd->modify('+'.$durMin.' minutes');
+
+            $cliente = trim((string)($r['cliente_nombre'] ?? '').' '.(string)($r['cliente_apellido'] ?? ''));
+            $producto = (string)($r['producto_nombre'] ?? '');
+            $titulo = $cliente !== '' ? $cliente : $codigo;
+            $titulo = $this->limitarCadena($titulo, 55, '...');
+            $productoShort = $this->limitarCadena($producto, 70, '...');
+
+            $events[] = [
+                'id' => $codigo,
+                'title' => $titulo,
+                'start' => $dtStart->format('c'),
+                'end' => $dtEnd->format('c'),
+                'url' => APP_URL.'reservaDetalle/'.urlencode($codigo).'/',
+                'extendedProps' => [
+                    'estado' => $estado,
+                    'codigo' => $codigo,
+                    'cliente' => $cliente,
+                    'producto' => $productoShort,
+                ],
+            ];
+        }
+
+        return json_encode($events);
     }
 
 

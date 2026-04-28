@@ -56,6 +56,10 @@ if(isset($_POST['modulo_reserva'])){
         echo $insReserva->completarReservaVentaControlador();
     }
 
+    if($_POST['modulo_reserva']=="calendario_eventos_admin"){
+        echo $insReserva->calendarioEventosAdminControlador();
+    }
+
 }else{
     session_destroy();
     header("Location: ".APP_URL."inicio/");

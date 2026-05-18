@@ -2668,6 +2668,11 @@ class reservationController extends mainModel{
         $hoy = date('Y-m-d');
         $fechaSel = isset($_GET['fecha']) ? (string)$this->limpiarCadena($_GET['fecha']) : $hoy;
 
+        // Permitir también YYYY-MM (desde el selector <input type="month">)
+        if(preg_match('/^\d{4}-\d{2}$/', $fechaSel)){
+            $fechaSel .= '-01';
+        }
+
         if(!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaSel)){
             $fechaSel = $hoy;
         }else{
@@ -2750,7 +2755,13 @@ class reservationController extends mainModel{
             7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'
         ];
         $nombreMes = $meses[$mes] ?? '';
-        $baseUrl = APP_URL.'reservaHoy/';
+        // Usar URLs root-relative basadas en APP_URL para:
+        // - evitar problemas de sesión por host distinto (same-origin)
+        // - evitar rutas relativas rotas dentro de /reservaHoy/
+        $appPath = (string)parse_url(APP_URL, PHP_URL_PATH);
+        if($appPath === ''){ $appPath = '/'; }
+        if(substr($appPath, -1) !== '/'){ $appPath .= '/'; }
+        $baseUrl = $appPath.'reservaHoy/';
 
         $html = '';
         $html .= '<div class="columns is-variable is-6">';
@@ -2772,11 +2783,30 @@ class reservationController extends mainModel{
 
         $html .= '<div class="card-content">';
 
+        // Botón/selector de mes sin depender de JS
+        $html .= '<details class="bq-mini-month-details">';
+        $html .= '  <summary class="button is-small is-light" aria-label="Seleccionar mes y año" title="Seleccionar mes y año"><span class="icon is-small"><i class="fas fa-calendar"></i></span><span>Seleccionar mes</span></summary>';
+        $html .= '  <form method="GET" action="'.$baseUrl.'" class="mt-2">';
+        $html .= '    <div class="field has-addons">';
+        $html .= '      <div class="control is-expanded">';
+        $html .= '        <input class="input is-small" type="month" name="fecha" min="2000-01" max="2100-12" value="'.htmlspecialchars(sprintf('%04d-%02d', $anio, $mes), ENT_QUOTES, 'UTF-8').'">';
+        $html .= '      </div>';
+        $html .= '      <div class="control">';
+        $html .= '        <button class="button is-small is-link" type="submit">Ir</button>';
+        $html .= '      </div>';
+        $html .= '    </div>';
+        $html .= '  </form>';
+        $html .= '</details>';
+
         // Mini calendario mensual ULTRA compacto
         $html .= '<style>';
         $html .= '  .bq-mini-card .card-header-title{padding: .30rem .40rem; font-size: .85rem;}';
         $html .= '  .bq-mini-card .card-header-icon{padding: .15rem .25rem;}';
         $html .= '  .bq-mini-card .card-content{padding: .25rem;}';
+        $html .= '  .bq-mini-month-details{margin: 0 0 .25rem 0;}';
+        $html .= '  .bq-mini-month-details > summary{list-style: none;}';
+        $html .= '  .bq-mini-month-details > summary::-webkit-details-marker{display:none;}';
+        $html .= '  .bq-mini-month-details .input{height: 1.95em; padding: 0 .5em; font-size: .80rem;}';
         $html .= '  .bq-mini-card .table-container{margin: 0;}';
         $html .= '  .bq-mini-card table{margin-bottom: 0 !important;}';
         $html .= '  .bq-mini-cal{table-layout: fixed;}';
@@ -2937,7 +2967,8 @@ class reservationController extends mainModel{
         $html .= '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>';
         $html .= '<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js"></script>';
 
-        $ajaxUrl = APP_URL.'app/ajax/reservaAjax.php';
+        // URL root-relative para asegurar same-origin + ruta correcta
+        $ajaxUrl = $appPath.'app/ajax/reservaAjax.php';
         $initialDate = htmlspecialchars($fechaSel, ENT_QUOTES, 'UTF-8');
         $slotMinTime = htmlspecialchars($minTime.':00', ENT_QUOTES, 'UTF-8');
         $slotMaxTime = htmlspecialchars($maxTime.':00', ENT_QUOTES, 'UTF-8');
@@ -3001,6 +3032,7 @@ class reservationController extends mainModel{
         $html .= '    events: function(info, successCallback, failureCallback){';
         $html .= '      fetch("'.htmlspecialchars($ajaxUrl, ENT_QUOTES, 'UTF-8').'", {';
         $html .= '        method: "POST",';
+        $html .= '        credentials: "same-origin",';
         $html .= '        headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" },';
         $html .= '        body: new URLSearchParams({ modulo_reserva: "calendario_eventos_admin", start: info.startStr, end: info.endStr }).toString()';
         $html .= '      }).then(function(r){ return r.json(); })';

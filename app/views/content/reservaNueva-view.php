@@ -8,26 +8,7 @@ if(isset($url[1]) && $url[1]!==""){
     $id = (int)$_GET['id'];
 }
 
-if(!isset($_SESSION['cliente_id']) || $_SESSION['cliente_id']===""){
-	$redirect_to = ($id>0) ? "reservaNueva/".$id."/" : "productosCliente/";
-    $cliente_auth_redirect_to = $redirect_to;
-    $cliente_auth_title = 'Para reservar necesitas una cuenta';
-    $cliente_auth_subtitle = 'Regístrate o inicia sesión para continuar con tu reserva.';
-	require_once "./app/views/inc/navbar_cliente.php";
-    ?>
-    <script>
-        document.addEventListener('DOMContentLoaded', function(){
-            if(window.BoutiqueClienteAuthModalOpen){
-                window.BoutiqueClienteAuthModalOpen('login', <?php echo json_encode($redirect_to, JSON_UNESCAPED_SLASHES); ?>, {
-                    title: 'Para reservar necesitas una cuenta',
-                    subtitle: 'Regístrate o inicia sesión para continuar con tu reserva.'
-                });
-            }
-        });
-    </script>
-    <?php
-	return;
-}
+$clienteLogueado = (isset($_SESSION['cliente_id']) && $_SESSION['cliente_id'] !== "");
 
 $insProducto = new productController();
 
@@ -68,7 +49,25 @@ if(is_file($rutaFeriados)){
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 
-<div class="container py-6">
+<section class="boutique-bg boutique-client-page">
+    <div class="boutique-bg-slider" aria-hidden="true">
+        <div class="boutique-bg-slide s1"></div>
+        <div class="boutique-bg-slide s2"></div>
+        <div class="boutique-bg-slide s3"></div>
+        <div class="boutique-bg-slide s4"></div>
+        <div class="boutique-bg-slide s5"></div>
+        <div class="boutique-bg-slide s6"></div>
+    </div>
+    <div class="boutique-bg-overlay" aria-hidden="true"></div>
+    <div class="boutique-client-content">
+        <div class="container">
+            <?php if(!$clienteLogueado){ ?>
+                <div class="notification is-warning is-light boutique-client-note">
+                    <strong>Tip:</strong> elige tu talla y tu cita. Al final te pediremos iniciar sesión para confirmar la reserva.
+                </div>
+            <?php } ?>
+
+            <div class="boutique-glass p-5">
     <div class="columns is-vcentered">
         <div class="column is-5">
             <figure class="image">
@@ -92,7 +91,7 @@ if(is_file($rutaFeriados)){
                 <p class="has-text-grey is-size-7">La reserva se confirma cuando el personal registra el abono. El QR sirve para abrir rápidamente la reserva en caja.</p>
             </div>
 
-            <form class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
+            <form id="reservaForm" class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
                 <input type="hidden" name="modulo_reserva" value="crear">
                 <input type="hidden" name="producto_id" value="<?php echo (int)$producto['producto_id']; ?>">
 
@@ -155,29 +154,31 @@ if(is_file($rutaFeriados)){
             </a>
         </div>
     </div>
-</div>
+            </div>
+        </div>
+    </div>
+</section>
 
 <style>
-.detalle-img{
-    border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-    transition: transform 0.3s ease;
-}
-.detalle-img:hover{
-    transform: scale(1.03);
-}
+.detalle-img{ border-radius: 16px; }
 </style>
 
 <script>
 (() => {
+    const clienteLogueado = <?php echo json_encode($clienteLogueado); ?>;
+    const productoId = <?php echo (int)$producto['producto_id']; ?>;
+	const redirectTo = <?php echo json_encode('reservaNueva/'.(int)$producto['producto_id'].'/', JSON_UNESCAPED_SLASHES); ?>;
+	const storageKey = 'boutique_reserva_pendiente_v1';
+
     const feriados = <?php echo json_encode($feriados, JSON_UNESCAPED_UNICODE); ?>;
     const dateInput = document.getElementById('cita_fecha');
     const timeSelect = document.getElementById('cita_hora');
     const help = document.getElementById('cita_help');
     const btn = document.getElementById('btnReservaQR');
     const sizeSelect = document.getElementById('reserva_talla');
+    const form = document.getElementById('reservaForm');
 
-    if(!dateInput || !timeSelect || !help || !btn){
+    if(!dateInput || !timeSelect || !help || !btn || !form){
         return;
     }
 
@@ -268,6 +269,93 @@ if(is_file($rutaFeriados)){
             btn.disabled = !canSubmit();
         });
     }
+
+    const readPending = () => {
+        try{
+            const raw = sessionStorage.getItem(storageKey);
+            if(!raw) return null;
+            const parsed = JSON.parse(raw);
+            if(!parsed || typeof parsed !== 'object') return null;
+            if(Number(parsed.productoId || 0) !== Number(productoId)) return null;
+            return parsed;
+        }catch(e){
+            return null;
+        }
+    };
+    const writePending = (payload) => {
+        try{ sessionStorage.setItem(storageKey, JSON.stringify(payload)); }catch(e){}
+    };
+    const clearPending = () => {
+        try{ sessionStorage.removeItem(storageKey); }catch(e){}
+    };
+
+    // 1) Si no está logueado: permitir elegir fecha/hora, pero al SUBMIT pedir login.
+    form.addEventListener('submit', function(e){
+        if(clienteLogueado){
+            clearPending();
+            return;
+        }
+        e.preventDefault();
+        e.stopImmediatePropagation();
+
+        if(!canSubmit()){
+            Swal.fire({
+                icon: 'info',
+                title: 'Completa tu cita',
+                text: 'Selecciona la talla (si aplica), fecha y hora antes de continuar.'
+            });
+            return;
+        }
+
+        writePending({
+            v: 1,
+            productoId: productoId,
+            reserva_talla: sizeSelect ? String(sizeSelect.value || '') : '',
+            cita_fecha: String(dateInput.value || ''),
+            cita_hora: String(timeSelect.value || ''),
+            createdAt: Date.now()
+        });
+
+        if(window.BoutiqueClienteAuthModalOpen){
+            window.BoutiqueClienteAuthModalOpen('login', redirectTo, {
+                title: 'Inicia sesión para confirmar',
+                subtitle: 'Ya elegiste tu cita. Solo falta iniciar sesión para generar el QR de reserva.'
+            });
+        }else{
+            window.location.href = <?php echo json_encode(APP_URL.'clienteLogin/?redirect_to=', JSON_UNESCAPED_SLASHES); ?> + encodeURIComponent(redirectTo);
+        }
+    }, false);
+
+    // 2) Si volvió logueado y hay datos pendientes: restaurar y auto-enviar.
+    (async function resumeIfNeeded(){
+        if(!clienteLogueado) return;
+        const pending = readPending();
+        if(!pending) return;
+
+        // Limpiar si está muy viejo (2h)
+        if(pending.createdAt && (Date.now() - Number(pending.createdAt)) > (2*60*60*1000)){
+            clearPending();
+            return;
+        }
+
+        if(sizeSelect && pending.reserva_talla){
+            sizeSelect.value = String(pending.reserva_talla);
+        }
+        if(pending.cita_fecha){
+            dateInput.value = String(pending.cita_fecha);
+            await loadTimes();
+        }
+        if(pending.cita_hora){
+            timeSelect.value = String(pending.cita_hora);
+        }
+        btn.disabled = !canSubmit();
+
+        // Si todo ok, enviar automáticamente
+        if(canSubmit()){
+            clearPending();
+            form.requestSubmit ? form.requestSubmit() : form.submit();
+        }
+    })();
 
 })();
 </script>

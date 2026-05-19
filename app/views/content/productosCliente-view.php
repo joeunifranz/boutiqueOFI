@@ -41,8 +41,20 @@
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 
-<div class="container py-6">
-	<h1 class="title has-text-centered">
+<section class="boutique-bg boutique-client-page">
+	<div class="boutique-bg-slider" aria-hidden="true">
+		<div class="boutique-bg-slide s1"></div>
+		<div class="boutique-bg-slide s2"></div>
+		<div class="boutique-bg-slide s3"></div>
+		<div class="boutique-bg-slide s4"></div>
+		<div class="boutique-bg-slide s5"></div>
+		<div class="boutique-bg-slide s6"></div>
+	</div>
+	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<div class="boutique-client-content">
+		<div class="container">
+			<div class="boutique-glass p-5">
+	<h1 class="title has-text-centered boutique-client-title">
 		<?php if($categoria>0 && $categoriaNombre!=""){ ?>
 			<?php echo htmlspecialchars($categoriaNombre); ?>
 		<?php }else{ ?>
@@ -50,7 +62,7 @@
 		<?php } ?>
 	</h1>
 
-	<p class="has-text-centered mb-5">
+	<p class="has-text-centered mb-5 boutique-client-subtitle">
 	<?php if($clienteLogueado){ ?>
 		Bienvenido <?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".$_SESSION['cliente_apellido']); ?>,
 	<?php } ?>
@@ -60,6 +72,7 @@
 			Descubre nuestros vestidos disponibles.
 		<?php } ?>
 	</p>
+			</div>
 
 	<?php if($mostrarReco){ ?>
 		<?php
@@ -250,14 +263,14 @@
 		</script>
 	<?php } ?>
 
-	<div class="columns is-multiline">
+	<div class="columns is-multiline mt-5">
 
 	<?php if(!empty($productos)){ ?>
 
 		<?php foreach($productos as $producto){ ?>
 
 			<div class="column is-3">
-				<div class="card">
+				<div class="card boutique-product-card">
 
 					<div class="card-image">
 						<figure class="image is-4by5">
@@ -281,27 +294,13 @@
 						</p>
 
 						<!-- Botón Ver Detalle -->
-						<a href="<?php echo APP_URL; ?>productoDetalle/<?php echo $producto['producto_id']; ?>/" 
-	   					class="button is-dark is-fullwidth mb-2">
+						<a href="<?php echo APP_URL; ?>productoDetalle/<?php echo $producto['producto_id']; ?>/" class="button is-dark is-fullwidth mb-2">
 	   					Ver detalle
 						</a>
 
-						<?php if($clienteLogueado){ ?>
-							<a class="button is-danger is-fullwidth" href="<?php echo APP_URL; ?>reservaNueva/<?php echo (int)$producto['producto_id']; ?>/">
-								<i class="fas fa-qrcode"></i> Reservar con 50%
-							</a>
-						<?php }else{ ?>
-							<button
-								type="button"
-								class="button is-danger is-fullwidth js-cliente-auth-open"
-								data-auth-intent="login"
-								data-auth-title="Para reservar necesitas una cuenta"
-								data-auth-subtitle="Regístrate o inicia sesión para continuar con tu reserva."
-								data-redirect-to="<?php echo htmlspecialchars('reservaNueva/'.(int)$producto['producto_id'].'/', ENT_QUOTES, 'UTF-8'); ?>"
-							>
-								<i class="fas fa-qrcode"></i> Reservar con 50%
-							</button>
-						<?php } ?>
+						<a class="button is-danger is-fullwidth" href="<?php echo APP_URL; ?>reservaNueva/<?php echo (int)$producto['producto_id']; ?>/">
+							<i class="fas fa-qrcode"></i> Reservar con 50%
+						</a>
 
 					</div>
 				</div>
@@ -330,7 +329,9 @@
 			<i class="fas fa-home"></i> &nbsp; Volver al inicio
 		</a>
 	</p>
-</div>	
+		</div>
+	</div>
+</section>
 
 <style>
 .productos-publicos-wrapper{

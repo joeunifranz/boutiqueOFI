@@ -21,7 +21,19 @@ if(!$producto){
 
 <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 
-<div class="container py-6">
+<section class="boutique-bg boutique-client-page">
+    <div class="boutique-bg-slider" aria-hidden="true">
+        <div class="boutique-bg-slide s1"></div>
+        <div class="boutique-bg-slide s2"></div>
+        <div class="boutique-bg-slide s3"></div>
+        <div class="boutique-bg-slide s4"></div>
+        <div class="boutique-bg-slide s5"></div>
+        <div class="boutique-bg-slide s6"></div>
+    </div>
+    <div class="boutique-bg-overlay" aria-hidden="true"></div>
+    <div class="boutique-client-content">
+        <div class="container">
+            <div class="boutique-glass p-5">
     <div class="columns is-vcentered">
         <!-- Imagen -->
         <div class="column is-6">
@@ -65,41 +77,23 @@ if(!$producto){
                 <p class="mb-4"><strong>Tallas disponibles:</strong> <?php echo htmlspecialchars(implode(', ', $tallas),ENT_QUOTES,'UTF-8'); ?></p>
             <?php } ?>
 
-            <?php
-                $clienteLogueado = (isset($_SESSION['cliente_id']) && !empty($_SESSION['cliente_id']));
-            ?>
-            <?php if($clienteLogueado){ ?>
-                <a class="button is-danger is-medium is-fullwidth mb-3" href="<?php echo APP_URL; ?>reservaNueva/<?php echo (int)$producto['producto_id']; ?>/">
-                    <i class="fas fa-qrcode"></i> &nbsp; Reservar con 50%
-                </a>
-            <?php }else{ ?>
-                <button
-                    type="button"
-                    class="button is-danger is-medium is-fullwidth mb-3 js-cliente-auth-open"
-                    data-auth-intent="login"
-                    data-auth-title="Para reservar necesitas una cuenta"
-                    data-auth-subtitle="Regístrate o inicia sesión para continuar con tu reserva."
-                    data-redirect-to="<?php echo htmlspecialchars('reservaNueva/'.(int)$producto['producto_id'].'/', ENT_QUOTES, 'UTF-8'); ?>"
-                >
-                    <i class="fas fa-qrcode"></i> &nbsp; Reservar con 50%
-                </button>
-            <?php } ?>
+			<a class="button is-danger is-medium is-fullwidth mb-3" href="<?php echo APP_URL; ?>reservaNueva/<?php echo (int)$producto['producto_id']; ?>/">
+				<i class="fas fa-qrcode"></i> &nbsp; Reservar con 50%
+			</a>
             <a href="<?php echo APP_URL; ?>productosCliente/" 
                class="button is-light is-fullwidth">
                Volver a la tienda
             </a>
         </div>
     </div>
-</div>
+			</div>
+		</div>
+	</div>
+</section>
 
 <style>
 .detalle-img{
     border-radius: 16px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-    transition: transform 0.3s ease;
-}
-.detalle-img:hover{
-    transform: scale(1.03);
 }
 </style>
 

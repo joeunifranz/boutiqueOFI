@@ -39,8 +39,6 @@
 	$paginacion = $res['paginacion'] ?? '';
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
 <section class="boutique-bg boutique-client-page">
 	<div class="boutique-bg-slider" aria-hidden="true">
 		<div class="boutique-bg-slide s1"></div>
@@ -51,6 +49,7 @@
 		<div class="boutique-bg-slide s6"></div>
 	</div>
 	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 	<div class="boutique-client-content">
 		<div class="container">
 			<div class="boutique-glass p-5">

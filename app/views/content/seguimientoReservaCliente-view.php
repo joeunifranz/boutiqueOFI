@@ -33,19 +33,40 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
-<div class="container py-6">
-	<h1 class="title">Seguimiento de reserva</h1>
+<section class="boutique-bg boutique-client-page">
+	<div class="boutique-bg-slider" aria-hidden="true">
+		<div class="boutique-bg-slide s1"></div>
+		<div class="boutique-bg-slide s2"></div>
+		<div class="boutique-bg-slide s3"></div>
+		<div class="boutique-bg-slide s4"></div>
+		<div class="boutique-bg-slide s5"></div>
+		<div class="boutique-bg-slide s6"></div>
+	</div>
+	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+	<div class="boutique-client-content">
+		<div class="container">
+			<div class="boutique-glass p-5">
+				<h1 class="title boutique-client-title">Seguimiento de reserva</h1>
 
 	<?php if(!$clienteLogueado){ ?>
 		<article class="message is-warning"><div class="message-body">Debes iniciar sesión para ver el seguimiento.</div></article>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
 		<?php return; ?>
 	<?php } ?>
 
 	<?php if(!$reserva){ ?>
 		<article class="message is-danger"><div class="message-body">Reserva no encontrada.</div></article>
 		<div class="buttons"><a class="button is-light" href="<?php echo APP_URL; ?>reservasComprasCliente/">Volver</a></div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
 		<?php return; ?>
 	<?php } ?>
 
@@ -185,4 +206,7 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 			</div>
 		</div>
 	</div>
-</div>
+			</div>
+		</div>
+	</div>
+</section>

@@ -7,11 +7,22 @@
 	$modelExists = ($localModelFile !== '' && is_file($localModelFile));
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
-<div class="container py-6">
-	<h1 class="title has-text-centered">Tabla de tallas</h1>
-	<p class="has-text-centered mb-5">Gira el maniquí en 3D para ver la referencia de tallas.</p>
+<section class="boutique-bg boutique-client-page">
+	<div class="boutique-bg-slider" aria-hidden="true">
+		<div class="boutique-bg-slide s1"></div>
+		<div class="boutique-bg-slide s2"></div>
+		<div class="boutique-bg-slide s3"></div>
+		<div class="boutique-bg-slide s4"></div>
+		<div class="boutique-bg-slide s5"></div>
+		<div class="boutique-bg-slide s6"></div>
+	</div>
+	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+	<div class="boutique-client-content">
+		<div class="container">
+			<div class="boutique-glass p-5">
+				<h1 class="title has-text-centered boutique-client-title">Tabla de tallas</h1>
+				<p class="has-text-centered mb-5 boutique-client-subtitle">Gira el maniquí en 3D para ver la referencia de tallas.</p>
 
 	<?php if(!$modelExists){ ?>
 		<article class="message is-warning">
@@ -22,7 +33,7 @@
 		</article>
 	<?php } ?>
 
-	<div class="box">
+	<div class="box tabla-tallas-glass">
 		<div class="tabla-tallas-3d" style="height:min(70vh, 620px);">
 			<model-viewer
 				<?php echo ($modelExists && $modelUrl !== '') ? ('src="'.htmlspecialchars($modelUrl, ENT_QUOTES, 'UTF-8').'"') : ''; ?>
@@ -30,7 +41,7 @@
 				auto-rotate
 				camera-controls
 				touch-action="pan-y"
-				style="width:100%; height:100%; background: #f9fafb; border-radius: 10px;"
+				style="width:100%; height:100%; border-radius: 14px;"
 			></model-viewer>
 		</div>
 	</div>
@@ -40,6 +51,9 @@
 		<a class="button is-light is-rounded" href="<?php echo APP_URL; ?>inicio/">Volver al inicio</a>
 		<a class="button is-link is-rounded" href="<?php echo APP_URL; ?>productosCliente/">Ver vestidos</a>
 	</div>
-</div>
+			</div>
+		</div>
+	</div>
+</section>
 
 <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>

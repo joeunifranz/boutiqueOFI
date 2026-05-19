@@ -47,8 +47,6 @@ if(is_file($rutaFeriados)){
 }
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
 <section class="boutique-bg boutique-client-page">
     <div class="boutique-bg-slider" aria-hidden="true">
         <div class="boutique-bg-slide s1"></div>
@@ -59,14 +57,9 @@ if(is_file($rutaFeriados)){
         <div class="boutique-bg-slide s6"></div>
     </div>
     <div class="boutique-bg-overlay" aria-hidden="true"></div>
+    <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
     <div class="boutique-client-content">
         <div class="container">
-            <?php if(!$clienteLogueado){ ?>
-                <div class="notification is-warning is-light boutique-client-note">
-                    <strong>Tip:</strong> elige tu talla y tu cita. Al final te pediremos iniciar sesión para confirmar la reserva.
-                </div>
-            <?php } ?>
-
             <div class="boutique-glass p-5">
     <div class="columns is-vcentered">
         <div class="column is-5">

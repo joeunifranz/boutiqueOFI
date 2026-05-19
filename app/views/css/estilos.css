@@ -374,6 +374,90 @@ body,html{
     object-fit: cover;
 }
 
+/* Paginación (solo en páginas cliente con fondo) */
+.boutique-bg .pagination{
+    margin-top: 1.25rem;
+}
+
+.boutique-bg .pagination-link,
+.boutique-bg .pagination-previous,
+.boutique-bg .pagination-next{
+    background: rgba(255,255,255,0.96);
+    border-color: rgba(255, 221, 150, 0.30);
+    color: rgba(0,0,0,0.78);
+    font-weight: 800;
+}
+
+.boutique-bg .pagination-link:hover,
+.boutique-bg .pagination-previous:hover,
+.boutique-bg .pagination-next:hover{
+    border-color: rgba(255, 221, 150, 0.65);
+    color: rgba(0,0,0,0.88);
+}
+
+.boutique-bg .pagination-link.is-current{
+    background: rgba(255, 221, 150, 0.98);
+    border-color: rgba(255, 221, 150, 0.95);
+    color: rgba(0,0,0,0.88);
+}
+
+.boutique-bg .pagination-previous.is-disabled,
+.boutique-bg .pagination-next.is-disabled{
+    opacity: 0.55;
+}
+
+/* Wizard (Personaliza tu vestido): que los pasos se vean al frente */
+.boutique-bg .wizard-float{
+    position: relative;
+    z-index: 3;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255, 221, 150, 0.22);
+    border-radius: 18px;
+    box-shadow: 0 26px 80px rgba(0,0,0,0.60);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.boutique-bg .wizard-float .tabs.is-boxed a{
+    border-radius: 14px 14px 0 0;
+}
+
+.boutique-bg .wizard-step .box,
+.boutique-bg .wizard-float > .box{
+    background: rgba(11, 15, 26, 0.72);
+    border: 1px solid rgba(255, 221, 150, 0.18);
+    border-radius: 16px;
+    box-shadow: 0 18px 55px rgba(0,0,0,0.40);
+    color: rgba(255,255,255,0.92);
+}
+
+.boutique-bg .wizard-step .label,
+.boutique-bg .wizard-step .help,
+.boutique-bg .wizard-step .subtitle,
+.boutique-bg .wizard-step .has-text-grey{
+    color: rgba(255,255,255,0.78) !important;
+}
+
+.boutique-bg .wizard-step .input,
+.boutique-bg .wizard-step .textarea,
+.boutique-bg .wizard-step .select select{
+    background: rgba(255,255,255,0.06);
+    border-color: rgba(255,255,255,0.10);
+    color: rgba(255,255,255,0.92);
+}
+
+/* Tabla de tallas: caja en modo glass */
+.boutique-bg .tabla-tallas-glass{
+    background: rgba(11, 15, 26, 0.72);
+    border: 1px solid rgba(255, 221, 150, 0.18);
+    border-radius: 18px;
+    box-shadow: 0 26px 80px rgba(0,0,0,0.60);
+}
+
+.boutique-bg .tabla-tallas-glass model-viewer{
+    background: rgba(255,255,255,0.06);
+}
+
 .detalle-img{
     box-shadow: 0 22px 60px rgba(0,0,0,0.30);
     transition: transform 0.25s ease;

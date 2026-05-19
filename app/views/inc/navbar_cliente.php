@@ -131,6 +131,101 @@
 	border-bottom: 1px solid rgba(0,0,0,0.06);
 }
 
+/* Variante "tipo inicio": cuando el navbar vive dentro del fondo boutique (catálogo/detalle/reserva) */
+.boutique-bg .boutique-navbar{
+	background: transparent !important;
+	border-bottom: 1px solid rgba(255, 221, 150, 0.22);
+	box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+}
+
+.boutique-bg .boutique-brand-text,
+.boutique-bg .boutique-navbar .navbar-item,
+.boutique-bg .boutique-navbar .navbar-item a,
+.boutique-bg .boutique-navbar .navbar-link{
+	color: rgba(255,255,255,0.92) !important;
+}
+
+/* Brand más auténtico (sin fuentes nuevas: usa OswaldLight ya cargada) */
+.boutique-bg .boutique-brand-text{
+	font-family: "OswaldLight";
+	font-size: 1.15rem;
+	letter-spacing: .26em;
+	text-transform: uppercase;
+	background-image:
+		linear-gradient(180deg,
+			#fff4cf 0%,
+			#ffe08a 18%,
+			#f2c24a 40%,
+			#d9a61d 60%,
+			#b57f00 82%,
+			#ffe6a0 100%
+		);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent !important;
+	-webkit-text-fill-color: transparent;
+	filter:
+		drop-shadow(0 1px 0 rgba(0,0,0,0.25))
+		drop-shadow(0 0 12px rgba(255, 205, 92, 0.32));
+}
+
+.boutique-bg .boutique-nav-greeting{ color: rgba(255,255,255,0.78) !important; }
+
+.boutique-bg .navbar-burger span{ background-color: rgba(255,255,255,0.85); }
+
+/* Pills/botones dorados glass (inspirado en Inicio) */
+.boutique-bg .boutique-nav-pill,
+.boutique-bg .boutique-navbar .boutique-nav-btn{
+	background: rgba(255,255,255,0.04) !important;
+	border: 1px solid rgba(255, 221, 150, 0.88) !important;
+	box-shadow:
+		0 16px 42px rgba(0,0,0,0.38),
+		0 0 0 1px rgba(255, 208, 120, 0.14),
+		0 0 30px rgba(255, 200, 90, 0.34);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	color: rgba(255,255,255,0.92) !important;
+}
+
+/* Texto: blanco (el usuario pidió letras blancas) */
+.boutique-bg .boutique-nav-pill > span:not(.icon),
+.boutique-bg .boutique-navbar .boutique-nav-btn > span:not(.icon){
+	background-image: none !important;
+	-webkit-background-clip: initial;
+	background-clip: initial;
+	color: rgba(255,255,255,0.92) !important;
+	-webkit-text-fill-color: rgba(255,255,255,0.92) !important;
+	filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25));
+}
+
+.boutique-bg .boutique-nav-pill:hover,
+.boutique-bg .boutique-navbar .boutique-nav-btn:hover{
+	background: rgba(255,255,255,0.07) !important;
+	border-color: rgba(255, 238, 190, 0.98) !important;
+	box-shadow:
+		0 20px 52px rgba(0,0,0,0.46),
+		0 0 0 1px rgba(255, 210, 120, 0.20),
+		0 0 42px rgba(255, 205, 92, 0.52);
+}
+
+.boutique-bg .boutique-nav-pill .icon i,
+.boutique-bg .boutique-navbar .boutique-nav-btn .icon i{
+	color: #ffe08a !important;
+	filter:
+		drop-shadow(0 1px 0 rgba(0,0,0,0.25))
+		drop-shadow(0 0 10px rgba(255, 205, 92, 0.28));
+}
+
+/* Dropdowns en modo oscuro/glass */
+.boutique-bg .dropdown-content{
+	background: rgba(11, 15, 26, 0.92);
+	border: 1px solid rgba(255, 221, 150, 0.18);
+	box-shadow: 0 22px 70px rgba(0,0,0,0.55);
+}
+.boutique-bg .dropdown-item{ color: rgba(255,255,255,0.88) !important; }
+.boutique-bg .dropdown-item:hover{ background: rgba(255,255,255,0.06); }
+.boutique-bg .dropdown-divider{ background: rgba(255,255,255,0.12); }
+
 /* Badge numérico (Reservas y Compras): círculo rojo claro intenso y número blanco */
 .boutique-notif-badge{
 	background-color: #ff3b3b !important;

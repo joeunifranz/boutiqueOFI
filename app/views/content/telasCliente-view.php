@@ -4,17 +4,28 @@
 	$redirectTo = 'telasCliente/';
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
-<div class="container py-6">
-	<h1 class="title has-text-centered">Personaliza tu vestido</h1>
-	<p class="has-text-centered mb-5">
+<section class="boutique-bg boutique-client-page">
+	<div class="boutique-bg-slider" aria-hidden="true">
+		<div class="boutique-bg-slide s1"></div>
+		<div class="boutique-bg-slide s2"></div>
+		<div class="boutique-bg-slide s3"></div>
+		<div class="boutique-bg-slide s4"></div>
+		<div class="boutique-bg-slide s5"></div>
+		<div class="boutique-bg-slide s6"></div>
+	</div>
+	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+	<div class="boutique-client-content">
+		<div class="container">
+			<div class="boutique-glass p-5">
+				<h1 class="title has-text-centered boutique-client-title">Personaliza tu vestido</h1>
+				<p class="has-text-centered mb-5 boutique-client-subtitle">
 		<?php if($clienteLogueado){ ?>
 			<?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".($_SESSION['cliente_apellido'] ?? '')); ?>, completa los pasos para agendar tu cita.
 		<?php }else{ ?>
 			Completa los pasos. Para enviar la solicitud necesitas iniciar sesión.
 		<?php } ?>
-	</p>
+				</p>
 
 	<?php if($clienteLogueado){ ?>
 		<div class="wizard-history-bar mb-3">
@@ -227,7 +238,10 @@
 
 	</div>
 
-</div>
+			</div>
+		</div>
+	</div>
+</section>
 
 <!-- Modal: Solicitudes anteriores -->
 <div id="modalSolicitudesAnteriores" class="modal">

@@ -19,6 +19,23 @@ if(!$esAdmin){
 $insReserva = new reservationController();
 $reservas = $insReserva->listarReservasPendientesControlador(80);
 
+$cfgQr = __DIR__ . "/../../../config/reserva_pago_qr.php";
+$qrImgCfg = '';
+if(file_exists($cfgQr)){
+    require_once $cfgQr;
+    if(defined('RESERVA_PAGO_QR_IMAGE')){
+        $qrImgCfg = (string)RESERVA_PAGO_QR_IMAGE;
+    }
+}
+
+if($qrImgCfg!==''){
+    $startsHttp = (stripos($qrImgCfg, 'http://')===0) || (stripos($qrImgCfg, 'https://')===0);
+    $startsData = (stripos($qrImgCfg, 'data:image')===0);
+    if(!$startsHttp && !$startsData){
+        $qrImgCfg = APP_URL.ltrim($qrImgCfg, '/');
+    }
+}
+
 ?>
 
 <div class="container is-fluid mb-6">
@@ -28,8 +45,90 @@ $reservas = $insReserva->listarReservasPendientesControlador(80);
         <a class="button is-link is-light is-rounded" href="<?php echo APP_URL; ?>exportarReservasPendientes/">
             <i class="fas fa-file-pdf"></i> &nbsp; Descargar reporte PDF
         </a>
+        <button class="button is-warning is-light is-rounded" type="button" id="btnToggleQrConfig">
+            <i class="fas fa-qrcode"></i> &nbsp; Subir/Actualizar QR estático
+        </button>
     </p>
 </div>
+
+<div class="container is-fluid" id="qrConfigWrap" style="display:none;">
+    <div class="box">
+        <div class="columns is-vcentered">
+            <div class="column is-6">
+                <p class="has-text-grey mb-2">QR actual (se usa en el pago de reserva):</p>
+                <?php if($qrImgCfg!==''){ ?>
+                    <figure class="image" style="max-width:260px;">
+                        <img src="<?php echo htmlspecialchars($qrImgCfg,ENT_QUOTES,'UTF-8'); ?>" alt="QR actual">
+                    </figure>
+                <?php }else{ ?>
+                    <article class="message is-warning"><div class="message-body">Aún no hay QR configurado.</div></article>
+                <?php } ?>
+            </div>
+            <div class="column is-6">
+                <form id="formQrEstatico" enctype="multipart/form-data">
+                    <input type="hidden" name="modulo_reserva" value="qr_estatico_subir">
+                    <div class="field">
+                        <label class="label">Subir imagen del QR (PNG/JPG)</label>
+                        <div class="file has-name is-fullwidth">
+                            <label class="file-label">
+                                <input class="file-input" type="file" name="qr_image" accept="image/png,image/jpeg" required>
+                                <span class="file-cta">
+                                    <span class="file-icon"><i class="fas fa-upload"></i></span>
+                                    <span class="file-label">Seleccionar imagen</span>
+                                </span>
+                                <span class="file-name" id="qrFileName">Ninguno</span>
+                            </label>
+                        </div>
+                        <p class="help">Se guardará como <strong>app/views/img/qr_reserva.png</strong> o <strong>.jpg</strong> y se actualizará la configuración automáticamente.</p>
+                    </div>
+                    <div class="buttons">
+                        <button type="submit" class="button is-warning">Actualizar QR</button>
+                    </div>
+                </form>
+                <div id="qrConfigResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+        var btn = document.getElementById('btnToggleQrConfig');
+        var wrap = document.getElementById('qrConfigWrap');
+        if(btn && wrap){
+            btn.addEventListener('click', function(){
+                wrap.style.display = (wrap.style.display==='none' || wrap.style.display==='') ? 'block' : 'none';
+            });
+        }
+
+        var form = document.getElementById('formQrEstatico');
+        if(!form) return;
+        var input = form.querySelector('input[type="file"][name="qr_image"]');
+        var nameEl = document.getElementById('qrFileName');
+        var resultEl = document.getElementById('qrConfigResult');
+        if(input && nameEl){
+            input.addEventListener('change', function(){
+                nameEl.textContent = (input.files && input.files[0]) ? input.files[0].name : 'Ninguno';
+            });
+        }
+        form.addEventListener('submit', async function(e){
+            e.preventDefault();
+            if(resultEl){ resultEl.innerHTML=''; }
+            try{
+                var fd = new FormData(form);
+                var res = await fetch('<?php echo APP_URL; ?>app/ajax/reservaAjax.php', { method:'POST', body: fd });
+                var data = await res.json();
+                if(data && data.ok){
+                    if(resultEl){ resultEl.innerHTML = '<article class="message is-success"><div class="message-body">'+(data.message || 'QR actualizado.')+' Recarga la página para ver el preview.</div></article>'; }
+                }else{
+                    if(resultEl){ resultEl.innerHTML = '<article class="message is-danger"><div class="message-body">'+((data && data.message) ? data.message : 'No se pudo actualizar el QR.')+'</div></article>'; }
+                }
+            }catch(err){
+                if(resultEl){ resultEl.innerHTML = '<article class="message is-danger"><div class="message-body">Error al actualizar el QR.</div></article>'; }
+            }
+        });
+    })();
+</script>
 
 <div class="container pb-6 pt-6">
 	<div class="form-rest mb-6 mt-6"></div>

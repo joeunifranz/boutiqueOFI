@@ -1654,6 +1654,27 @@ class reservationController extends mainModel{
         return $this->obtenerUltimoQrGeneradoPorCodigo($codigo);
     }
 
+    private function obtenerUltimoComprobanteSubidoPorCodigo($codigo){
+        $codigo = $this->limpiarCadena($codigo);
+        if($codigo==="" || !$this->tablaReservaPagoExiste()){
+            return null;
+        }
+
+        try{
+            $stmt = $this->conectar()->prepare("SELECT * FROM reserva_pago WHERE reserva_codigo=:c AND pago_proveedor='manual' AND pago_status IN ('uploaded','pending','created') ORDER BY reserva_pago_id DESC LIMIT 1");
+            $stmt->bindParam(':c', $codigo);
+            $stmt->execute();
+            $row = $stmt->fetch();
+            return $row ? $row : null;
+        }catch(\Throwable $e){
+            return null;
+        }
+    }
+
+    public function obtenerUltimoComprobanteSubidoPorCodigoControlador($codigo){
+        return $this->obtenerUltimoComprobanteSubidoPorCodigo($codigo);
+    }
+
     private function obtenerPagoAprobadoPorCodigo($codigo){
         $codigo = $this->limpiarCadena($codigo);
         if($codigo==="" || !$this->tablaReservaPagoExiste()){
@@ -1673,6 +1694,278 @@ class reservationController extends mainModel{
 
     public function obtenerUltimoPagoAprobadoPorCodigoControlador($codigo){
         return $this->obtenerPagoAprobadoPorCodigo($codigo);
+    }
+
+    public function subirComprobanteReservaClienteControlador(){
+        // Solo cliente logueado
+        if(!isset($_SESSION['cliente_id']) || (int)$_SESSION['cliente_id']<=0){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'unauthorized',
+                'message'=>'Debes iniciar sesión para subir tu comprobante.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $codigo = $this->limpiarCadena($_POST['reserva_codigo'] ?? '');
+        if($codigo===''){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'invalid_codigo',
+                'message'=>'Código de reserva inválido.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $reserva = $this->obtenerReservaPorCodigo($codigo);
+        if(!$reserva){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'not_found',
+                'message'=>'Reserva no encontrada.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        if((int)$reserva['cliente_id'] !== (int)$_SESSION['cliente_id']){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'forbidden',
+                'message'=>'No tienes permiso para subir comprobante de esta reserva.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $file = $_FILES['comprobante'] ?? null;
+        if(!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'no_file',
+                'message'=>'Selecciona un archivo de comprobante.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+        if(($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'upload_error',
+                'message'=>'Error al subir el archivo.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $tmp = (string)($file['tmp_name'] ?? '');
+        if($tmp==='' || !is_uploaded_file($tmp)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'invalid_upload',
+                'message'=>'Subida inválida.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $maxMb = 10;
+        $cfg = __DIR__ . '/../../config/reserva_pago_qr.php';
+        if(file_exists($cfg)){
+            require_once $cfg;
+            if(defined('RESERVA_COMPROBANTE_MAX_MB')){
+                $maxMb = (int)RESERVA_COMPROBANTE_MAX_MB;
+            }
+        }
+        if($maxMb<=0){ $maxMb = 10; }
+        $maxBytes = $maxMb * 1024 * 1024;
+        $size = (int)($file['size'] ?? 0);
+        if($size<=0 || $size>$maxBytes){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'file_too_large',
+                'message'=>'El comprobante supera el tamaño permitido (máx. '.$maxMb.'MB).'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $mime = @mime_content_type($tmp);
+        $allowed = ['image/jpeg','image/png','application/pdf'];
+        if(!in_array((string)$mime, $allowed, true)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'invalid_type',
+                'message'=>'Formato no permitido. Sube JPG, PNG o PDF.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $ext = '.bin';
+        switch((string)$mime){
+            case 'image/jpeg': $ext = '.jpg'; break;
+            case 'image/png': $ext = '.png'; break;
+            case 'application/pdf': $ext = '.pdf'; break;
+        }
+
+        $dir = __DIR__ . '/../views/comprobantes_reserva/';
+        if(!is_dir($dir)){
+            @mkdir($dir, 0777, true);
+        }
+        @chmod($dir, 0777);
+
+        $base = 'reserva_'.$codigo.'_'.date('YmdHis').'_'.rand(100,999);
+        $filename = preg_replace('/[^a-zA-Z0-9_\-]/','_', $base).$ext;
+        $destPath = $dir.$filename;
+        if(!@move_uploaded_file($tmp, $destPath)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'move_failed',
+                'message'=>'No se pudo guardar el comprobante.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Registrar en reserva_pago como pago manual
+        if($this->tablaReservaPagoExiste()){
+            try{
+                $now = date('Y-m-d H:i:s');
+                $paymentId = 'manual_'.date('YmdHis').'_'.substr(md5($codigo.$filename),0,8);
+                $raw = json_encode([
+                    'tipo'=>'comprobante',
+                    'archivo'=>'app/views/comprobantes_reserva/'.$filename,
+                    'mime'=>(string)$mime,
+                    'size'=>$size,
+                    'subido_en'=>$now
+                ], JSON_UNESCAPED_UNICODE);
+
+                $moneda = defined('MONEDA_NOMBRE') ? (string)MONEDA_NOMBRE : 'BOB';
+                $monto = number_format(0, MONEDA_DECIMALES, '.', '');
+                $stmt = $this->conectar()->prepare("INSERT INTO reserva_pago (reserva_codigo,pago_proveedor,pago_payment_id,pago_status,pago_monto,pago_moneda,pago_creado_en,pago_actualizado_en,pago_raw)
+                    VALUES (:c,'manual',:pid,'uploaded',:m,:mon,:cre,:act,:raw)");
+                $stmt->bindParam(':c', $codigo);
+                $stmt->bindParam(':pid', $paymentId);
+                $stmt->bindParam(':m', $monto);
+                $stmt->bindParam(':mon', $moneda);
+                $stmt->bindParam(':cre', $now);
+                $stmt->bindParam(':act', $now);
+                $stmt->bindParam(':raw', $raw);
+                $stmt->execute();
+            }catch(\Throwable $e){
+                // No bloqueamos al cliente si el registro falla; el archivo ya está guardado.
+            }
+        }
+
+        return json_encode([
+            'ok'=>true,
+            'message'=>'Comprobante subido correctamente.',
+            'file'=>'app/views/comprobantes_reserva/'.$filename
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function subirQrEstaticoReservaAdminControlador(){
+        if(!$this->sesionEsAdmin()){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'unauthorized',
+                'message'=>'Acceso restringido.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $file = $_FILES['qr_image'] ?? null;
+        if(!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'no_file',
+                'message'=>'Selecciona una imagen (PNG/JPG) del QR.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+        if(($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'upload_error',
+                'message'=>'Error al subir la imagen.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $tmp = (string)($file['tmp_name'] ?? '');
+        if($tmp==='' || !is_uploaded_file($tmp)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'invalid_upload',
+                'message'=>'Subida inválida.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $size = (int)($file['size'] ?? 0);
+        $maxBytes = 5 * 1024 * 1024;
+        if($size<=0 || $size>$maxBytes){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'file_too_large',
+                'message'=>'La imagen supera el tamaño permitido (máx. 5MB).'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $mime = @mime_content_type($tmp);
+        if($mime!=='image/png' && $mime!=='image/jpeg'){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'invalid_type',
+                'message'=>'Formato no permitido. Sube PNG o JPG.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $ext = ($mime==='image/png') ? '.png' : '.jpg';
+        $dir = __DIR__ . '/../views/img/';
+        if(!is_dir($dir)){
+            @mkdir($dir, 0777, true);
+        }
+        @chmod($dir, 0777);
+
+        $filename = 'qr_reserva'. $ext;
+        $destPath = $dir.$filename;
+        if(!@move_uploaded_file($tmp, $destPath)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'move_failed',
+                'message'=>'No se pudo guardar la imagen del QR.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        // Actualizar config
+        $configPath = __DIR__ . '/../../config/reserva_pago_qr.php';
+        if(!file_exists($configPath)){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'config_missing',
+                'message'=>'No existe config/reserva_pago_qr.php'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $cfg = @file_get_contents($configPath);
+        if(!is_string($cfg) || $cfg===''){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'config_read_failed',
+                'message'=>'No se pudo leer la configuración del QR.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        $newRel = 'app/views/img/'.$filename;
+        $pattern = "/const\s+RESERVA_PAGO_QR_IMAGE\s*=\s*'[^']*'\s*;/";
+        $replacement = "const RESERVA_PAGO_QR_IMAGE = '".$newRel."';";
+        if(preg_match($pattern, $cfg)){
+            $cfgNew = preg_replace($pattern, $replacement, $cfg, 1);
+        }else{
+            $cfgNew = $cfg."\n\n".$replacement."\n";
+        }
+
+        if(!is_string($cfgNew) || $cfgNew===''){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'config_update_failed',
+                'message'=>'No se pudo actualizar la configuración.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        if(@file_put_contents($configPath, $cfgNew)===false){
+            return json_encode([
+                'ok'=>false,
+                'error'=>'config_write_failed',
+                'message'=>'No se pudo guardar la configuración. Revisa permisos del archivo.'
+            ], JSON_UNESCAPED_UNICODE);
+        }
+
+        return json_encode([
+            'ok'=>true,
+            'message'=>'QR actualizado correctamente.',
+            'file'=>$newRel
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     private function registrarReservaPagoCreado($codigo,$preferenceId,$initPoint,$monto,$moneda,$raw=null){
@@ -4178,7 +4471,7 @@ class reservationController extends mainModel{
 
         $alerta=[
             "tipo"=>"redireccionar",
-            "url"=>APP_URL."reservaQR/".$codigo."/"
+            "url"=>APP_URL."reservaPagar/".urlencode($codigo)."/?qr_result=generated"
         ];
         return json_encode($alerta);
     }

@@ -109,7 +109,7 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 	</div>
 
 	<div class="box mt-5">
-		<h2 class="title is-6 mb-2"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
+		<h2 class="title is-6 mb-2 has-text-black"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
 		<?php if($direccion !== ''){ ?>
 			<p class="mb-3"><?php echo htmlspecialchars($direccion,ENT_QUOTES,'UTF-8'); ?></p>
 		<?php } ?>

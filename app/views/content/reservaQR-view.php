@@ -19,6 +19,8 @@ if(!$reserva){
 $target = APP_URL."reservaPagar/".urlencode($reserva['reserva_codigo'])."/";
 $qrImg = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=".urlencode($target);
 
+$afterUpload = isset($_GET['after_upload']) && $_GET['after_upload']!=='0';
+
 $total = (float)$reserva['reserva_total'];
 $minimo = $total * 0.50;
 ?>
@@ -30,7 +32,11 @@ $minimo = $total * 0.50;
         <div class="column is-6">
             <div class="box has-text-centered">
                 <h1 class="title is-4">Tu QR de reserva</h1>
-                <p class="has-text-grey mb-4">Escanea este QR para pagar el abono o el total de tu reserva.</p>
+                <?php if($afterUpload){ ?>
+                    <p class="has-text-grey mb-4">¡Listo! Ya enviaste tu comprobante. Descarga este QR y <strong>guárdalo por favor</strong>, lo necesitarás para tu reserva.</p>
+                <?php }else{ ?>
+                    <p class="has-text-grey mb-4">Escanea este QR para abrir tu reserva. Ahí verás el QR de pago y podrás subir tu comprobante.</p>
+                <?php } ?>
 
                 <figure class="image is-inline-block" style="width:260px; height:260px;">
                     <img src="<?php echo htmlspecialchars($qrImg,ENT_QUOTES,'UTF-8'); ?>" alt="QR Reserva" onerror="this.style.display='none'; document.getElementById('qrFallback').style.display='block';">
@@ -51,13 +57,57 @@ $minimo = $total * 0.50;
 
                 <div class="buttons is-centered mt-4">
                     <a class="button is-link" href="<?php echo htmlspecialchars($target,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Abrir enlace del QR</a>
+                    <button class="button is-success" type="button" id="btnDescargarQr">Descargar QR</button>
                     <a class="button is-light" href="<?php echo APP_URL; ?>productosCliente/">Volver a la tienda</a>
                 </div>
 
-                <p class="has-text-grey is-size-7 mt-4">
-                    Nota: el QR abre la pantalla de pago. La confirmación automática depende de la configuración de BISA QR.
-                </p>
+                <?php if($afterUpload){ ?>
+                    <p class="has-text-grey is-size-7 mt-4">Tip: guarda una captura o la imagen del QR en tu celular.</p>
+                <?php }else{ ?>
+                    <p class="has-text-grey is-size-7 mt-4">Nota: el QR abre la pantalla de pago (QR estático) y subida de comprobante.</p>
+                <?php } ?>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+(function(){
+    var btn = document.getElementById('btnDescargarQr');
+    if(!btn) return;
+
+    var qrUrl = <?php echo json_encode($qrImg, JSON_UNESCAPED_SLASHES); ?>;
+    var filename = <?php echo json_encode('QR-reserva-'.$reserva['reserva_codigo'].'.png', JSON_UNESCAPED_SLASHES); ?>;
+
+    function fallbackOpen(){
+        window.open(qrUrl, '_blank', 'noopener');
+    }
+
+    btn.addEventListener('click', async function(){
+        try{
+            var res = await fetch(qrUrl, { mode: 'cors', cache: 'no-store' });
+            if(!res.ok) throw new Error('fetch_failed');
+            var blob = await res.blob();
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }catch(e){
+            if(window.Swal){
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Descarga alternativa',
+                    text: 'No pude descargar automáticamente el QR (posible bloqueo de internet). Se abrirá la imagen para que la guardes.',
+                    confirmButtonText: 'Abrir QR'
+                }).then(fallbackOpen);
+            }else{
+                fallbackOpen();
+            }
+        }
+    });
+})();
+</script>

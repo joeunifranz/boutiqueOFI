@@ -191,8 +191,8 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 
 		<div class="column is-4">
 			<div class="box has-background-light">
-				<h2 class="title is-5 mb-2"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
-				<p class="has-text-grey mb-4">Para recoger tu vestido o consultar.</p>
+				<h2 class="title is-5 mb-2 has-text-black"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
+				<p class="mb-4 has-text-black">Para recoger tu vestido o consultar.</p>
 				<?php if($direccion !== ''){ ?>
 					<p class="mb-4">
 						<span class="tag is-light is-rounded">
@@ -200,7 +200,7 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 						</span>
 					</p>
 				<?php }else{ ?>
-					<p class="has-text-grey mb-4">Ubicación no configurada en el sistema.</p>
+					<p class="mb-4 has-text-black">Ubicación no configurada en el sistema.</p>
 				<?php } ?>
 
 				<div class="buttons is-right" style="flex-wrap:wrap;">

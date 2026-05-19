@@ -44,6 +44,14 @@ if(isset($_POST['modulo_reserva'])){
         echo $insReserva->confirmarReservaOnlineControlador();
     }
 
+    if($_POST['modulo_reserva']=="comprobante_subir"){
+        echo $insReserva->subirComprobanteReservaClienteControlador();
+    }
+
+    if($_POST['modulo_reserva']=="qr_estatico_subir"){
+        echo $insReserva->subirQrEstaticoReservaAdminControlador();
+    }
+
     if($_POST['modulo_reserva']=="rechazar"){
         echo $insReserva->rechazarReservaControlador();
     }

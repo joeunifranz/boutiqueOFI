@@ -421,7 +421,7 @@ function agenteIa_quickReply(string $message, string $pagePath): string{
 	// Flujo de compra / cómo reservar
 	if(str_contains($low, 'como comprar') || str_contains($low, 'cómo comprar') || str_contains($low, 'como reservo') || str_contains($low, 'cómo reservo') || str_contains($low, 'reservar') || str_contains($low, 'abono') || str_contains($low, 'pago')){
 		if($base !== ''){
-			return "Flujo de compra/reserva:\n1) Entra al catálogo: [Click aquí](".$base."productosCliente/)\n2) Abre un vestido y toca **Reservar con 50%**\n3) El sistema genera tu QR de reserva\n4) Pagas el abono o el total y se confirma tu reserva.";
+			return "Flujo de compra/reserva:\n1) Entra al catálogo: [Click aquí](".$base."productosCliente/)\n2) Abre un vestido y toca **Reservar con 50%**\n3) El sistema te muestra el QR de pago\n4) Pagas y subes tu comprobante.";
 		}
 	}
 

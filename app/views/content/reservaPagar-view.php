@@ -54,12 +54,22 @@ if($qrImgDirect!==''){
 }
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
-<div class="container py-6">
-    <div class="columns is-centered">
+<section class="boutique-bg boutique-client-page">
+    <div class="boutique-bg-slider" aria-hidden="true">
+        <div class="boutique-bg-slide s1"></div>
+        <div class="boutique-bg-slide s2"></div>
+        <div class="boutique-bg-slide s3"></div>
+        <div class="boutique-bg-slide s4"></div>
+        <div class="boutique-bg-slide s5"></div>
+        <div class="boutique-bg-slide s6"></div>
+    </div>
+    <div class="boutique-bg-overlay" aria-hidden="true"></div>
+    <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+    <div class="boutique-client-content">
+        <div class="container">
+            <div class="boutique-glass p-5">
+            <div class="columns is-centered">
         <div class="column is-6">
-            <div class="box">
                 <h1 class="title is-4 has-text-centered">Pagar tu reserva</h1>
 
                 <div class="content">
@@ -185,7 +195,9 @@ if($qrImgDirect!==''){
                 <div class="buttons is-centered mt-4">
                     <a class="button is-light" href="<?php echo APP_URL; ?>productosCliente/">Volver a la tienda</a>
                 </div>
+        </div>
+    </div>
             </div>
         </div>
     </div>
-</div>
+</section>

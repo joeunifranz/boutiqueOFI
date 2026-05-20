@@ -25,12 +25,21 @@ $total = (float)$reserva['reserva_total'];
 $minimo = $total * 0.50;
 ?>
 
-<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-
-<div class="container py-6">
-    <div class="columns is-centered">
-        <div class="column is-6">
-            <div class="box has-text-centered">
+<section class="boutique-bg boutique-client-page">
+    <div class="boutique-bg-slider" aria-hidden="true">
+        <div class="boutique-bg-slide s1"></div>
+        <div class="boutique-bg-slide s2"></div>
+        <div class="boutique-bg-slide s3"></div>
+        <div class="boutique-bg-slide s4"></div>
+        <div class="boutique-bg-slide s5"></div>
+        <div class="boutique-bg-slide s6"></div>
+    </div>
+    <div class="boutique-bg-overlay" aria-hidden="true"></div>
+    <?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+    <div class="boutique-client-content">
+        <div class="container">
+            <div class="boutique-glass p-5">
+                <div class="has-text-centered">
                 <h1 class="title is-4">Tu QR de reserva</h1>
                 <?php if($afterUpload){ ?>
                     <p class="has-text-grey mb-4">¡Listo! Ya enviaste tu comprobante. Descarga este QR y <strong>guárdalo por favor</strong>, lo necesitarás para tu reserva.</p>
@@ -56,7 +65,6 @@ $minimo = $total * 0.50;
                 </div>
 
                 <div class="buttons is-centered mt-4">
-                    <a class="button is-link" href="<?php echo htmlspecialchars($target,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Abrir enlace del QR</a>
                     <button class="button is-success" type="button" id="btnDescargarQr">Descargar QR</button>
                     <a class="button is-light" href="<?php echo APP_URL; ?>productosCliente/">Volver a la tienda</a>
                 </div>
@@ -66,10 +74,11 @@ $minimo = $total * 0.50;
                 <?php }else{ ?>
                     <p class="has-text-grey is-size-7 mt-4">Nota: el QR abre la pantalla de pago (QR estático) y subida de comprobante.</p>
                 <?php } ?>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</section>
 
 <script>
 (function(){

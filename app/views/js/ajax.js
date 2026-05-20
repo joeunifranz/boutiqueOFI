@@ -7,39 +7,68 @@ formularios_ajax.forEach(formularios => {
         
         e.preventDefault();
 
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: "Quieres realizar la acción solicitada",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Si, realizar',
-            cancelButtonText: 'No, cancelar'
-        }).then((result) => {
-            if (result.isConfirmed){
+        const confirmRequired = (this.getAttribute('data-confirm') === 'true');
+        const showLoading = (this.getAttribute('data-loading') !== 'false');
+        const loadingTitle = (this.getAttribute('data-loading-title') ?? '');
+        const loadingText  = (this.getAttribute('data-loading-text')  ?? '');
 
-                let data = new FormData(this);
-                let method=this.getAttribute("method");
-                let action=this.getAttribute("action");
-
-                let encabezados= new Headers();
-
-                let config={
-                    method: method,
-                    headers: encabezados,
-                    mode: 'cors',
-                    cache: 'no-cache',
-                    body: data
-                };
-
-                fetch(action,config)
-                .then(respuesta => respuesta.json())
-                .then(respuesta =>{ 
-                    return alertas_ajax(respuesta);
+        const enviar = () => {
+            if(showLoading){
+                Swal.fire({
+                    title: loadingTitle,
+                    text: loadingText,
+                    background: 'transparent',
+                    padding: 0,
+                    width: 'auto',
+                    showConfirmButton: false,
+                    showCancelButton: false,
+                    customClass: { popup: 'boutique-swal-loading' },
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    didOpen: () => { Swal.showLoading(); }
                 });
             }
-        });
+
+            let data = new FormData(this);
+            let method=this.getAttribute("method");
+            let action=this.getAttribute("action");
+
+            let encabezados= new Headers();
+
+            let config={
+                method: method,
+                headers: encabezados,
+                mode: 'cors',
+                cache: 'no-cache',
+                body: data
+            };
+
+            fetch(action,config)
+            .then(respuesta => respuesta.json())
+            .then(respuesta =>{ 
+                return alertas_ajax(respuesta);
+            });
+        };
+
+        if(confirmRequired){
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Quieres realizar la acción solicitada",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Si, realizar',
+                cancelButtonText: 'No, cancelar'
+            }).then((result) => {
+                if (result.isConfirmed){
+                    enviar();
+                }
+            });
+            return;
+        }
+
+        enviar();
 
     });
 
@@ -84,6 +113,9 @@ function alertas_ajax(alerta){
         });
 
     }else if(alerta.tipo=="redireccionar"){
+        if(window.Swal && Swal.close){
+            try{ Swal.close(); }catch(e){}
+        }
         window.location.href=alerta.url;
     }
 }

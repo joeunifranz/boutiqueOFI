@@ -49,6 +49,17 @@ body,html{
     background-color: #fff;
 }
 
+/* SweetAlert2: loader boutique sin caja blanca */
+.boutique-swal-loading{
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+}
+.boutique-swal-loading .swal2-title,
+.boutique-swal-loading .swal2-html-container{
+    margin: 0 !important;
+}
+
 .main-container{
     height: 100%;
     width: 100%;

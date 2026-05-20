@@ -84,7 +84,7 @@ if(is_file($rutaFeriados)){
                 <p class="has-text-grey is-size-7">La reserva se confirma cuando el personal registra el abono. El QR sirve para abrir rápidamente la reserva en caja.</p>
             </div>
 
-            <form id="reservaForm" class="FormularioAjax" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
+            <form id="reservaForm" class="FormularioAjax" data-loading="true" data-loading-title="" data-loading-text="" action="<?php echo APP_URL; ?>app/ajax/reservaAjax.php" method="POST" autocomplete="off">
                 <input type="hidden" name="modulo_reserva" value="crear">
                 <input type="hidden" name="producto_id" value="<?php echo (int)$producto['producto_id']; ?>">
 

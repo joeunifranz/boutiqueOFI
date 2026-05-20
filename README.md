@@ -18,11 +18,13 @@ Importante no olvide colocar en la URL si es http o https</p>
 
 # RESERVAS CON QR (ANTICIPO 50%)
 
-<p>Este proyecto incluye un flujo de <strong>reserva de producto con QR</strong> para clientes.</p>
+<p>Este proyecto incluye un flujo de <strong>reserva de producto con QR</strong> para clientes con anticipo (m&iacute;nimo 50%).</p>
 
 <p><strong>1)</strong> Cree la tabla <code>reserva</code> ejecutando en el navegador:</p>
 <p><code>http://localhost/BOUTIQUE/install_reserva_table.php</code></p>
 
-<p><strong>2)</strong> Como cliente: tienda &rarr; detalle del producto &rarr; <strong>Reservar con 50%</strong>. Se genera un QR.</p>
+<p><strong>2)</strong> Como cliente: tienda &rarr; detalle del producto &rarr; <strong>Reservar con 50%</strong>. El sistema lo lleva a <code>reservaPagar/&lt;codigo&gt;/</code> para pagar con <strong>QR est&aacute;tico</strong> y subir el <strong>comprobante</strong>.</p>
 
-<p><strong>3)</strong> En caja/personal: escanee el QR (abre <code>reservaConfirmar/&lt;codigo&gt;/</code>) y registre el abono (m&iacute;nimo 50%).</p>
+<p><strong>3)</strong> Tras subir el comprobante, el cliente visualiza el <strong>QR de la reserva</strong> para <strong>descargar</strong> y presentar.</p>
+
+<p><strong>4)</strong> En caja/personal: escanee el QR de la reserva (abre <code>reservaConfirmar/&lt;codigo&gt;/</code>) y registre el abono (m&iacute;nimo 50%).</p>

@@ -74,35 +74,13 @@
         exit();
     }
 
-    /*---------- BISA QR: generar QR dinámico ----------*/
-    if(isset($url[0]) && $url[0]=="pagoBisaQR"){
-        $insReserva = new \app\controllers\reservationController();
-        $insReserva->generarPagoBisaQrControlador();
-        exit();
-    }
-
-    /*---------- BNB QR: generar QR dinámico ----------*/
-    if(isset($url[0]) && $url[0]=="pagoBnbQR"){
-        $insReserva = new \app\controllers\reservationController();
-        $insReserva->generarPagoBnbQrControlador();
-        exit();
-    }
-
-    /*---------- BISA QR: webhook (confirmación de pago) ----------*/
-    if(isset($url[0]) && $url[0]=="bisaWebhook"){
-        header('Content-Type: application/json; charset=utf-8');
-        $insReserva = new \app\controllers\reservationController();
-        echo $insReserva->procesarWebhookBisaControlador();
-        exit();
-    }
-
     /*---------- Compatibilidad: rutas antiguas Mercado Pago (desactivadas) ----------*/
     if(isset($url[0]) && ($url[0]=="pagoMercadoPago" || $url[0]=="mercadopagoWebhook")){
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
             'ok'=>false,
             'error'=>'mercadopago_disabled',
-            'message'=>'Mercado Pago no está habilitado para este país. Usa BISA QR.'
+            'message'=>'Mercado Pago no está habilitado para este país. Usa el QR estático de reserva.'
         ]);
         exit();
     }

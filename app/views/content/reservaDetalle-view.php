@@ -53,6 +53,15 @@ $total = (float)($reserva['reserva_total'] ?? 0);
 $abono = (float)($reserva['reserva_abono'] ?? 0);
 $minimo = (float)number_format(($total*0.50), MONEDA_DECIMALES, '.', '');
 
+$ultimoComp = $insReserva->obtenerUltimoComprobanteSubidoPorCodigoControlador((string)$reserva['reserva_codigo']);
+$compUrl = '';
+if($ultimoComp && !empty($ultimoComp['pago_raw'])){
+    $raw = json_decode((string)$ultimoComp['pago_raw'], true);
+    if(is_array($raw) && !empty($raw['archivo'])){
+        $compUrl = APP_URL.ltrim((string)$raw['archivo'], '/');
+    }
+}
+
 $urlAprobar = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo'])."/";
 
 ?>
@@ -116,6 +125,14 @@ $urlAprobar = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo']).
                     <p><strong>Total:</strong> <?php echo MONEDA_SIMBOLO.number_format($total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>
                     <p><strong>Abono mínimo (50%):</strong> <?php echo MONEDA_SIMBOLO.number_format($minimo, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>
                     <p><strong>Abono registrado:</strong> <?php echo MONEDA_SIMBOLO.number_format($abono, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></p>
+
+                    <p><strong>Comprobante:</strong>
+                        <?php if($compUrl!==''){ ?>
+                            <a class="js-open-comprobante" data-comprobante-url="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" href="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ver comprobante</a>
+                        <?php }else{ ?>
+                            <span class="has-text-grey">(No subido)</span>
+                        <?php } ?>
+                    </p>
 
                     <?php if(!empty($reserva['reserva_observacion'])){ ?>
                         <p><strong>Observación:</strong> <?php echo htmlspecialchars((string)$reserva['reserva_observacion'],ENT_QUOTES,'UTF-8'); ?></p>
@@ -195,3 +212,5 @@ $urlAprobar = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo']).
 </div>
 
 <?php include "./app/views/inc/print_invoice_script.php"; ?>
+
+<?php include "./app/views/inc/comprobante_flotante.php"; ?>

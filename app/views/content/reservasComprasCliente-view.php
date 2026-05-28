@@ -3,6 +3,39 @@
 use app\controllers\reservationController;
 use app\controllers\saleController;
 
+function boutique_format_cita_corta($fecha, $hora): string{
+	$fecha = trim((string)$fecha);
+	$hora = trim((string)$hora);
+	$raw = trim($fecha." ".$hora);
+	if($raw===''){
+		return '';
+	}
+
+	$meses = [
+		1=>'enero',2=>'febrero',3=>'marzo',4=>'abril',5=>'mayo',6=>'junio',
+		7=>'julio',8=>'agosto',9=>'septiembre',10=>'octubre',11=>'noviembre',12=>'diciembre'
+	];
+
+	// Caso típico: fecha Y-m-d
+	if(preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fecha, $m)){
+		$mesNum = (int)$m[2];
+		$dia = (int)$m[3];
+		$mesTxt = $meses[$mesNum] ?? $m[2];
+		$h = $hora !== '' ? substr($hora, 0, 5) : '';
+		return trim($dia.' '.$mesTxt.' '.$h);
+	}
+
+	try{
+		$dt = new DateTime($raw);
+		$dia = (int)$dt->format('j');
+		$mesTxt = $meses[(int)$dt->format('n')] ?? $dt->format('m');
+		$h = $dt->format('H:i');
+		return trim($dia.' '.$mesTxt.' '.$h);
+	}catch(Throwable $e){
+		return $raw;
+	}
+}
+
 $clienteLogueado = (isset($_SESSION['cliente_id']) && !empty($_SESSION['cliente_id']));
 $clienteId = $clienteLogueado ? (int)$_SESSION['cliente_id'] : 0;
 
@@ -84,8 +117,8 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-calendar-check"></i> &nbsp; Reservas</h2>
 			<div class="box">
 				<div class="table-container">
-					<table class="table is-hoverable is-fullwidth is-size-6">
-						<thead class="has-background-light is-size-7">
+					<table class="table boutique-table-subtle is-hoverable is-fullwidth is-size-6">
+						<thead class="is-size-7">
 							<tr>
 								<th class="has-text-centered">Vestido</th>
 								<th class="has-text-centered">Día de tu cita</th>
@@ -99,6 +132,7 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 						$seguimientoUrl = APP_URL.'seguimientoReservaCliente/'.urlencode($codigo).'/';
 						$notifVeces = (int)($r['reserva_cliente_notificacion'] ?? 0);
 						$isNuevo = $notifVeces > 0;
+						$citaCorta = boutique_format_cita_corta(($r['reserva_fecha'] ?? ''), ($r['reserva_hora'] ?? ''));
 					?>
 						<tr class="has-text-centered">
 							<td class="has-text-left<?php echo $isNuevo ? ' is-success' : ''; ?>">
@@ -111,7 +145,7 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 							</td>
 							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
 								<span class="tag <?php echo $isNuevo ? 'is-success' : 'is-light'; ?> is-rounded is-medium">
-									<?php echo htmlspecialchars(trim((string)($r['reserva_fecha'] ?? '').' '.(string)($r['reserva_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?>
+									<?php echo htmlspecialchars($citaCorta,ENT_QUOTES,'UTF-8'); ?>
 								</span>
 							</td>
 							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
@@ -141,8 +175,8 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-shopping-bag"></i> &nbsp; Compras</h2>
 			<div class="box">
 				<div class="table-container">
-					<table class="table is-hoverable is-fullwidth is-size-6">
-						<thead class="has-background-light is-size-7">
+					<table class="table boutique-table-subtle is-hoverable is-fullwidth is-size-6">
+						<thead class="is-size-7">
 							<tr>
 								<th class="has-text-centered">Código</th>
 								<th class="has-text-centered">Fecha</th>

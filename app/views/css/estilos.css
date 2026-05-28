@@ -364,6 +364,23 @@ body,html{
     color: rgba(255,255,255,0.72) !important;
 }
 
+/* Tablas (Cliente): integradas al fondo (solo borde delgado) */
+.boutique-bg .boutique-table-subtle{
+    background: transparent !important;
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.boutique-bg .boutique-table-subtle th,
+.boutique-bg .boutique-table-subtle td{
+    background: transparent !important;
+}
+
+.boutique-bg .boutique-table-subtle thead th{
+    border-bottom: 1px solid rgba(255,255,255,0.14) !important;
+}
+
 .boutique-client-note{
     border-radius: 16px;
     border: 1px solid rgba(255, 221, 150, 0.22);

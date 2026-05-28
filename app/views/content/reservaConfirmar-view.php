@@ -30,6 +30,18 @@ if($reserva){
     $pagoAprobado = $insReserva->obtenerUltimoPagoAprobadoPorCodigoControlador($reserva['reserva_codigo']);
 }
 
+$ultimoComp = null;
+$compUrl = '';
+if($reserva){
+    $ultimoComp = $insReserva->obtenerUltimoComprobanteSubidoPorCodigoControlador((string)$reserva['reserva_codigo']);
+    if($ultimoComp && !empty($ultimoComp['pago_raw'])){
+        $raw = json_decode((string)$ultimoComp['pago_raw'], true);
+        if(is_array($raw) && !empty($raw['archivo'])){
+            $compUrl = APP_URL.ltrim((string)$raw['archivo'], '/');
+        }
+    }
+}
+
 if(!$reserva){
     echo "<div class='has-text-centered mt-6'>Reserva no encontrada</div>";
     return;
@@ -58,6 +70,10 @@ $minimo = (float)number_format($minimo, MONEDA_DECIMALES, '.', '');
                 <p><strong>Abono mínimo (50%):</strong> <?php echo MONEDA_SIMBOLO.number_format($minimo,2); ?> <?php echo MONEDA_NOMBRE; ?></p>
                 <p><strong>Stock actual:</strong> <?php echo (int)$reserva['producto_stock_total']; ?></p>
                 <p><strong>Estado:</strong> <?php echo htmlspecialchars($reserva['reserva_estado']); ?></p>
+				<?php if($compUrl!==''){ ?>
+					<hr>
+                    <p><strong>Comprobante subido:</strong> <a class="js-open-comprobante" data-comprobante-url="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" href="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ver comprobante</a></p>
+				<?php } ?>
             </div>
         </div>
 
@@ -124,3 +140,5 @@ $minimo = (float)number_format($minimo, MONEDA_DECIMALES, '.', '');
         </div>
     </div>
 </div>
+
+<?php include "./app/views/inc/comprobante_flotante.php"; ?>

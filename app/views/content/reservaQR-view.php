@@ -16,7 +16,7 @@ if(!$reserva){
     return;
 }
 
-$target = APP_URL."reservaPagar/".urlencode($reserva['reserva_codigo'])."/";
+$target = APP_URL."reservaConfirmar/".urlencode($reserva['reserva_codigo'])."/";
 $qrImg = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=".urlencode($target);
 
 $afterUpload = isset($_GET['after_upload']) && $_GET['after_upload']!=='0';
@@ -42,9 +42,9 @@ $minimo = $total * 0.50;
                 <div class="has-text-centered">
                 <h1 class="title is-4">Tu QR de reserva</h1>
                 <?php if($afterUpload){ ?>
-                    <p class="has-text-grey mb-4">¡Listo! Ya enviaste tu comprobante. Descarga este QR y <strong>guárdalo por favor</strong>, lo necesitarás para tu reserva.</p>
+                    <p class="has-text-grey mb-4">¡Listo! Ya enviaste tu comprobante. Descarga este QR y <strong>guárdalo por favor</strong>. Lo mostrarás en tienda para que el personal encuentre tu reserva rápido.</p>
                 <?php }else{ ?>
-                    <p class="has-text-grey mb-4">Escanea este QR para abrir tu reserva. Ahí verás el QR de pago y podrás subir tu comprobante.</p>
+                    <p class="has-text-grey mb-4">Este es tu <strong>QR de reserva</strong>. Muéstralo en tienda el día de tu cita para validar tu reserva.</p>
                 <?php } ?>
 
                 <figure class="image is-inline-block" style="width:260px; height:260px;">
@@ -53,7 +53,7 @@ $minimo = $total * 0.50;
 
                 <div id="qrFallback" class="notification is-warning" style="display:none;">
                     No se pudo cargar la imagen del QR (posible falta de internet/bloqueo).<br>
-                    Usa este enlace en caja: <a href="<?php echo htmlspecialchars($target,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($target); ?></a>
+                    Enlace: <a href="<?php echo htmlspecialchars($target,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($target); ?></a>
                 </div>
 
                 <div class="content mt-4">
@@ -69,11 +69,7 @@ $minimo = $total * 0.50;
                     <a class="button is-light" href="<?php echo APP_URL; ?>productosCliente/">Volver a la tienda</a>
                 </div>
 
-                <?php if($afterUpload){ ?>
-                    <p class="has-text-grey is-size-7 mt-4">Tip: guarda una captura o la imagen del QR en tu celular.</p>
-                <?php }else{ ?>
-                    <p class="has-text-grey is-size-7 mt-4">Nota: el QR abre la pantalla de pago (QR estático) y subida de comprobante.</p>
-                <?php } ?>
+                <p class="has-text-grey is-size-7 mt-4">Tip: guarda una captura o la imagen del QR en tu celular.</p>
                 </div>
             </div>
         </div>

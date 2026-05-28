@@ -163,6 +163,7 @@ if($qrImgCfg!==''){
                             <th>Cliente</th>
                             <th>Producto</th>
                             <th>Total</th>
+                            <th>Comprobante</th>
                             <th>Estado</th>
                             <th class="has-text-right">Acción</th>
                         </tr>
@@ -178,6 +179,14 @@ if($qrImgCfg!==''){
                             $total = (float)($r['reserva_total'] ?? 0);
                             $urlConfirmar = APP_URL."reservaConfirmar/".urlencode($codigo)."/";
                             $urlDetalle = APP_URL."reservaDetalle/".urlencode($codigo)."/";
+						$ultimoComp = $insReserva->obtenerUltimoComprobanteSubidoPorCodigoControlador($codigo);
+						$compUrl = '';
+						if($ultimoComp && !empty($ultimoComp['pago_raw'])){
+							$raw = json_decode((string)$ultimoComp['pago_raw'], true);
+							if(is_array($raw) && !empty($raw['archivo'])){
+								$compUrl = APP_URL.ltrim((string)$raw['archivo'], '/');
+							}
+						}
                         ?>
                         <tr>
                             <td><strong><?php echo htmlspecialchars($codigo,ENT_QUOTES,'UTF-8'); ?></strong></td>
@@ -188,12 +197,21 @@ if($qrImgCfg!==''){
                             </td>
                             <td><?php echo htmlspecialchars($producto,ENT_QUOTES,'UTF-8'); ?></td>
                             <td><?php echo MONEDA_SIMBOLO.number_format($total, MONEDA_DECIMALES, MONEDA_SEPARADOR_DECIMAL, MONEDA_SEPARADOR_MILLAR)." ".MONEDA_NOMBRE; ?></td>
+						<td>
+							<?php if($compUrl!==''){ ?>
+                                <a class="tag is-success is-light js-open-comprobante" data-comprobante-url="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" href="<?php echo htmlspecialchars($compUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ver</a>
+							<?php }else{ ?>
+								<span class="tag is-light">—</span>
+							<?php } ?>
+						</td>
                             <td>
                                 <span class="tag is-warning is-light"><?php echo htmlspecialchars($estado,ENT_QUOTES,'UTF-8'); ?></span>
                             </td>
                             <td class="has-text-right">
                                 <a class="button is-info is-light is-small" href="<?php echo htmlspecialchars($urlDetalle,ENT_QUOTES,'UTF-8'); ?>">
                                     <i class="fas fa-eye"></i> &nbsp; Detalle
+
+        <?php include "./app/views/inc/comprobante_flotante.php"; ?>
                                 </a>
                                 <a class="button is-success is-small" href="<?php echo htmlspecialchars($urlConfirmar,ENT_QUOTES,'UTF-8'); ?>">
                                     <i class="fas fa-check"></i> &nbsp; Aprobar

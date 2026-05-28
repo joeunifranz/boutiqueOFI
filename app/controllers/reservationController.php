@@ -1613,6 +1613,116 @@ class reservationController extends mainModel{
         return $this->obtenerUltimoComprobanteSubidoPorCodigo($codigo);
     }
 
+    private function optimizarComprobanteImagen(string $absPath, string $mime): array{
+        // Retorna: [absPath, filenameRel, mime, size]
+        if(!is_file($absPath)){
+            return [
+                'absPath' => $absPath,
+                'mime' => $mime,
+                'size' => (int)@filesize($absPath)
+            ];
+        }
+
+        if($mime !== 'image/jpeg' && $mime !== 'image/png'){
+            return [
+                'absPath' => $absPath,
+                'mime' => $mime,
+                'size' => (int)@filesize($absPath)
+            ];
+        }
+
+        // GD no disponible -> no optimizar
+        if(!function_exists('imagecreatefromjpeg') || !function_exists('imagejpeg')){
+            return [
+                'absPath' => $absPath,
+                'mime' => $mime,
+                'size' => (int)@filesize($absPath)
+            ];
+        }
+
+        $src = null;
+        try{
+            if($mime === 'image/png'){
+                if(!function_exists('imagecreatefrompng')){
+                    return [
+                        'absPath' => $absPath,
+                        'mime' => $mime,
+                        'size' => (int)@filesize($absPath)
+                    ];
+                }
+                $src = @imagecreatefrompng($absPath);
+            }else{
+                $src = @imagecreatefromjpeg($absPath);
+            }
+            if(!$src){
+                return [
+                    'absPath' => $absPath,
+                    'mime' => $mime,
+                    'size' => (int)@filesize($absPath)
+                ];
+            }
+
+            $w = (int)imagesx($src);
+            $h = (int)imagesy($src);
+            if($w <= 0 || $h <= 0){
+                @imagedestroy($src);
+                return [
+                    'absPath' => $absPath,
+                    'mime' => $mime,
+                    'size' => (int)@filesize($absPath)
+                ];
+            }
+
+            $maxDim = 1600;
+            $scale = min(1.0, $maxDim / max($w, $h));
+            $nw = (int)max(1, floor($w * $scale));
+            $nh = (int)max(1, floor($h * $scale));
+
+            $dst = imagecreatetruecolor($nw, $nh);
+            // Fondo blanco (para PNG con transparencia)
+            $white = imagecolorallocate($dst, 255, 255, 255);
+            imagefilledrectangle($dst, 0, 0, $nw, $nh, $white);
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+
+            @imagedestroy($src);
+
+            $dir = dirname($absPath);
+            $base = pathinfo($absPath, PATHINFO_FILENAME);
+            $outPath = $dir . DIRECTORY_SEPARATOR . $base . '.jpg';
+            $quality = 75;
+            @imagejpeg($dst, $outPath, $quality);
+            @imagedestroy($dst);
+
+            if(is_file($outPath)){
+                // Si el nuevo archivo es válido, borrar el original si era distinto
+                if(realpath($outPath) !== realpath($absPath)){
+                    @unlink($absPath);
+                }
+                return [
+                    'absPath' => $outPath,
+                    'mime' => 'image/jpeg',
+                    'size' => (int)@filesize($outPath)
+                ];
+            }
+
+            // Si falló la optimización, mantener original
+            return [
+                'absPath' => $absPath,
+                'mime' => $mime,
+                'size' => (int)@filesize($absPath)
+            ];
+        }catch(\Throwable $e){
+            if($src){
+                @imagedestroy($src);
+            }
+            return [
+                'absPath' => $absPath,
+                'mime' => $mime,
+                'size' => (int)@filesize($absPath)
+            ];
+        }
+    }
+
     private function obtenerPagoAprobadoPorCodigo($codigo){
         $codigo = $this->limpiarCadena($codigo);
         if($codigo==="" || !$this->tablaReservaPagoExiste()){
@@ -1747,6 +1857,13 @@ class reservationController extends mainModel{
                 'message'=>'No se pudo guardar el comprobante.'
             ], JSON_UNESCAPED_UNICODE);
         }
+
+		// Optimizar si es imagen (reduce peso en disco; en BD solo se guarda ruta)
+		$opt = $this->optimizarComprobanteImagen($destPath, (string)$mime);
+		$destPath = (string)($opt['absPath'] ?? $destPath);
+		$mime = (string)($opt['mime'] ?? $mime);
+		$size = (int)($opt['size'] ?? $size);
+		$filename = basename($destPath);
 
         // Registrar en reserva_pago como pago manual
         if($this->tablaReservaPagoExiste()){
@@ -2993,10 +3110,10 @@ class reservationController extends mainModel{
         $inicio = ($pagina>0) ? (($pagina * $registros)-$registros) : 0;
 
         $campos_tablas="r.reserva_id,r.reserva_codigo,r.reserva_fecha,r.reserva_hora,r.reserva_total,r.reserva_abono,r.reserva_estado,r.reserva_observacion,r.usuario_id,r.caja_id,
-                         c.cliente_nombre,c.cliente_apellido,c.cliente_email,
-                         p.producto_nombre,
-                         u.usuario_nombre,u.usuario_apellido,
-                         ca.caja_nombre";
+                 c.cliente_nombre,c.cliente_apellido,c.cliente_email,
+                 p.producto_nombre,
+                 u.usuario_nombre,u.usuario_apellido,
+                 ca.caja_nombre";
 
         $condiciones = [];
         if(isset($busqueda) && $busqueda!=""){
@@ -3010,6 +3127,23 @@ class reservationController extends mainModel{
 			$whereSql = "WHERE ".implode(" AND ", $condiciones);
 		}
 
+        $joinComprobante = '';
+        if($this->tablaReservaPagoExiste()){
+            $campos_tablas .= ", rp.reserva_pago_id AS comprobante_reserva_pago_id, rp.pago_raw AS comprobante_pago_raw";
+			$joinComprobante = "LEFT JOIN (\n".
+				"  SELECT rp1.reserva_pago_id, rp1.reserva_codigo, rp1.pago_raw\n".
+				"  FROM reserva_pago rp1\n".
+				"  INNER JOIN (\n".
+				"    SELECT reserva_codigo, MAX(reserva_pago_id) AS last_id\n".
+				"    FROM reserva_pago\n".
+				"    WHERE pago_proveedor='manual' AND pago_status IN ('uploaded','pending','created')\n".
+				"    GROUP BY reserva_codigo\n".
+				"  ) rp2 ON rp2.reserva_codigo=rp1.reserva_codigo AND rp2.last_id=rp1.reserva_pago_id\n".
+				") rp ON rp.reserva_codigo=r.reserva_codigo";
+        }else{
+            $campos_tablas .= ", NULL AS comprobante_reserva_pago_id, NULL AS comprobante_pago_raw";
+		}
+
 		if(!empty($condiciones)){
             $consulta_datos="SELECT $campos_tablas
                 FROM reserva r
@@ -3017,6 +3151,7 @@ class reservationController extends mainModel{
                 INNER JOIN producto p ON p.producto_id=r.producto_id
                 LEFT JOIN usuario u ON u.usuario_id=r.usuario_id
                 LEFT JOIN caja ca ON ca.caja_id=r.caja_id
+                $joinComprobante
                 $whereSql
                 ORDER BY r.reserva_id DESC
                 LIMIT $inicio,$registros";
@@ -3032,6 +3167,7 @@ class reservationController extends mainModel{
                 INNER JOIN producto p ON p.producto_id=r.producto_id
                 LEFT JOIN usuario u ON u.usuario_id=r.usuario_id
                 LEFT JOIN caja ca ON ca.caja_id=r.caja_id
+                $joinComprobante
                 ORDER BY r.reserva_id DESC
                 LIMIT $inicio,$registros";
 
@@ -3058,6 +3194,7 @@ class reservationController extends mainModel{
                         <th class="has-text-centered">Producto</th>
                         <th class="has-text-centered">Total</th>
                         <th class="has-text-centered">Abono</th>
+                        <th class="has-text-centered">Comprobante</th>
                         <th class="has-text-centered">Estado</th>
                         <th class="has-text-centered">Usuario</th>
                         <th class="has-text-centered">Caja</th>
@@ -3099,6 +3236,20 @@ class reservationController extends mainModel{
                 $obs = (string)($rows['reserva_observacion'] ?? '');
                 $obs = ($obs!=="") ? $this->limitarCadena($obs,25,'...') : '';
 
+                $compArchivo = '';
+                if(!empty($rows['comprobante_pago_raw'])){
+                    $raw = json_decode((string)$rows['comprobante_pago_raw'], true);
+                    if(is_array($raw) && !empty($raw['archivo'])){
+                        $compArchivo = (string)$raw['archivo'];
+                    }
+                }
+                $compHtml = '<span class="tag is-light">—</span>';
+                if($compArchivo!==''){
+                    $compUrl = APP_URL.ltrim($compArchivo, '/');
+                    $compUrlEsc = htmlspecialchars($compUrl, ENT_QUOTES, 'UTF-8');
+                    $compHtml = '<a class="tag is-success is-light js-open-comprobante" data-comprobante-url="'.$compUrlEsc.'" href="'.$compUrlEsc.'" target="_blank" rel="noopener">Ver</a>';
+                }
+
                 $tabla.='
                     <tr class="has-text-centered">
                         <td>'.$contador.'</td>
@@ -3108,6 +3259,7 @@ class reservationController extends mainModel{
                         <td>'.$producto.'</td>
                         <td>'.MONEDA_SIMBOLO.number_format($rows['reserva_total'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).' '.MONEDA_NOMBRE.'</td>
                         <td>'.MONEDA_SIMBOLO.number_format($rows['reserva_abono'],MONEDA_DECIMALES,MONEDA_SEPARADOR_DECIMAL,MONEDA_SEPARADOR_MILLAR).'</td>
+                        <td>'.$compHtml.'</td>
                         <td><span class="tag '.$tagColor.' is-light">'.$estado.'</span></td>
                         <td>'.$usuario.'</td>
                         <td>'.$caja.'</td>
@@ -3153,7 +3305,7 @@ class reservationController extends mainModel{
             if($total>=1){
                 $tabla.='
                     <tr class="has-text-centered" >
-                        <td colspan="12">
+                        <td colspan="13">
                             <a href="'.$url.'1/" class="button is-link is-rounded is-small mt-4 mb-4">
                                 Haga clic acá para recargar el listado
                             </a>
@@ -3163,7 +3315,7 @@ class reservationController extends mainModel{
             }else{
                 $tabla.='
                     <tr class="has-text-centered" >
-                        <td colspan="12">No hay registros en el sistema</td>
+                        <td colspan="13">No hay registros en el sistema</td>
                     </tr>
                 ';
             }

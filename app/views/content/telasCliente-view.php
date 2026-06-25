@@ -52,23 +52,17 @@
 	<section id="wizardStep1" class="wizard-step">
 		<div class="box">
 			<h2 class="subtitle">Paso 1: Elección de vestido personalizado</h2>
-			<article class="message is-info is-light">
-				<div class="message-body">
-					Esta parte está en preparación. Por ahora puedes describir tu idea para que la dueña/admin la reciba.
-				</div>
-			</article>
-
-			<div class="field">
-				<label class="label">Describe tu vestido (opcional)</label>
-				<div class="control">
-					<textarea id="vestidoDetalle" class="textarea" rows="4" placeholder="Ej: color, estilo, largo, manga, referencia..."></textarea>
-				</div>
-				<p class="help">Esto se enviará junto con tu cita.</p>
+			<div class="buttons is-centered mt-5">
+				<button id="bridal-btn" type="button" class="button is-link is-rounded is-medium">
+					Probador Virtual
+				</button>
 			</div>
 
-			<div class="buttons is-right">
-				<button type="button" class="button is-link is-rounded" data-next-step="2">Continuar</button>
-			</div>
+			<script>
+				document.getElementById('bridal-btn').addEventListener('click', function() {
+					window.location.href = 'http://127.0.0.1:5000/bridal.html';
+				});
+			</script>
 		</div>
 	</section>
 

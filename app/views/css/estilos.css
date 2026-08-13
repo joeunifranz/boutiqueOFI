@@ -284,8 +284,9 @@ body,html{
 
 .boutique-bg{
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     background: #0b1020;
+    isolation: isolate;
 }
 
 .boutique-bg-slider,

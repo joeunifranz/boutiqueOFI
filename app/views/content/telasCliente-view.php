@@ -58,13 +58,185 @@
 				</button>
 			</div>
 
+			<div id="probadorVirtualOverlay" class="probador-virtual-overlay" aria-hidden="true" style="display:none;">
+				<div class="probador-stage">
+					<div class="probador-slide active" data-slide="0">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Madam, tómate una foto de cuerpo completo y sin fondo blanco, por favor.</div>
+					</div>
+					<div class="probador-slide" data-slide="1">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Mírame de frente con buena iluminación.</div>
+					</div>
+					<div class="probador-slide" data-slide="2">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Usa ropa ajustada y mantén el fondo despejado.</div>
+					</div>
+				</div>
+			</div>
+
 			<script>
-				document.getElementById('bridal-btn').addEventListener('click', function() {
-					window.location.href = 'http://127.0.0.1:5000/bridal.html';
-				});
+				const bridalBtn = document.getElementById('bridal-btn');
+				const probadorOverlay = document.getElementById('probadorVirtualOverlay');
+				const bridalUrl = 'http://127.0.0.1:5000/bridal.html';
+				const slides = Array.from(document.querySelectorAll('.probador-slide'));
+				let slideIndex = 0;
+				let guideTimers = [];
+
+				const hideOverlay = () => {
+					probadorOverlay.style.display = 'none';
+					probadorOverlay.setAttribute('aria-hidden', 'true');
+					slides.forEach((slide) => slide.classList.remove('active'));
+					guideTimers.forEach((timer) => clearTimeout(timer));
+					guideTimers = [];
+				};
+
+				const showSlide = (index) => {
+					slides.forEach((slide, i) => {
+						slide.classList.toggle('active', i === index);
+					});
+				};
+
+				const startGuideSequence = () => {
+					guideTimers.forEach((timer) => clearTimeout(timer));
+					guideTimers = [];
+					slideIndex = 0;
+					showSlide(slideIndex);
+
+					guideTimers.push(setTimeout(() => {
+						slideIndex = 1;
+						showSlide(slideIndex);
+					}, 5000));
+
+					guideTimers.push(setTimeout(() => {
+						slideIndex = 2;
+						showSlide(slideIndex);
+					}, 7000));
+
+					guideTimers.push(setTimeout(() => {
+						hideOverlay();
+						window.location.href = bridalUrl;
+					}, 9300));
+				};
+
+				const openProbadorOverlay = () => {
+					if (probadorOverlay.parentElement !== document.body) {
+						document.body.appendChild(probadorOverlay);
+					}
+					hideOverlay();
+					probadorOverlay.style.display = 'flex';
+					probadorOverlay.setAttribute('aria-hidden', 'false');
+					startGuideSequence();
+				};
+
+				// Nunca visible al cargar la página: solo aparece al clicar el botón.
+				hideOverlay();
+				bridalBtn.addEventListener('click', openProbadorOverlay);
 			</script>
 		</div>
 	</section>
+
+	<style>
+		.probador-virtual-overlay {
+			position: fixed;
+			inset: 0;
+			width: 100vw;
+			height: 100vh;
+			z-index: 2147483647;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: rgba(12, 8, 10, 0.58);
+			backdrop-filter: blur(3px);
+			pointer-events: auto;
+			margin: 0;
+		}
+
+		.probador-stage {
+			position: relative;
+			width: 100vw;
+			height: 100vh;
+			overflow: hidden;
+			background: radial-gradient(circle at center, rgba(32, 19, 22, 0.38), rgba(12, 8, 10, 0.78));
+			pointer-events: auto !important;
+			margin: 0;
+		}
+
+		.probador-slide {
+			position: absolute;
+			inset: 0;
+			display: none;
+			opacity: 0;
+			transform: translateY(26px) scale(0.96);
+			transition: opacity 1.1s ease, transform 1.1s ease;
+			pointer-events: none;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			padding: 4vh 4vw 7vh;
+		}
+
+		.probador-slide.active {
+			display: flex;
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+
+		.probador-image {
+			position: relative;
+			height: min(76vh, 760px);
+			width: min(78vw, 980px);
+			background-size: cover;
+			background-position: center;
+			border-radius: 30px;
+			border: 1px solid rgba(255,255,255,0.12);
+			box-shadow: 0 35px 90px rgba(0,0,0,0.48);
+			animation: probadorFloat 4s ease-in-out infinite;
+		}
+
+		.probador-caption {
+			position: absolute;
+			left: 50%;
+			bottom: 6vh;
+			transform: translateX(-50%);
+			width: min(760px, 78vw);
+			font-size: clamp(1rem, 2vw, 1.45rem);
+			line-height: 1.45;
+			font-weight: 700;
+			color: #fff;
+			text-align: center;
+			text-shadow: 0 4px 14px rgba(0,0,0,0.55);
+			background: rgba(15, 10, 12, 0.12);
+			padding: 0.85rem 1.2rem;
+			border-radius: 999px;
+		}
+
+		@keyframes probadorFloat {
+			0%, 100% {
+				transform: translateY(0px) rotate(0deg);
+			}
+			50% {
+				transform: translateY(-10px) rotate(-0.5deg);
+			}
+		}
+
+		@media (max-width: 768px) {
+			.probador-slide {
+				padding: 3vh 4vw 10vh;
+			}
+
+			.probador-image {
+				height: min(60vh, 520px);
+				width: min(90vw, 620px);
+			}
+
+			.probador-caption {
+				bottom: 4vh;
+				width: min(90vw, 620px);
+				border-radius: 18px;
+			}
+		}
+	</style>
 
 	<!-- Paso 2: Telas (existente) -->
 	<section id="wizardStep2" class="wizard-step" style="display:none;">
@@ -443,7 +615,7 @@
 .wizard-step > .box{
 	margin-bottom: 0;
 	position: relative;
-	overflow: hidden;
+	overflow: visible;
 	background: var(--wizard-grad);
 	background-size: 200% 200%;
 	animation: wizard-step-bg-shift 16s ease-in-out infinite;

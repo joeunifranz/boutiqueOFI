@@ -31,14 +31,14 @@
 	// Backend por defecto: servidor local (Flask) del proyecto agente_ia
 	// Puedes sobreescribir con variables de entorno y reiniciar Apache:
 	// - BOUTIQUE_AGENT_IA_ENABLED=1|0
-	// - BOUTIQUE_AGENT_IA_API_URL=http://127.0.0.1:5000/chat
+	// - BOUTIQUE_AGENT_IA_API_URL=http://127.0.0.1:5001/chat
 	if(!defined('AGENTE_IA_ENABLED')){
 		$enabledEnv = getenv('BOUTIQUE_AGENT_IA_ENABLED');
 		define('AGENTE_IA_ENABLED', ($enabledEnv===false) ? true : ((string)$enabledEnv==='1' || strtolower((string)$enabledEnv)==='true'));
 	}
 	if(!defined('AGENTE_IA_API_URL')){
 		$apiEnv = getenv('BOUTIQUE_AGENT_IA_API_URL');
-		define('AGENTE_IA_API_URL', ($apiEnv===false || trim((string)$apiEnv)==='') ? 'http://127.0.0.1:5000/chat' : trim((string)$apiEnv));
+		define('AGENTE_IA_API_URL', ($apiEnv===false || trim((string)$apiEnv)==='') ? 'http://127.0.0.1:5001/chat' : trim((string)$apiEnv));
 	}
 
 	/*----------  Recomendador de vestidos (local)  ----------*/

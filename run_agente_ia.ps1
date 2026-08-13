@@ -1,6 +1,6 @@
 param(
 	[string]$App = "app_v1.py",
-	[int]$Port = 5000
+	[int]$Port = 5001
 )
 
 $ErrorActionPreference = "Stop"

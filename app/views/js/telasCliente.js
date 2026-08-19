@@ -60,10 +60,58 @@
 	const resumenEncaje = qs('#resumenEncaje');
 
 	const CLIENTE_LOGUEADO = (window.CLIENTE_LOGUEADO === true);
+	const CLIENTE_ID = Number(window.TELAS_CLIENTE_ID || window.BOUTIQUE_CLIENTE_ID || 0);
+	const PROBADOR_STORAGE_KEY = 'boutique_probador_id_cliente_' + (isFinite(CLIENTE_ID) && CLIENTE_ID > 0 ? String(CLIENTE_ID) : '0');
 
 	let ENCAJES = [];
 	let lastSolicitudSnapshot = null;
 	let SOLICITUDES_ANTERIORES = [];
+	let CURRENT_PROBADOR_ID = 0;
+
+	function getProbadorIdFromQuery(){
+		try{
+			const params = new URLSearchParams(window.location.search || '');
+			const raw = String(params.get('probador_id') || '').trim();
+			if(!/^\d+$/.test(raw)) return 0;
+			const n = Number(raw);
+			return (isFinite(n) && n > 0) ? Math.trunc(n) : 0;
+		}catch(e){
+			return 0;
+		}
+	}
+
+	function cleanProbadorQueryParam(){
+		try{
+			const url = new URL(window.location.href);
+			if(!url.searchParams.has('probador_id')) return;
+			url.searchParams.delete('probador_id');
+			window.history.replaceState({}, document.title, url.toString());
+		}catch(e){}
+	}
+
+	function loadProbadorIdState(){
+		const fromQuery = getProbadorIdFromQuery();
+		if(fromQuery > 0){
+			CURRENT_PROBADOR_ID = fromQuery;
+			try{ localStorage.setItem(PROBADOR_STORAGE_KEY, String(fromQuery)); }catch(e){}
+			cleanProbadorQueryParam();
+			return;
+		}
+		try{
+			const raw = String(localStorage.getItem(PROBADOR_STORAGE_KEY) || '').trim();
+			if(/^\d+$/.test(raw)){
+				const n = Number(raw);
+				if(isFinite(n) && n > 0){
+					CURRENT_PROBADOR_ID = Math.trunc(n);
+				}
+			}
+		}catch(e){}
+	}
+
+	function clearProbadorIdState(){
+		CURRENT_PROBADOR_ID = 0;
+		try{ localStorage.removeItem(PROBADOR_STORAGE_KEY); }catch(e){}
+	}
 
 	function openModalById(modalId){
 		const id = String(modalId || '').trim();
@@ -946,6 +994,9 @@
 			fd.append('talla', tallaSel ? String(tallaSel.value || 'M') : 'M');
 			fd.append('tela_id', tela.id);
 			fd.append('encaje_id', String(encaje.encaje_id || ''));
+			if(CURRENT_PROBADOR_ID > 0){
+				fd.append('probador_id', String(CURRENT_PROBADOR_ID));
+			}
 			fd.append('vestido_detalle', vestidoDetalle ? String(vestidoDetalle.value || '') : '');
 
 			const resp = await fetch((window.APP_URL || '') + 'app/ajax/reservaAjax.php', {
@@ -961,6 +1012,9 @@
 
 			showWizardMsg(json.mensaje || 'Solicitud enviada. Te contactaremos pronto.', 'success');
 			lastSolicitudSnapshot = buildSolicitudSnapshot();
+			if(CURRENT_PROBADOR_ID > 0){
+				clearProbadorIdState();
+			}
 			if(solicitudesBadge) solicitudesBadge.style.display = 'inline-flex';
 			if(btnEnviar) btnEnviar.disabled = true;
 		}catch(e){
@@ -979,6 +1033,7 @@
 	}
 
 	document.addEventListener('DOMContentLoaded', () => {
+		loadProbadorIdState();
 		cargarTelas();
 		cargarEncajes();
 		initCarouselControls();

@@ -858,6 +858,20 @@ class reservationController extends mainModel{
         }
     }
 
+    private function asegurarColumnaProbadorIdSolicitudPersonalizada(): void{
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return;
+        }
+        if($this->columnaExiste('solicitud_personalizada', 'probador_id')){
+            return;
+        }
+        try{
+            $this->ejecutarConsulta("ALTER TABLE solicitud_personalizada ADD COLUMN probador_id INT NULL AFTER creado_en");
+        }catch(\Throwable $e){
+            // Sin permisos / no soportado: ignorar
+        }
+    }
+
     private function tablaEncajeExiste(): bool{
         try{
             $check = $this->ejecutarConsulta("SHOW TABLES LIKE 'encaje'");
@@ -986,6 +1000,33 @@ class reservationController extends mainModel{
         }
     }
 
+    private function tablaProbadorVirtualExiste(): bool{
+        try{
+            $check = $this->ejecutarConsulta("SHOW TABLES LIKE 'probador_virtual'");
+            return ($check && $check->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
+    private function probadorVirtualPerteneceACliente(int $probadorId, int $clienteId): bool{
+        if($probadorId <= 0 || $clienteId <= 0){
+            return false;
+        }
+        if(!$this->tablaProbadorVirtualExiste()){
+            return false;
+        }
+        try{
+            $stmt = $this->conectar()->prepare('SELECT probador_id FROM probador_virtual WHERE probador_id=:pid AND cliente_id=:cid LIMIT 1');
+            $stmt->bindValue(':pid', $probadorId, \PDO::PARAM_INT);
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            return ($stmt->rowCount() >= 1);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
     public function crearSolicitudPersonalizadaControlador(){
         if(!isset($_SESSION['cliente_id']) || (int)$_SESSION['cliente_id'] <= 0){
             return json_encode(['ok' => false, 'mensaje' => 'Debes iniciar sesión para enviar la solicitud']);
@@ -997,6 +1038,7 @@ class reservationController extends mainModel{
         $talla = $this->limpiarCadena($_POST['talla'] ?? 'M');
         $telaId = (int)($this->limpiarCadena($_POST['tela_id'] ?? '0'));
         $encajeId = (int)($this->limpiarCadena($_POST['encaje_id'] ?? '0'));
+        $probadorIdIn = (int)($this->limpiarCadena($_POST['probador_id'] ?? '0'));
         $encajeKey = $this->limpiarCadena($_POST['encaje_key'] ?? '');
         $detalle = $this->limpiarCadena($_POST['vestido_detalle'] ?? '');
 
@@ -1090,7 +1132,20 @@ class reservationController extends mainModel{
         }
 
         $this->asegurarColumnaEncajeIdSolicitudPersonalizada();
+        $this->asegurarColumnaProbadorIdSolicitudPersonalizada();
         $tieneEncajeId = $this->columnaExiste('solicitud_personalizada', 'encaje_id');
+        $tieneProbadorId = $this->columnaExiste('solicitud_personalizada', 'probador_id');
+
+        $probadorId = 0;
+        if($probadorIdIn > 0){
+            if(!$tieneProbadorId){
+                return json_encode(['ok'=>false,'mensaje'=>'La integración con probador virtual no está disponible en esta base de datos']);
+            }
+            if(!$this->probadorVirtualPerteneceACliente($probadorIdIn, $clienteId)){
+                return json_encode(['ok'=>false,'mensaje'=>'El resultado del probador no corresponde a tu cuenta']);
+            }
+            $probadorId = $probadorIdIn;
+        }
 
         $pdo = null;
         try{
@@ -1101,9 +1156,15 @@ class reservationController extends mainModel{
             if($tieneEncajeId){
                 $sql .= ', encaje_id';
             }
+            if($tieneProbadorId && $probadorId > 0){
+                $sql .= ', probador_id';
+            }
             $sql .= ', encaje_key, encaje_nombre, encaje_precio, vestido_detalle, estado) VALUES (:cid, :f, :h, :talla, :tela_id, :tela_nombre, :tela_precio, :metros';
             if($tieneEncajeId){
                 $sql .= ', :encaje_id';
+            }
+            if($tieneProbadorId && $probadorId > 0){
+                $sql .= ', :probador_id';
             }
             $sql .= ', :ek, :en, :ep, :det, \'pendiente\')';
 
@@ -1118,6 +1179,9 @@ class reservationController extends mainModel{
             $ins->bindValue(':metros', $metros);
             if($tieneEncajeId){
                 $ins->bindValue(':encaje_id', $encajeId > 0 ? $encajeId : null, $encajeId > 0 ? \PDO::PARAM_INT : \PDO::PARAM_NULL);
+            }
+            if($tieneProbadorId && $probadorId > 0){
+                $ins->bindValue(':probador_id', $probadorId, \PDO::PARAM_INT);
             }
             $ins->bindValue(':ek', $encajeKey);
             $ins->bindValue(':en', $encajeNombre);

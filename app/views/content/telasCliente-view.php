@@ -52,6 +52,9 @@
 	<section id="wizardStep1" class="wizard-step">
 		<div class="box">
 			<h2 class="subtitle">Paso 1: Elección de vestido personalizado</h2>
+			<script>
+				window.TELAS_CLIENTE_ID = <?php echo json_encode($clienteLogueado ? (int)$_SESSION['cliente_id'] : 0); ?>;
+			</script>
 			<div class="buttons is-centered mt-5">
 				<button id="bridal-btn" type="button" class="button is-link is-rounded is-medium">
 					Probador Virtual
@@ -78,10 +81,20 @@
 			<script>
 				const bridalBtn = document.getElementById('bridal-btn');
 				const probadorOverlay = document.getElementById('probadorVirtualOverlay');
-				const bridalUrl = 'http://127.0.0.1:5000/bridal.html';
+				const bridalBaseUrl = 'http://127.0.0.1:5000/bridal.html';
+				const clienteIdForProbador = Number(window.TELAS_CLIENTE_ID || window.BOUTIQUE_CLIENTE_ID || 0);
 				const slides = Array.from(document.querySelectorAll('.probador-slide'));
 				let slideIndex = 0;
 				let guideTimers = [];
+
+				const buildProbadorUrl = () => {
+					const url = new URL(bridalBaseUrl);
+					if(Number.isFinite(clienteIdForProbador) && clienteIdForProbador > 0){
+						url.searchParams.set('cliente_id', String(Math.trunc(clienteIdForProbador)));
+					}
+					url.searchParams.set('return_url', window.location.href);
+					return url.toString();
+				};
 
 				const hideOverlay = () => {
 					probadorOverlay.style.display = 'none';
@@ -115,7 +128,7 @@
 
 					guideTimers.push(setTimeout(() => {
 						hideOverlay();
-						window.location.href = bridalUrl;
+						window.location.href = buildProbadorUrl();
 					}, 9300));
 				};
 

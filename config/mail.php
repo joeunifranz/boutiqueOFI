@@ -22,16 +22,16 @@
 return [
 	'driver' => 'smtp',
 	'from' => [
-		'email' => 'joeunifranz@gmail.com',
+		'email' => '',
 		'name' => defined('APP_NAME') ? (string)APP_NAME : 'CITASS',
 	],
 	'smtp' => [
 		'host' => 'smtp.gmail.com',
 		'port' => 587,
 		'secure' => 'tls', // tls|ssl|null
-		'username' => 'joeunifranz@gmail.com',
-		// Contraseña de aplicación de Gmail (App Password). Debe corresponder al username.
-		'password' => 'syyc jfzl lhcp znkr',
+		'username' => '',
+		// Define las credenciales en .env, nunca aquí.
+		'password' => '',
 		'timeout' => 20,
 		'verify_peer' => true,
 		// 'cafile' => 'C:/ruta/ca-bundle.crt',

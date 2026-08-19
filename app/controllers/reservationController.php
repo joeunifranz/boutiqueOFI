@@ -525,6 +525,80 @@ class reservationController extends mainModel{
         }
     }
 
+    private function enviarConfirmacionSolicitudPersonalizadaPorCorreo(
+        int $solicitudId,
+        int $clienteId,
+        string $fecha,
+        string $hora,
+        string $talla,
+        string $telaNombre,
+        float $telaPrecio,
+        float $metros,
+        string $encajeNombre,
+        float $encajePrecio,
+        string $detalle
+    ): void{
+        try{
+            $stmt = $this->conectar()->prepare(
+                'SELECT cliente_nombre, cliente_apellido, cliente_email FROM cliente WHERE cliente_id=:id LIMIT 1'
+            );
+            $stmt->bindValue(':id', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $clienteRow = $stmt->fetch();
+
+            $email = trim((string)($clienteRow['cliente_email'] ?? ''));
+            if($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)){
+                return;
+            }
+
+            $cliente = trim((string)($clienteRow['cliente_nombre'] ?? '').' '.(string)($clienteRow['cliente_apellido'] ?? ''));
+            if($cliente === ''){
+                $cliente = 'Cliente';
+            }
+
+            $fechaPretty = $fecha;
+            try{
+                $fechaPretty = (new \DateTime($fecha))->format('d/m/Y');
+            }catch(\Throwable $e){
+                // Mantener la fecha recibida si no puede formatearse.
+            }
+
+            $totalEstimado = ($metros * $telaPrecio) + $encajePrecio;
+            $appName = defined('APP_NAME') ? (string)APP_NAME : 'BOUTIQUE';
+            $moneda = defined('MONEDA_NOMBRE') ? (string)MONEDA_NOMBRE : '';
+            $simbolo = defined('MONEDA_SIMBOLO') ? (string)MONEDA_SIMBOLO : '';
+            $decimales = defined('MONEDA_DECIMALES') ? (int)MONEDA_DECIMALES : 2;
+            $separadorDecimal = defined('MONEDA_SEPARADOR_DECIMAL') ? (string)MONEDA_SEPARADOR_DECIMAL : '.';
+            $separadorMillar = defined('MONEDA_SEPARADOR_MILLAR') ? (string)MONEDA_SEPARADOR_MILLAR : ',';
+            $importe = $simbolo.number_format($totalEstimado, $decimales, $separadorDecimal, $separadorMillar).' '.$moneda;
+
+            $subject = 'Recibimos tu solicitud personalizada - '.$appName;
+            $html = '
+                <div style="font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#111;">
+                    <p>Hola <strong>'.htmlspecialchars($cliente, ENT_QUOTES, 'UTF-8').'</strong>,</p>
+                    <p>Recibimos tu solicitud de vestido personalizado. Nuestro equipo la revisará y se comunicará contigo.</p>
+                    <ul>
+                        <li><strong>Solicitud:</strong> #'.htmlspecialchars((string)$solicitudId, ENT_QUOTES, 'UTF-8').'</li>
+                        <li><strong>Cita solicitada:</strong> '.htmlspecialchars($fechaPretty.' '.$hora, ENT_QUOTES, 'UTF-8').'</li>
+                        <li><strong>Talla:</strong> '.htmlspecialchars($talla, ENT_QUOTES, 'UTF-8').'</li>
+                        <li><strong>Tela:</strong> '.htmlspecialchars($telaNombre, ENT_QUOTES, 'UTF-8').' ('.htmlspecialchars((string)$metros, ENT_QUOTES, 'UTF-8').' m aprox.)</li>
+                        <li><strong>Encaje:</strong> '.htmlspecialchars($encajeNombre, ENT_QUOTES, 'UTF-8').'</li>
+                        <li><strong>Total estimado:</strong> '.htmlspecialchars($importe, ENT_QUOTES, 'UTF-8').'</li>
+                    </ul>
+                    <p><strong>Detalle del vestido:</strong><br>'.nl2br(htmlspecialchars($detalle !== '' ? $detalle : '—', ENT_QUOTES, 'UTF-8')).'</p>
+                    <p>Gracias,<br>'.htmlspecialchars($appName, ENT_QUOTES, 'UTF-8').'</p>
+                </div>';
+
+            $mailer = new \app\services\MailService();
+            if(!$mailer->sendHtml($email, $subject, $html)){
+                $err = $mailer->getLastError() ?: 'Falló envío (sin detalle)';
+                error_log('[BOUTIQUE][MAIL] Fallo confirmación solicitud personalizada id='.$solicitudId.' to='.$email.' :: '.$err);
+            }
+        }catch(\Throwable $e){
+            error_log('[BOUTIQUE][MAIL] Excepción confirmación solicitud personalizada id='.$solicitudId.' :: '.$e->getMessage());
+        }
+    }
+
     private function enviarTicketVentaPorCorreo(string $ventaCodigo, array $clienteData): void{
         try{
             $email = trim((string)($clienteData['cliente_email'] ?? ''));
@@ -1237,6 +1311,21 @@ class reservationController extends mainModel{
             }catch(\Throwable $e){
                 error_log('[BOUTIQUE][MAIL] Excepción solicitud personalizada id='.$solId.' :: '.$e->getMessage());
             }
+
+            // Confirmación al cliente (best-effort): no bloquea la creación de la solicitud.
+            $this->enviarConfirmacionSolicitudPersonalizadaPorCorreo(
+                $solId,
+                $clienteId,
+                $fecha,
+                $hora,
+                $talla,
+                $telaNombre,
+                $telaPrecio,
+                $metros,
+                $encajeNombre,
+                $encajePrecio,
+                $detalle
+            );
 
             return json_encode(['ok'=>true,'mensaje'=>'Solicitud enviada. Te contactaremos pronto.']);
         }catch(\Throwable $e){

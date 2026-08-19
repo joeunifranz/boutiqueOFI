@@ -34,8 +34,45 @@ class MailService{
 	}
 
 	private function env(string $key): ?string{
-		$v = getenv($key);
-		if($v === false){
+		// Este proyecto se configura mediante su archivo .env. Le damos prioridad
+		// para evitar que una variable antigua del servicio Apache lo reemplace.
+		$v = null;
+		if($v === null){
+			static $fileValues = null;
+			if($fileValues === null){
+				$fileValues = [];
+				$path = __DIR__."/../../.env";
+				if(is_readable($path)){
+					$lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+					if(is_array($lines)){
+						foreach($lines as $line){
+							$line = trim((string)$line);
+							if($line === '' || str_starts_with($line, '#')){
+								continue;
+							}
+							$parts = explode('=', $line, 2);
+							if(count($parts) !== 2){
+								continue;
+							}
+							$name = trim((string)$parts[0]);
+							$value = trim((string)$parts[1]);
+							if($name === ''){
+								continue;
+							}
+							if((str_starts_with($value, '"') && str_ends_with($value, '"')) || (str_starts_with($value, "'") && str_ends_with($value, "'"))){
+								$value = substr($value, 1, -1);
+							}
+							$fileValues[$name] = $value;
+						}
+					}
+				}
+			}
+			$v = $fileValues[$key] ?? null;
+		}
+		if($v === null){
+			$v = getenv($key);
+		}
+		if($v === null || $v === false){
 			return null;
 		}
 		$v = trim((string)$v);
@@ -58,32 +95,32 @@ class MailService{
 		$cafile = $this->env('BOUTIQUE_SMTP_CAFILE');
 		$capath = $this->env('BOUTIQUE_SMTP_CAPATH');
 
-		// Prioriza config/mail.php. Usa env solo si el valor en config falta o está vacío.
-		if($host !== null && (!isset($smtp['host']) || trim((string)$smtp['host']) === '')){
+		// Las variables del entorno tienen prioridad para no guardar credenciales en el código.
+		if($host !== null){
 			$smtp['host'] = $host;
 		}
-		if($port !== null && ctype_digit($port) && (!isset($smtp['port']) || (int)$smtp['port'] <= 0)){
+		if($port !== null && ctype_digit($port)){
 			$smtp['port'] = (int)$port;
 		}
-		if($secure !== null && (!isset($smtp['secure']) || trim((string)$smtp['secure']) === '')){
+		if($secure !== null){
 			$smtp['secure'] = $secure;
 		}
-		if($username !== null && (!isset($smtp['username']) || trim((string)$smtp['username']) === '')){
+		if($username !== null){
 			$smtp['username'] = $username;
 		}
-		if($password !== null && (!isset($smtp['password']) || trim((string)$smtp['password']) === '')){
+		if($password !== null){
 			$smtp['password'] = $password;
 		}
-		if($timeout !== null && ctype_digit($timeout) && (!isset($smtp['timeout']) || (int)$smtp['timeout'] <= 0)){
+		if($timeout !== null && ctype_digit($timeout)){
 			$smtp['timeout'] = (int)$timeout;
 		}
-		if($verifyPeer !== null && !isset($smtp['verify_peer'])){
+		if($verifyPeer !== null){
 			$smtp['verify_peer'] = filter_var($verifyPeer, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE);
 		}
-		if($cafile !== null && (!isset($smtp['cafile']) || trim((string)$smtp['cafile']) === '')){
+		if($cafile !== null){
 			$smtp['cafile'] = $cafile;
 		}
-		if($capath !== null && (!isset($smtp['capath']) || trim((string)$smtp['capath']) === '')){
+		if($capath !== null){
 			$smtp['capath'] = $capath;
 		}
 

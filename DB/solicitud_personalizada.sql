@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `solicitud_personalizada` (
   `encaje_nombre` VARCHAR(140) NOT NULL,
   `encaje_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   `vestido_detalle` VARCHAR(500) NULL,
+  `imagen_probador_base64` LONGTEXT NULL,
   `estado` VARCHAR(20) NOT NULL DEFAULT 'pendiente',
   `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`solicitud_id`),

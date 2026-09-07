@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS `probador_virtual` (
   `sesion` VARCHAR(255) NOT NULL,
   `cliente_id` INT NOT NULL,
   `probador_imagen` VARCHAR(255) NULL,
+  `probador_imagen_base64` LONGTEXT NULL,
   PRIMARY KEY (`probador_id`),
   KEY `idx_cliente` (`cliente_id`),
   KEY `idx_sesion` (`sesion`)

@@ -24,7 +24,7 @@
 			if(defined('DB_PORT') && (string)DB_PORT !== ''){
 				$dsn .= ";port=".DB_PORT;
 			}
-			$conexion = new PDO($dsn,$this->user,$this->pass);
+			$conexion = new PDO($dsn,$this->user,$this->pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 			$conexion->exec("SET CHARACTER SET utf8");
 			return $conexion;
 		}

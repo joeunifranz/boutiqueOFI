@@ -150,6 +150,19 @@
 	</section>
 
 	<style>
+		#tallaVestido,
+		#cita_fecha_personalizada,
+		#cita_hora_personalizada {
+			color: #111827;
+			-webkit-text-fill-color: #111827;
+		}
+
+		#tallaVestido option,
+		#cita_hora_personalizada option {
+			color: #111827;
+			background-color: #fff;
+		}
+
 		.probador-virtual-overlay {
 			position: fixed;
 			inset: 0;

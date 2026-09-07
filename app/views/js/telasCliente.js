@@ -203,18 +203,17 @@
 		solicitudesAnterioresWrap.style.display = '';
 
 		SOLICITUDES_ANTERIORES.forEach((r) => {
-			const id = String(r.solicitud_id || '');
 			const cita = String((r.cita_fecha || '') + ' ' + (r.cita_hora || '')).trim();
 			const estado = String(r.estado || '');
 			const creado = String(r.creado_en || '');
+			const index = SOLICITUDES_ANTERIORES.indexOf(r);
 			const tr = document.createElement('tr');
 			tr.innerHTML =
-				'<td>' + escapeHtml(id) + '</td>' +
 				'<td>' + escapeHtml(cita || '—') + '</td>' +
 				'<td>' + escapeHtml(estado || '—') + '</td>' +
 				'<td>' + escapeHtml(creado || '—') + '</td>' +
 				'<td class="has-text-right">' +
-					'<button type="button" class="button is-small is-link is-light is-rounded js-modal-trigger js-ver-solicitud" data-target="modalSolicitudDetalle" data-sol-id="' + escapeHtml(id) + '">Ver detalle</button>' +
+					'<button type="button" class="button is-small is-link is-light is-rounded js-modal-trigger js-ver-solicitud" data-target="modalSolicitudDetalle" data-sol-index="' + String(index) + '">Ver detalle</button>' +
 				'</td>';
 			solicitudesAnterioresTbody.appendChild(tr);
 		});
@@ -666,9 +665,9 @@
 		const el = eventTargetElement(e);
 		const btn = (el && el.closest) ? el.closest('.js-ver-solicitud') : null;
 		if(!btn) return;
-		const id = String(btn.getAttribute('data-sol-id') || '');
-		if(!id) return;
-		const r = SOLICITUDES_ANTERIORES.find(x => String(x.solicitud_id || '') === id);
+		const index = Number(btn.getAttribute('data-sol-index'));
+		if(!Number.isInteger(index) || index < 0) return;
+		const r = SOLICITUDES_ANTERIORES[index];
 		if(!r) return;
 		const telaPrecio = Number(r.tela_precio);
 		const metros = Number(r.metros_estimados);
@@ -1010,7 +1009,7 @@
 				return;
 			}
 
-			showWizardMsg(json.mensaje || 'Solicitud enviada. Te contactaremos pronto.', 'success');
+			showWizardMsg('Se realizó correctamente.', 'success');
 			lastSolicitudSnapshot = buildSolicitudSnapshot();
 			if(CURRENT_PROBADOR_ID > 0){
 				clearProbadorIdState();

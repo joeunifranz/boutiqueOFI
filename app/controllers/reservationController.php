@@ -524,7 +524,6 @@ class reservationController extends mainModel{
             error_log('[BOUTIQUE][MAIL] Excepción ticket reserva codigo='.$codigo.' :: '.$e->getMessage());
         }
     }
-
     private function enviarConfirmacionSolicitudPersonalizadaPorCorreo(
         int $solicitudId,
         int $clienteId,
@@ -598,7 +597,6 @@ class reservationController extends mainModel{
             error_log('[BOUTIQUE][MAIL] Excepción confirmación solicitud personalizada id='.$solicitudId.' :: '.$e->getMessage());
         }
     }
-
     private function enviarTicketVentaPorCorreo(string $ventaCodigo, array $clienteData): void{
         try{
             $email = trim((string)($clienteData['cliente_email'] ?? ''));
@@ -893,6 +891,7 @@ class reservationController extends mainModel{
                     `encaje_nombre` VARCHAR(140) NOT NULL,
                     `encaje_precio` DECIMAL(10,2) NOT NULL DEFAULT 0.00,
                     `vestido_detalle` VARCHAR(500) NULL,
+                    `imagen_probador_base64` LONGTEXT NULL,
                     `estado` VARCHAR(20) NOT NULL DEFAULT 'pendiente',
                     `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (`solicitud_id`),
@@ -912,7 +911,7 @@ class reservationController extends mainModel{
             $stmt = $this->conectar()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :c");
             $stmt->bindValue(':c', $columna);
             $stmt->execute();
-            return ($stmt->rowCount() >= 1);
+            return (bool)$stmt->fetch(\PDO::FETCH_ASSOC);
         }catch(\Throwable $e){
             return false;
         }
@@ -932,17 +931,25 @@ class reservationController extends mainModel{
         }
     }
 
-    private function asegurarColumnaProbadorIdSolicitudPersonalizada(): void{
-        if(!$this->tablaSolicitudPersonalizadaExiste()){
+    private function asegurarColumnaImagenSolicitudPersonalizada(): void{
+        if(!$this->tablaSolicitudPersonalizadaExiste() || $this->columnaExiste('solicitud_personalizada', 'imagen_probador_base64')){
             return;
         }
-        if($this->columnaExiste('solicitud_personalizada', 'probador_id')){
+        try{
+            $this->ejecutarConsulta("ALTER TABLE solicitud_personalizada ADD COLUMN imagen_probador_base64 LONGTEXT NULL AFTER vestido_detalle");
+        }catch(\Throwable $e){
+            // Compatibilidad con instalaciones sin permisos de ALTER TABLE.
+        }
+    }
+
+    private function asegurarColumnaProbadorIdSolicitudPersonalizada(): void{
+        if(!$this->tablaSolicitudPersonalizadaExiste() || $this->columnaExiste('solicitud_personalizada', 'probador_id')){
             return;
         }
         try{
             $this->ejecutarConsulta("ALTER TABLE solicitud_personalizada ADD COLUMN probador_id INT NULL AFTER creado_en");
         }catch(\Throwable $e){
-            // Sin permisos / no soportado: ignorar
+            // Compatibilidad con instalaciones sin permisos de ALTER TABLE.
         }
     }
 
@@ -1101,6 +1108,22 @@ class reservationController extends mainModel{
         }
     }
 
+    private function obtenerImagenProbadorVirtual(int $probadorId, int $clienteId): ?string{
+        if($probadorId <= 0 || !$this->tablaProbadorVirtualExiste() || !$this->columnaExiste('probador_virtual', 'probador_imagen_base64')){
+            return null;
+        }
+        try{
+            $stmt = $this->conectar()->prepare('SELECT probador_imagen_base64 FROM probador_virtual WHERE probador_id=:pid AND cliente_id=:cid LIMIT 1');
+            $stmt->bindValue(':pid', $probadorId, \PDO::PARAM_INT);
+            $stmt->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
+            $stmt->execute();
+            $imagen = trim((string)($stmt->fetchColumn() ?: ''));
+            return $imagen !== '' ? $imagen : null;
+        }catch(\Throwable $e){
+            return null;
+        }
+    }
+
     public function crearSolicitudPersonalizadaControlador(){
         if(!isset($_SESSION['cliente_id']) || (int)$_SESSION['cliente_id'] <= 0){
             return json_encode(['ok' => false, 'mensaje' => 'Debes iniciar sesión para enviar la solicitud']);
@@ -1206,19 +1229,23 @@ class reservationController extends mainModel{
         }
 
         $this->asegurarColumnaEncajeIdSolicitudPersonalizada();
+        $this->asegurarColumnaImagenSolicitudPersonalizada();
         $this->asegurarColumnaProbadorIdSolicitudPersonalizada();
         $tieneEncajeId = $this->columnaExiste('solicitud_personalizada', 'encaje_id');
         $tieneProbadorId = $this->columnaExiste('solicitud_personalizada', 'probador_id');
+        $tieneImagenProbador = $this->columnaExiste('solicitud_personalizada', 'imagen_probador_base64');
 
         $probadorId = 0;
+        $imagenProbadorBase64 = null;
         if($probadorIdIn > 0){
             if(!$tieneProbadorId){
-                return json_encode(['ok'=>false,'mensaje'=>'La integración con probador virtual no está disponible en esta base de datos']);
+                return json_encode(['ok'=>false,'mensaje'=>'No se pudo preparar la relación con el probador virtual. Verifica permisos de actualización de la base de datos']);
             }
             if(!$this->probadorVirtualPerteneceACliente($probadorIdIn, $clienteId)){
                 return json_encode(['ok'=>false,'mensaje'=>'El resultado del probador no corresponde a tu cuenta']);
             }
             $probadorId = $probadorIdIn;
+            $imagenProbadorBase64 = $this->obtenerImagenProbadorVirtual($probadorId, $clienteId);
         }
 
         $pdo = null;
@@ -1233,6 +1260,9 @@ class reservationController extends mainModel{
             if($tieneProbadorId && $probadorId > 0){
                 $sql .= ', probador_id';
             }
+            if($tieneImagenProbador){
+                $sql .= ', imagen_probador_base64';
+            }
             $sql .= ', encaje_key, encaje_nombre, encaje_precio, vestido_detalle, estado) VALUES (:cid, :f, :h, :talla, :tela_id, :tela_nombre, :tela_precio, :metros';
             if($tieneEncajeId){
                 $sql .= ', :encaje_id';
@@ -1240,8 +1270,10 @@ class reservationController extends mainModel{
             if($tieneProbadorId && $probadorId > 0){
                 $sql .= ', :probador_id';
             }
+            if($tieneImagenProbador){
+                $sql .= ', :imagen_probador_base64';
+            }
             $sql .= ', :ek, :en, :ep, :det, \'pendiente\')';
-
             $ins = $pdo->prepare($sql);
             $ins->bindValue(':cid', $clienteId, \PDO::PARAM_INT);
             $ins->bindValue(':f', $fecha);
@@ -1257,6 +1289,9 @@ class reservationController extends mainModel{
             if($tieneProbadorId && $probadorId > 0){
                 $ins->bindValue(':probador_id', $probadorId, \PDO::PARAM_INT);
             }
+            if($tieneImagenProbador){
+                $ins->bindValue(':imagen_probador_base64', $imagenProbadorBase64, $imagenProbadorBase64 !== null ? \PDO::PARAM_STR : \PDO::PARAM_NULL);
+            }
             $ins->bindValue(':ek', $encajeKey);
             $ins->bindValue(':en', $encajeNombre);
             $ins->bindValue(':ep', $encajePrecio);
@@ -1265,6 +1300,25 @@ class reservationController extends mainModel{
             $solId = (int)$pdo->lastInsertId();
 
             $pdo->commit();
+
+            // Confirmación al cliente (best-effort): no bloquea la creación de la solicitud.
+            try{
+                $this->enviarConfirmacionSolicitudPersonalizadaPorCorreo(
+                    $solId,
+                    $clienteId,
+                    $fecha,
+                    $hora,
+                    $talla,
+                    $telaNombre,
+                    $telaPrecio,
+                    $metros,
+                    $encajeNombre,
+                    $encajePrecio,
+                    $detalle
+                );
+            }catch(\Throwable $e){
+                error_log('[BOUTIQUE][MAIL] Excepción confirmación solicitud personalizada id='.$solId.' :: '.$e->getMessage());
+            }
 
             // Correo al administrador (best-effort)
             try{
@@ -1312,27 +1366,61 @@ class reservationController extends mainModel{
                 error_log('[BOUTIQUE][MAIL] Excepción solicitud personalizada id='.$solId.' :: '.$e->getMessage());
             }
 
-            // Confirmación al cliente (best-effort): no bloquea la creación de la solicitud.
-            $this->enviarConfirmacionSolicitudPersonalizadaPorCorreo(
-                $solId,
-                $clienteId,
-                $fecha,
-                $hora,
-                $talla,
-                $telaNombre,
-                $telaPrecio,
-                $metros,
-                $encajeNombre,
-                $encajePrecio,
-                $detalle
-            );
-
             return json_encode(['ok'=>true,'mensaje'=>'Solicitud enviada. Te contactaremos pronto.']);
         }catch(\Throwable $e){
             if($pdo instanceof \PDO){
                 try{ $pdo->rollBack(); }catch(\Throwable $x){ /* ignore */ }
             }
             return json_encode(['ok'=>false,'mensaje'=>'No se pudo registrar la solicitud']);
+        }
+    }
+
+    public function actualizarSolicitudPersonalizadaAdminControlador(): string{
+        if(!$this->sesionEsAdmin()){
+            return json_encode(['ok'=>false,'mensaje'=>'Acceso restringido']);
+        }
+        if(!$this->tablaSolicitudPersonalizadaExiste()){
+            return json_encode(['ok'=>false,'mensaje'=>'No existe la tabla de solicitudes personalizadas']);
+        }
+
+        $solicitudId = (int)($_POST['solicitud_id'] ?? 0);
+        $accion = strtolower(trim($this->limpiarCadena($_POST['accion'] ?? '')));
+        if($solicitudId <= 0 || !in_array($accion, ['rechazar','agendar'], true)){
+            return json_encode(['ok'=>false,'mensaje'=>'Solicitud o acción inválida']);
+        }
+
+        try{
+            $pdo = $this->conectar();
+            if($accion === 'rechazar'){
+                $stmt = $pdo->prepare("UPDATE solicitud_personalizada SET estado='rechazada' WHERE solicitud_id=:id AND estado NOT IN ('cancelada','rechazada')");
+                $stmt->bindValue(':id', $solicitudId, \PDO::PARAM_INT);
+                $stmt->execute();
+                return json_encode(['ok'=>$stmt->rowCount() > 0, 'mensaje'=>$stmt->rowCount() > 0 ? 'Solicitud rechazada' : 'La solicitud ya no está pendiente']);
+            }
+
+            $fecha = trim($this->limpiarCadena($_POST['cita_fecha'] ?? ''));
+            $hora = $this->normalizarHoraCita((string)($_POST['cita_hora'] ?? ''));
+            if($fecha === '' || !$this->fechaYmdValida($fecha) || $hora === null){
+                return json_encode(['ok'=>false,'mensaje'=>'Selecciona una fecha y un horario válidos']);
+            }
+            if($fecha < date('Y-m-d') || $this->esDomingo($fecha) || $this->esFeriado($fecha)){
+                return json_encode(['ok'=>false,'mensaje'=>'La fecha seleccionada no está disponible']);
+            }
+            if(!in_array($hora, $this->generarHorariosPermitidos(), true)){
+                return json_encode(['ok'=>false,'mensaje'=>'El horario seleccionado no está permitido']);
+            }
+            if(in_array($hora, $this->obtenerHorasOcupadas($fecha), true) || in_array($hora, $this->obtenerHorasBloqueadas($fecha), true)){
+                return json_encode(['ok'=>false,'mensaje'=>'Ese horario ya no está disponible']);
+            }
+
+            $stmt = $pdo->prepare("UPDATE solicitud_personalizada SET cita_fecha=:f, cita_hora=:h, estado='aprobada' WHERE solicitud_id=:id AND estado NOT IN ('cancelada','rechazada')");
+            $stmt->bindValue(':f', $fecha);
+            $stmt->bindValue(':h', $hora);
+            $stmt->bindValue(':id', $solicitudId, \PDO::PARAM_INT);
+            $stmt->execute();
+            return json_encode(['ok'=>$stmt->rowCount() > 0, 'mensaje'=>$stmt->rowCount() > 0 ? 'Entrega agendada correctamente' : 'La solicitud ya no está pendiente']);
+        }catch(\Throwable $e){
+            return json_encode(['ok'=>false,'mensaje'=>'No se pudo actualizar la solicitud']);
         }
     }
 
@@ -1347,6 +1435,11 @@ class reservationController extends mainModel{
         if(!$this->tablaSolicitudPersonalizadaExiste()){
             return "<article class='message is-warning'><div class='message-body'>Aún no hay solicitudes personalizadas registradas (o falta crear la tabla). Puedes crear la tabla ejecutando <strong>DB/solicitud_personalizada.sql</strong> o enviar una solicitud desde <strong>telasCliente</strong>.</div></article>";
         }
+        $this->asegurarColumnaImagenSolicitudPersonalizada();
+        $this->asegurarColumnaProbadorIdSolicitudPersonalizada();
+        $tieneImagenProbador = $this->columnaExiste('solicitud_personalizada', 'imagen_probador_base64');
+        $tieneProbadorId = $this->columnaExiste('solicitud_personalizada', 'probador_id');
+        $tieneTablaProbador = $this->tablaProbadorVirtualExiste();
 
         $where = [];
         $params = [];
@@ -1366,11 +1459,19 @@ class reservationController extends mainModel{
         }
 
         try{
-            $sql = "SELECT sp.solicitud_id, sp.cita_fecha, sp.cita_hora, sp.talla, sp.tela_nombre, sp.tela_precio, sp.metros_estimados,
-                sp.encaje_nombre, sp.encaje_precio, sp.vestido_detalle, sp.estado, sp.creado_en,
+            $imagenSelect = $tieneImagenProbador && $tieneTablaProbador
+                ? ", COALESCE(NULLIF(sp.imagen_probador_base64, ''), pv.probador_imagen_base64) AS imagen_probador_base64"
+                : ($tieneImagenProbador ? ', sp.imagen_probador_base64 AS imagen_probador_base64' : ', NULL AS imagen_probador_base64');
+            $probadorSelect = $tieneProbadorId ? ', sp.probador_id' : ', 0 AS probador_id';
+            $probadorJoin = $tieneProbadorId && $tieneTablaProbador
+                ? 'LEFT JOIN probador_virtual pv ON pv.probador_id = sp.probador_id AND pv.cliente_id = sp.cliente_id'
+                : '';
+            $sql = "SELECT sp.solicitud_id{$probadorSelect}, sp.cita_fecha, sp.cita_hora, sp.talla, sp.tela_nombre, sp.tela_precio, sp.metros_estimados,
+                sp.encaje_nombre, sp.encaje_precio, sp.vestido_detalle, sp.estado, sp.creado_en{$imagenSelect},
                 c.cliente_nombre, c.cliente_apellido, c.cliente_email
                 FROM solicitud_personalizada sp
                 INNER JOIN cliente c ON c.cliente_id = sp.cliente_id
+                {$probadorJoin}
                 {$whereSql}
                 ORDER BY sp.solicitud_id DESC
                 LIMIT 200";
@@ -1393,7 +1494,7 @@ class reservationController extends mainModel{
             $html .= "<div class='table-container'>";
             $html .= "<table class='table is-fullwidth is-striped is-hoverable'>";
             $html .= "<thead><tr>";
-            $html .= "<th>ID</th><th>Cliente</th><th>Contacto</th><th>Cita</th><th>Tela</th><th>Encaje</th><th>Estado</th><th>Detalle</th><th>Creado</th>";
+            $html .= "<th>ID</th><th>Acciones</th><th>Resultado del probador</th><th>Cliente</th><th>Contacto</th><th>Cita</th><th>Tela</th><th>Encaje</th><th>Estado</th><th>Detalle</th><th>Creado</th>";
             $html .= "</tr></thead><tbody>";
 
             foreach($rows as $r){
@@ -1410,6 +1511,8 @@ class reservationController extends mainModel{
                 $est = (string)($r['estado'] ?? '');
                 $detalle = (string)($r['vestido_detalle'] ?? '');
                 $creado = (string)($r['creado_en'] ?? '');
+                $imagenProbador = (string)($r['imagen_probador_base64'] ?? '');
+                $probadorId = (int)($r['probador_id'] ?? 0);
 
                 $detalleSafe = htmlspecialchars($detalle !== '' ? $detalle : '—', ENT_QUOTES, 'UTF-8');
                 $clienteSafe = htmlspecialchars($cliente !== '' ? $cliente : '—', ENT_QUOTES, 'UTF-8');
@@ -1420,6 +1523,16 @@ class reservationController extends mainModel{
                 $encajeSafe = htmlspecialchars($encaje, ENT_QUOTES, 'UTF-8');
                 $estSafe = htmlspecialchars($est !== '' ? $est : '—', ENT_QUOTES, 'UTF-8');
                 $creadoSafe = htmlspecialchars($creado !== '' ? $creado : '—', ENT_QUOTES, 'UTF-8');
+                $fechaCitaSafe = htmlspecialchars((string)($r['cita_fecha'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $horaCitaSafe = htmlspecialchars((string)($r['cita_hora'] ?? ''), ENT_QUOTES, 'UTF-8');
+                $imagenHtml = $probadorId > 0 ? '<small>Sin imagen guardada</small>' : '<small>Sin probador</small>';
+                if($imagenProbador !== '' && !str_starts_with($imagenProbador, 'data:image/')){
+                    $imagenProbador = 'data:image/jpeg;base64,'.$imagenProbador;
+                }
+                if(preg_match('/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+\/\r\n]+=*$/', $imagenProbador)){
+                    $imagenSafe = htmlspecialchars($imagenProbador, ENT_QUOTES, 'UTF-8');
+                    $imagenHtml = "<a href=\"{$imagenSafe}\" target=\"_blank\" rel=\"noopener\" title=\"Abrir resultado del probador\"><img src=\"{$imagenSafe}\" alt=\"Resultado del probador\" style=\"display:block;width:110px;height:140px;object-fit:contain;border:1px solid #ddd;border-radius:6px;background:#fff;\"><small>Abrir imagen</small></a>";
+                }
 
                 $telaTxt = $telaSafe;
                 if($tela !== ''){
@@ -1433,6 +1546,15 @@ class reservationController extends mainModel{
 
                 $html .= "<tr>";
                 $html .= "<td>".htmlspecialchars((string)$id,ENT_QUOTES,'UTF-8')."</td>";
+                if(!in_array($est, ['rechazada','cancelada'], true)){
+                    $html .= "<td style='min-width: 190px;'><div class='buttons are-small'>";
+                    $html .= "<button type='button' class='button is-link js-agendar-solicitud' data-solicitud-id='{$id}' data-fecha='{$fechaCitaSafe}' data-hora='{$horaCitaSafe}'><span class='icon is-small'><i class='fas fa-calendar-check'></i></span><span>Agendar entrega</span></button>";
+                    $html .= "<button type='button' class='button is-danger is-light js-rechazar-solicitud' data-solicitud-id='{$id}'><span class='icon is-small'><i class='fas fa-ban'></i></span><span>Rechazar</span></button>";
+                    $html .= "</div></td>";
+                }else{
+                    $html .= "<td>—</td>";
+                }
+                $html .= "<td style='min-width: 140px; vertical-align: middle;'>{$imagenHtml}</td>";
                 $html .= "<td>{$clienteSafe}<br><small>Talla: {$tallaSafe}</small></td>";
                 $html .= "<td>{$emailSafe}</td>";
                 $html .= "<td>{$citaSafe}</td>";
@@ -1463,7 +1585,7 @@ class reservationController extends mainModel{
         }
 
         try{
-            $sql = "SELECT solicitud_id, cita_fecha, cita_hora, talla, tela_nombre, tela_precio, metros_estimados,
+            $sql = "SELECT cita_fecha, cita_hora, talla, tela_nombre, tela_precio, metros_estimados,
                 encaje_nombre, encaje_precio, vestido_detalle, estado, creado_en
                 FROM solicitud_personalizada
                 WHERE cliente_id = :cid
@@ -2676,7 +2798,7 @@ class reservationController extends mainModel{
     /*---------- Calendario de reservas (solo admin) ----------*/
     public function mostrarCalendarioReservasControlador($limite=200){
 
-        if(!$this->tablaReservaExiste()){
+        if(!$this->tablaReservaExiste() && !$this->tablaSolicitudPersonalizadaExiste()){
             return '<article class="message is-danger"><div class="message-body">No existe la tabla <strong>reserva</strong> en la base de datos.</div></article>';
         }
 
@@ -3133,7 +3255,7 @@ class reservationController extends mainModel{
 
     /*---------- Eventos para calendario (solo admin, AJAX) ----------*/
     public function calendarioEventosAdminControlador(): string{
-        if(!$this->tablaReservaExiste()){
+        if(!$this->tablaReservaExiste() && !$this->tablaSolicitudPersonalizadaExiste()){
             return json_encode([]);
         }
 
@@ -3177,14 +3299,17 @@ class reservationController extends mainModel{
                 ORDER BY r.reserva_fecha ASC, STR_TO_DATE(r.reserva_hora, '%h:%i %p') ASC, r.reserva_id ASC
                 LIMIT 5000";
 
-        try{
-            $stmt = $this->conectar()->prepare($sql);
-            $stmt->bindParam(':ini', $startDate);
-            $stmt->bindParam(':fin', $endInclusive);
-            $stmt->execute();
-            $rows = $stmt->fetchAll();
-        }catch(\Throwable $e){
-            $rows = [];
+        $rows = [];
+        if($this->tablaReservaExiste()){
+            try{
+                $stmt = $this->conectar()->prepare($sql);
+                $stmt->bindParam(':ini', $startDate);
+                $stmt->bindParam(':fin', $endInclusive);
+                $stmt->execute();
+                $rows = $stmt->fetchAll();
+            }catch(\Throwable $e){
+                $rows = [];
+            }
         }
 
         $events = [];
@@ -3223,6 +3348,48 @@ class reservationController extends mainModel{
                     'producto' => $productoShort,
                 ],
             ];
+        }
+
+        if($this->tablaSolicitudPersonalizadaExiste()){
+            try{
+                $stmt = $this->conectar()->prepare(
+                    "SELECT sp.solicitud_id, sp.cita_fecha, sp.cita_hora, sp.estado,
+                            c.cliente_nombre, c.cliente_apellido
+                     FROM solicitud_personalizada sp
+                     INNER JOIN cliente c ON c.cliente_id=sp.cliente_id
+                     WHERE sp.cita_fecha BETWEEN :ini AND :fin
+                       AND sp.estado NOT IN ('rechazada','cancelada')
+                     ORDER BY sp.cita_fecha ASC, sp.solicitud_id ASC"
+                );
+                $stmt->bindParam(':ini', $startDate);
+                $stmt->bindParam(':fin', $endInclusive);
+                $stmt->execute();
+                foreach($stmt->fetchAll() as $r){
+                    $fecha = (string)($r['cita_fecha'] ?? '');
+                    $hora = $this->normalizarHora12((string)($r['cita_hora'] ?? ''));
+                    $id = (int)($r['solicitud_id'] ?? 0);
+                    if($fecha === '' || $hora === '' || $id <= 0){ continue; }
+                    $dtStart = \DateTime::createFromFormat('Y-m-d h:i a', $fecha.' '.$hora);
+                    if(!$dtStart){ continue; }
+                    $dtEnd = (clone $dtStart);
+                    $dtEnd->modify('+'.$durMin.' minutes');
+                    $cliente = trim((string)($r['cliente_nombre'] ?? '').' '.(string)($r['cliente_apellido'] ?? ''));
+                    $events[] = [
+                        'id' => 'personalizada-'.$id,
+                        'title' => $this->limitarCadena($cliente !== '' ? $cliente : 'Cliente', 55, '...'),
+                        'start' => $dtStart->format('c'),
+                        'end' => $dtEnd->format('c'),
+                        'url' => APP_URL.'solicitudPersonalizadaList/?q='.urlencode((string)$id),
+                        'extendedProps' => [
+                            'estado' => (string)($r['estado'] ?? 'pendiente'),
+                            'cliente' => $cliente,
+                            'producto' => 'Personalización #'.$id,
+                        ],
+                    ];
+                }
+            }catch(\Throwable $e){
+                // Las reservas normales siguen visibles aunque falle la consulta adicional.
+            }
         }
 
         return json_encode($events);

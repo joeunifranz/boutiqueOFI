@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS `solicitud_personalizada` (
   `imagen_probador_base64` LONGTEXT NULL,
   `estado` VARCHAR(20) NOT NULL DEFAULT 'pendiente',
   `creado_en` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `probador_id` INT NULL,
   PRIMARY KEY (`solicitud_id`),
   KEY `idx_fecha_hora` (`cita_fecha`, `cita_hora`),
   KEY `idx_cliente` (`cliente_id`)

@@ -36,6 +36,10 @@ if(isset($_POST['modulo_reserva'])){
         echo $insReserva->listarSolicitudesPersonalizadasClienteControlador();
     }
 
+    if($_POST['modulo_reserva']=="personalizada_actualizar_admin"){
+        echo $insReserva->actualizarSolicitudPersonalizadaAdminControlador();
+    }
+
     if($_POST['modulo_reserva']=="confirmar"){
         echo $insReserva->confirmarReservaControlador();
     }

@@ -72,3 +72,115 @@ $estado = isset($_GET['estado']) ? (string)$_GET['estado'] : '';
 		echo $insReserva->listarSolicitudesPersonalizadasAdminControlador($busqueda, $estado);
 	?>
 </div>
+
+<div id="modalAgendarSolicitud" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Agendar entrega de personalización</p>
+			<button type="button" class="delete js-cerrar-agendar" aria-label="Cerrar"></button>
+		</header>
+		<section class="modal-card-body">
+			<div id="agendarSolicitudMensaje" class="notification is-light" style="display:none;"></div>
+			<input type="hidden" id="agendarSolicitudId" value="">
+			<div class="field">
+				<label class="label" for="agendarSolicitudFecha">Fecha</label>
+				<div class="control"><input id="agendarSolicitudFecha" class="input" type="date" min="<?php echo date('Y-m-d'); ?>"></div>
+			</div>
+			<div class="field">
+				<label class="label" for="agendarSolicitudHora">Horario disponible</label>
+				<div class="control"><div class="select is-fullwidth"><select id="agendarSolicitudHora"><option value="">Selecciona una fecha</option></select></div></div>
+			</div>
+		</section>
+		<footer class="modal-card-foot">
+			<button type="button" class="button is-link" id="btnGuardarAgendarSolicitud"><span class="icon"><i class="fas fa-calendar-check"></i></span><span>Guardar agenda</span></button>
+			<button type="button" class="button js-cerrar-agendar">Cancelar</button>
+		</footer>
+	</div>
+</div>
+
+<script>
+(function(){
+	const modal = document.getElementById('modalAgendarSolicitud');
+	const idInput = document.getElementById('agendarSolicitudId');
+	const fechaInput = document.getElementById('agendarSolicitudFecha');
+	const horaSelect = document.getElementById('agendarSolicitudHora');
+	const mensaje = document.getElementById('agendarSolicitudMensaje');
+	const ajaxUrl = '<?php echo APP_URL; ?>app/ajax/reservaAjax.php';
+	if(!modal || !fechaInput || !horaSelect) return;
+
+	const showMessage = (text, type) => {
+		mensaje.textContent = text;
+		mensaje.className = 'notification is-' + (type || 'light');
+		mensaje.style.display = text ? '' : 'none';
+	};
+	const loadHours = async () => {
+		horaSelect.innerHTML = '<option value="">Cargando horarios...</option>';
+		if(!fechaInput.value){
+			horaSelect.innerHTML = '<option value="">Selecciona una fecha</option>';
+			return;
+		}
+		const fd = new FormData();
+		fd.append('modulo_reserva', 'horarios');
+		fd.append('cita_fecha', fechaInput.value);
+		try{
+			const response = await fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'});
+			const data = await response.json();
+			if(!data || data.ok !== true){ throw new Error((data && data.mensaje) || 'No se pudieron cargar los horarios'); }
+			horaSelect.innerHTML = '<option value="">Selecciona un horario</option>';
+			(data.available || []).forEach((hora) => {
+				const option = document.createElement('option');
+				option.value = hora;
+				option.textContent = hora;
+				horaSelect.appendChild(option);
+			});
+			if(!(data.available || []).length) showMessage('No hay horarios disponibles para esa fecha.', 'warning');
+		}catch(error){
+			horaSelect.innerHTML = '<option value="">No disponible</option>';
+			showMessage(error.message || 'No se pudieron cargar los horarios.', 'danger');
+		}
+	};
+	const openModal = (button) => {
+		idInput.value = button.dataset.solicitudId || '';
+		fechaInput.value = button.dataset.fecha || '';
+		showMessage('', 'light');
+		modal.classList.add('is-active');
+		loadHours().then(() => {
+			if(button.dataset.hora){ horaSelect.value = button.dataset.hora; }
+		});
+	};
+	document.addEventListener('click', (event) => {
+		const scheduleButton = event.target.closest('.js-agendar-solicitud');
+		if(scheduleButton){ openModal(scheduleButton); return; }
+		const rejectButton = event.target.closest('.js-rechazar-solicitud');
+		if(rejectButton){
+			if(!window.confirm('¿Deseas rechazar esta solicitud personalizada?')) return;
+			const fd = new FormData();
+			fd.append('modulo_reserva', 'personalizada_actualizar_admin');
+			fd.append('solicitud_id', rejectButton.dataset.solicitudId || '');
+			fd.append('accion', 'rechazar');
+			fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'}).then(r => r.json()).then(data => {
+				if(!data || data.ok !== true) throw new Error((data && data.mensaje) || 'No se pudo rechazar');
+				window.location.reload();
+			}).catch(error => window.alert(error.message || 'No se pudo rechazar la solicitud.'));
+			return;
+		}
+		if(event.target.closest('.js-cerrar-agendar') || event.target.classList.contains('modal-background')) modal.classList.remove('is-active');
+	});
+	fechaInput.addEventListener('change', loadHours);
+	document.getElementById('btnGuardarAgendarSolicitud').addEventListener('click', async () => {
+		const fd = new FormData();
+		fd.append('modulo_reserva', 'personalizada_actualizar_admin');
+		fd.append('solicitud_id', idInput.value);
+		fd.append('accion', 'agendar');
+		fd.append('cita_fecha', fechaInput.value);
+		fd.append('cita_hora', horaSelect.value);
+		try{
+			const response = await fetch(ajaxUrl, {method:'POST', body:fd, credentials:'same-origin'});
+			const data = await response.json();
+			if(!data || data.ok !== true) throw new Error((data && data.mensaje) || 'No se pudo agendar');
+			window.location.reload();
+		}catch(error){ showMessage(error.message || 'No se pudo agendar la entrega.', 'danger'); }
+	});
+})();
+</script>

@@ -1,0 +1,647 @@
+/* ==========================================================
+   Cuenta de la clienta: Reservas y compras + seguimientos
+   (reservasComprasCliente, seguimientoReservaCliente, seguimientoCompraCliente)
+   Misma paleta que el personalizador (medidasVestido.css).
+   ========================================================== */
+.cuenta{
+	--oro: #f2d29b;
+	--oro-fuerte: #c99a5b;
+	--crema: #f6e8d2;
+	--texto: rgba(255,255,255,0.92);
+	--texto-suave: rgba(255,255,255,0.66);
+	--linea: rgba(255,221,150,0.2);
+	--panel: rgba(28,20,17,0.62);
+	--suave: cubic-bezier(0.23, 1, 0.32, 1);
+	color: var(--texto);
+}
+
+.cuenta *{ box-sizing: border-box; }
+
+/* ---------- Encabezado ---------- */
+.cuenta-encabezado{
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 1rem 2rem;
+	margin-bottom: 1.5rem;
+}
+
+.cuenta-saludo{
+	margin: 0 0 .25rem;
+	font-size: .78rem;
+	font-weight: 800;
+	letter-spacing: .16em;
+	text-transform: uppercase;
+	color: var(--oro);
+}
+
+.cuenta h1.cuenta-titulo{
+	margin: 0;
+	font-size: clamp(1.6rem, 3.6vw, 2.3rem);
+	line-height: 1.1;
+	letter-spacing: .02em;
+	color: #fff;
+}
+
+.cuenta-resumen{
+	display: flex;
+	flex-wrap: wrap;
+	gap: .6rem;
+}
+
+.cuenta-dato{
+	min-width: 132px;
+	padding: .7rem .95rem;
+	border: 1px solid var(--linea);
+	border-radius: 14px;
+	background: var(--panel);
+}
+.cuenta-dato span{
+	display: block;
+	font-size: .68rem;
+	font-weight: 800;
+	letter-spacing: .12em;
+	text-transform: uppercase;
+	color: var(--texto-suave);
+}
+.cuenta-dato strong{
+	display: block;
+	margin-top: .15rem;
+	font-size: 1.25rem;
+	color: #fff !important;
+	font-variant-numeric: tabular-nums;
+}
+.cuenta-dato.es-oro strong{ color: var(--oro) !important; }
+
+/* ---------- Avisos ---------- */
+.cuenta-aviso{
+	display: flex;
+	align-items: center;
+	gap: .8rem;
+	margin-bottom: 1.25rem;
+	padding: .85rem 1.1rem;
+	border: 1px solid rgba(255,221,150,0.35);
+	border-radius: 14px;
+	background: linear-gradient(140deg, rgba(58,36,24,0.92), rgba(122,74,44,0.85));
+	color: var(--crema);
+}
+.cuenta-aviso i{ color: var(--oro); font-size: 1.1rem; }
+.cuenta-aviso.es-alerta{ border-color: rgba(255,170,140,0.6); }
+
+/* ---------- Diseño en columnas ---------- */
+.cuenta-grilla{
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 320px;
+	gap: 1.5rem;
+	align-items: start;
+}
+@media (max-width: 1023px){
+	.cuenta-grilla{ grid-template-columns: 1fr; }
+}
+
+/* ---------- Pestañas Reservas | Compras ---------- */
+.cuenta-pestanas{
+	display: inline-flex;
+	gap: 4px;
+	margin-bottom: 1rem;
+	padding: 4px;
+	border: 1px solid var(--linea);
+	border-radius: 999px;
+	background: rgba(0,0,0,0.3);
+}
+.cuenta-pestana{
+	display: inline-flex;
+	align-items: center;
+	gap: .5rem;
+	min-height: 40px;
+	padding: 0 1.1rem;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--texto-suave);
+	font-family: inherit;
+	font-size: .9rem;
+	font-weight: 800;
+	cursor: pointer;
+	transition: background-color .25s var(--suave), color .2s;
+}
+.cuenta-pestana .cuenta-contador{
+	min-width: 22px;
+	padding: .05rem .4rem;
+	border-radius: 999px;
+	background: rgba(255,255,255,0.1);
+	font-size: .72rem;
+	text-align: center;
+}
+.cuenta-pestana[aria-selected="true"]{
+	background: linear-gradient(160deg, var(--crema), var(--oro-fuerte));
+	color: #2a1a10;
+}
+.cuenta-pestana[aria-selected="true"] .cuenta-contador{ background: rgba(42,26,16,0.16); }
+.cuenta-pestana:focus-visible{ outline: 2px solid var(--oro); outline-offset: 2px; }
+
+.cuenta-panel[hidden]{ display: none; }
+
+.cuenta-seccion-titulo{
+	display: flex;
+	align-items: center;
+	gap: .6rem;
+	margin: 1.25rem 0 .75rem;
+	font-size: .75rem;
+	font-weight: 800;
+	letter-spacing: .14em;
+	text-transform: uppercase;
+	color: var(--oro);
+}
+.cuenta-seccion-titulo::after{
+	content: "";
+	flex: 1;
+	height: 1px;
+	background: var(--linea);
+}
+.cuenta-seccion-titulo:first-child{ margin-top: 0; }
+
+/* ---------- Tarjetas (reserva / compra) ---------- */
+.cuenta-lista{
+	display: grid;
+	gap: .75rem;
+}
+
+.cuenta-tarjeta{
+	position: relative;
+	display: grid;
+	grid-template-columns: 72px 64px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 1rem;
+	padding: .8rem 1rem .8rem .8rem;
+	border: 1px solid var(--linea);
+	border-radius: 16px;
+	background: var(--panel);
+	color: var(--texto);
+	text-decoration: none;
+	transition: border-color .2s, background-color .2s, transform .2s var(--suave), box-shadow .25s;
+}
+@media (hover: hover){
+	a.cuenta-tarjeta:hover{
+		border-color: rgba(255,221,150,0.5);
+		background: rgba(40,28,22,0.75);
+		transform: translateY(-2px);
+		box-shadow: 0 14px 34px -18px rgba(0,0,0,0.9);
+		color: var(--texto);
+	}
+}
+a.cuenta-tarjeta:active{ transform: scale(.99); }
+a.cuenta-tarjeta:focus-visible{ outline: 2px solid var(--oro); outline-offset: 2px; }
+
+.cuenta-tarjeta.es-nuevo{ border-color: rgba(255,221,150,0.7); box-shadow: 0 0 0 1px rgba(255,221,150,0.25); }
+
+.cuenta-foto{
+	width: 72px;
+	height: 88px;
+	border-radius: 12px;
+	background: linear-gradient(160deg, #3a2418, #7a4a2c) center / cover;
+	display: grid;
+	place-items: center;
+	color: rgba(246,232,210,0.6);
+	font-size: 1.4rem;
+	overflow: hidden;
+}
+.cuenta-foto img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* bloque de fecha estilo calendario */
+.cuenta-fecha{
+	display: grid;
+	justify-items: center;
+	padding: .45rem 0;
+	border-radius: 12px;
+	background: rgba(255,255,255,0.06);
+	border: 1px solid rgba(255,255,255,0.08);
+	line-height: 1.05;
+	text-align: center;
+}
+.cuenta-fecha small{
+	font-size: .62rem;
+	font-weight: 800;
+	letter-spacing: .1em;
+	text-transform: uppercase;
+	color: var(--texto-suave);
+}
+.cuenta-fecha strong{
+	font-size: 1.55rem;
+	color: #fff !important;
+	font-variant-numeric: tabular-nums;
+}
+.cuenta-fecha em{
+	margin-top: .15rem;
+	font-style: normal;
+	font-size: .66rem;
+	font-weight: 700;
+	color: var(--oro);
+}
+
+.cuenta-info{ min-width: 0; }
+.cuenta-nombre{
+	margin: 0 0 .35rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 1.02rem;
+	font-weight: 800;
+	color: #fff;
+}
+.cuenta-meta{
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .35rem .75rem;
+	font-size: .8rem;
+	color: var(--texto-suave);
+}
+.cuenta-meta i{ color: var(--oro); margin-right: .25rem; }
+
+/* estado */
+.cuenta-estado{
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+	padding: .2rem .6rem;
+	border-radius: 999px;
+	font-size: .72rem;
+	font-weight: 800;
+	letter-spacing: .02em;
+	white-space: nowrap;
+	border: 1px solid transparent;
+}
+.cuenta-estado.pendiente{ background: rgba(242,190,90,0.14); border-color: rgba(242,190,90,0.45); color: #f6cf85; }
+.cuenta-estado.confirmada{ background: rgba(120,200,150,0.14); border-color: rgba(120,200,150,0.45); color: #9fdcb4; }
+.cuenta-estado.reprogramada{ background: rgba(150,180,240,0.14); border-color: rgba(150,180,240,0.45); color: #b7c9f2; }
+.cuenta-estado.completada{ background: rgba(242,210,155,0.16); border-color: rgba(242,210,155,0.5); color: var(--oro); }
+.cuenta-estado.rechazada{ background: rgba(240,130,120,0.14); border-color: rgba(240,130,120,0.45); color: #f2a59c; }
+
+.cuenta-nuevo{
+	position: absolute;
+	top: -8px;
+	left: 14px;
+	padding: .1rem .5rem;
+	border-radius: 999px;
+	background: var(--oro);
+	color: #2a1a10;
+	font-size: .62rem;
+	font-weight: 900;
+	letter-spacing: .1em;
+}
+
+/* barra de pago */
+.cuenta-pago{
+	margin-top: .55rem;
+	max-width: 320px;
+}
+.cuenta-pago-barra{
+	height: 6px;
+	border-radius: 999px;
+	background: rgba(255,255,255,0.1);
+	overflow: hidden;
+}
+.cuenta-pago-barra span{
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(90deg, var(--oro-fuerte), var(--oro));
+}
+.cuenta-pago-texto{
+	display: flex;
+	justify-content: space-between;
+	gap: .5rem;
+	margin-top: .3rem;
+	font-size: .72rem;
+	color: var(--texto-suave);
+	font-variant-numeric: tabular-nums;
+}
+.cuenta-pago-texto b{ color: var(--crema); }
+
+.cuenta-lado{
+	display: grid;
+	justify-items: end;
+	gap: .45rem;
+	text-align: right;
+}
+.cuenta-total{
+	font-size: 1.05rem;
+	font-weight: 800;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+.cuenta-ver{
+	display: inline-flex;
+	align-items: center;
+	gap: .35rem;
+	font-size: .78rem;
+	font-weight: 800;
+	color: var(--oro);
+	white-space: nowrap;
+}
+
+/* tarjeta de compra: sin bloque de fecha */
+.cuenta-tarjeta.es-compra{ grid-template-columns: 72px minmax(0, 1fr) auto; }
+.cuenta-codigo{
+	padding: .1rem .45rem;
+	border-radius: 6px;
+	background: rgba(255,255,255,0.08);
+	font-family: ui-monospace, Consolas, monospace;
+	font-size: .74rem;
+	color: var(--crema);
+}
+
+/* ---------- Botones ---------- */
+.cuenta-boton{
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: .45rem;
+	min-height: 40px;
+	padding: 0 1.05rem;
+	border: 1px solid rgba(255,221,150,0.35);
+	border-radius: 999px;
+	background: rgba(255,255,255,0.05);
+	color: var(--crema) !important;
+	font-size: .85rem;
+	font-weight: 800;
+	text-decoration: none;
+	cursor: pointer;
+	transition: background-color .2s, border-color .2s, transform .15s var(--suave);
+}
+.cuenta-boton:active{ transform: scale(.97); }
+@media (hover: hover){ .cuenta-boton:hover{ background: rgba(255,221,150,0.12); border-color: var(--oro); } }
+.cuenta-boton.es-principal{
+	border-color: transparent;
+	background: linear-gradient(160deg, var(--crema), var(--oro-fuerte));
+	color: #2a1a10 !important;
+}
+@media (hover: hover){ .cuenta-boton.es-principal:hover{ filter: brightness(1.05); background: linear-gradient(160deg, var(--crema), var(--oro-fuerte)); } }
+.cuenta-boton.es-whatsapp{ border-color: rgba(120,210,150,0.45); color: #b6ecc8 !important; }
+.cuenta-boton.es-pequeno{ min-height: 32px; padding: 0 .8rem; font-size: .76rem; }
+.cuenta-botones{ display: flex; flex-wrap: wrap; gap: .5rem; }
+
+/* ---------- Ver más (reservas anteriores) ---------- */
+.cuenta-mas{ margin-top: .75rem; }
+.cuenta-mas > summary{
+	display: inline-flex;
+	align-items: center;
+	gap: .5rem;
+	list-style: none;
+	cursor: pointer;
+	font-size: .85rem;
+	font-weight: 800;
+	color: var(--oro);
+}
+.cuenta-mas > summary::-webkit-details-marker{ display: none; }
+.cuenta-mas > summary i{ transition: transform .25s var(--suave); }
+.cuenta-mas[open] > summary i{ transform: rotate(180deg); }
+.cuenta-mas > .cuenta-lista{ margin-top: .75rem; }
+
+/* ---------- Vacío ---------- */
+.cuenta-vacio{
+	display: grid;
+	justify-items: center;
+	gap: .6rem;
+	padding: 2.2rem 1rem;
+	border: 1px dashed var(--linea);
+	border-radius: 16px;
+	text-align: center;
+	color: var(--texto-suave);
+}
+.cuenta-vacio i{ font-size: 1.8rem; color: var(--oro); }
+.cuenta-vacio p{ margin: 0; }
+
+/* ---------- Columna lateral ---------- */
+.cuenta-lateral{
+	display: grid;
+	gap: 1rem;
+}
+@media (min-width: 1024px){
+	.cuenta-lateral{ position: sticky; top: 84px; }
+}
+.cuenta-caja{
+	padding: 1.15rem;
+	border: 1px solid var(--linea);
+	border-radius: 16px;
+	background: var(--panel);
+}
+.cuenta-caja h2,
+.cuenta-caja h3{
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	margin: 0 0 .5rem;
+	font-size: .95rem;
+	font-weight: 800;
+	color: #fff;
+}
+.cuenta-caja h2 i,
+.cuenta-caja h3 i{ color: var(--oro); }
+.cuenta-caja p{ margin: 0 0 .9rem; font-size: .85rem; color: var(--texto-suave); }
+.cuenta-direccion{
+	display: flex;
+	gap: .5rem;
+	padding: .65rem .75rem;
+	border-radius: 12px;
+	background: rgba(255,255,255,0.05);
+	font-size: .85rem;
+	color: var(--crema);
+}
+.cuenta-direccion i{ margin-top: .15rem; color: var(--oro); }
+
+/* ---------- Seguimiento de reserva ---------- */
+.seguimiento-cabecera{
+	display: grid;
+	grid-template-columns: 120px minmax(0, 1fr);
+	gap: 1.25rem;
+	align-items: center;
+	margin-bottom: 1.25rem;
+}
+.seguimiento-cabecera .cuenta-foto{ width: 120px; height: 150px; border-radius: 16px; font-size: 2rem; }
+.seguimiento-cabecera h1,
+.seguimiento-cabecera h2{
+	margin: .3rem 0 .4rem;
+	font-size: clamp(1.25rem, 2.6vw, 1.7rem);
+	font-weight: 800;
+	line-height: 1.15;
+	color: #fff;
+}
+
+/* línea de tiempo del estado */
+.seguimiento-pasos{
+	display: grid;
+	grid-template-columns: repeat(var(--pasos, 4), minmax(0, 1fr));
+	margin: 0 0 1.25rem;
+	padding: 0;
+	list-style: none;
+	counter-reset: paso;
+}
+.seguimiento-paso{
+	position: relative;
+	display: grid;
+	justify-items: center;
+	gap: .4rem;
+	padding: 0 .25rem;
+	text-align: center;
+	font-size: .74rem;
+	font-weight: 700;
+	color: var(--texto-suave);
+}
+/* línea que une cada punto con el anterior */
+.seguimiento-paso + .seguimiento-paso::before{
+	content: "";
+	position: absolute;
+	top: 15px;
+	right: 50%;
+	width: 100%;
+	height: 2px;
+	background: rgba(255,255,255,0.12);
+}
+.seguimiento-paso.hecho + .seguimiento-paso.hecho::before,
+.seguimiento-paso.hecho + .seguimiento-paso.actual::before{ background: linear-gradient(90deg, var(--oro-fuerte), var(--oro)); }
+.seguimiento-punto{
+	position: relative;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	border: 2px solid rgba(255,255,255,0.18);
+	background: #1c1411;
+	color: var(--texto-suave);
+	font-size: .8rem;
+}
+.seguimiento-paso.hecho .seguimiento-punto{ border-color: transparent; background: linear-gradient(160deg, var(--crema), var(--oro-fuerte)); color: #2a1a10; }
+.seguimiento-paso.actual .seguimiento-punto{ border-color: var(--oro); color: var(--oro); box-shadow: 0 0 0 5px rgba(242,210,155,0.14); }
+.seguimiento-paso.hecho,
+.seguimiento-paso.actual{ color: var(--crema); }
+.seguimiento-paso.error .seguimiento-punto{ border-color: transparent; background: #b85a50; color: #fff; }
+.seguimiento-paso.error{ color: #f2a59c; }
+
+.seguimiento-detalles{
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+	gap: .6rem;
+	margin: 0 0 1.25rem;
+}
+.seguimiento-detalle{
+	padding: .7rem .85rem;
+	border-radius: 12px;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.07);
+}
+.seguimiento-detalle dt{
+	font-size: .66rem;
+	font-weight: 800;
+	letter-spacing: .12em;
+	text-transform: uppercase;
+	color: var(--texto-suave);
+}
+.seguimiento-detalle dd{
+	margin: .2rem 0 0;
+	font-size: .98rem;
+	font-weight: 700;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+	overflow-wrap: anywhere;
+}
+.seguimiento-detalle.es-oro dd{ color: var(--oro); }
+
+.seguimiento-qr{
+	display: grid;
+	justify-items: center;
+	gap: .6rem;
+	text-align: center;
+}
+.seguimiento-qr figure{
+	margin: 0;
+	padding: 10px;
+	border-radius: 14px;
+	background: #fff;
+	line-height: 0;
+}
+.seguimiento-qr img{ width: 180px; height: 180px; }
+.seguimiento-qr small{ color: var(--texto-suave); }
+
+/* ---------- Seguimiento de compra ---------- */
+.compra-items{
+	display: grid;
+	gap: .5rem;
+	margin: 0 0 1rem;
+	padding: 0;
+	list-style: none;
+}
+.compra-item{
+	display: grid;
+	grid-template-columns: 36px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: .8rem;
+	padding: .7rem .85rem;
+	border-radius: 12px;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.07);
+}
+.compra-cantidad{
+	display: grid;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: rgba(242,210,155,0.14);
+	color: var(--oro);
+	font-weight: 800;
+	font-size: .85rem;
+}
+.compra-item strong{ display: block; color: #fff !important; overflow-wrap: anywhere; }
+.compra-item small{ color: var(--texto-suave); font-variant-numeric: tabular-nums; }
+.compra-subtotal{ font-weight: 800; color: var(--crema); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.compra-total{
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	padding: .9rem 1rem;
+	border-radius: 14px;
+	background: linear-gradient(140deg, rgba(246,232,210,0.14), rgba(201,154,91,0.1));
+	border: 1px solid rgba(255,221,150,0.3);
+}
+.compra-total span{ font-size: .75rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--oro); }
+.compra-total strong{ font-size: 1.6rem; color: #fff !important; font-variant-numeric: tabular-nums; }
+
+/* ---------- Celular ---------- */
+@media (max-width: 640px){
+	.cuenta-tarjeta{
+		grid-template-columns: 64px minmax(0, 1fr);
+		gap: .75rem;
+	}
+	.cuenta-tarjeta .cuenta-foto{ width: 64px; height: 78px; }
+	.cuenta-tarjeta .cuenta-fecha{ display: none; }
+	.cuenta-tarjeta .cuenta-lado{
+		grid-column: 1 / -1;
+		grid-auto-flow: column;
+		justify-content: space-between;
+		align-items: center;
+		padding-top: .5rem;
+		border-top: 1px solid rgba(255,255,255,0.07);
+	}
+	.cuenta-tarjeta.es-compra{ grid-template-columns: 64px minmax(0, 1fr); }
+	.cuenta-fecha-movil{ display: inline !important; }
+	.seguimiento-cabecera{ grid-template-columns: 84px minmax(0, 1fr); gap: .9rem; }
+	.seguimiento-cabecera .cuenta-foto{ width: 84px; height: 106px; }
+	.seguimiento-paso{ font-size: .64rem; }
+	.cuenta-resumen{ display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: .45rem; }
+	.cuenta-dato{ min-width: 0; padding: .55rem .6rem; }
+	.cuenta-dato span{ font-size: .58rem; letter-spacing: .06em; }
+	.cuenta-dato strong{ font-size: 1rem; }
+	.cuenta-pestanas{ display: flex; }
+	.cuenta-pestana{ flex: 1; justify-content: center; }
+}
+.cuenta-fecha-movil{ display: none; }
+
+@media (prefers-reduced-motion: reduce){
+	.cuenta-tarjeta, .cuenta-boton, .cuenta-pestana{ transition: none; }
+}

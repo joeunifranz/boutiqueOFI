@@ -29,7 +29,12 @@ $waMsg = 'Hola, tengo una consulta sobre mi compra.';
 $waUrl = ($telDigits !== '') ? ('https://wa.me/'.$telDigits.'?text='.urlencode($waMsg)) : '';
 $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&query='.urlencode($direccion)) : '';
 
+require_once "./app/views/inc/cuenta_cliente.php";
+$e = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+
 ?>
+
+<link rel="stylesheet" href="<?php echo APP_URL; ?>app/views/css/clienteCuenta.css">
 
 <section class="boutique-bg boutique-client-page">
 	<div class="boutique-bg-slider" aria-hidden="true">
@@ -44,11 +49,14 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 	<div class="boutique-client-content">
 		<div class="container">
-			<div class="boutique-glass p-5">
-				<h1 class="title boutique-client-title">Seguimiento de compra</h1>
+			<div class="boutique-glass p-5 cuenta">
 
 	<?php if(!$clienteLogueado){ ?>
-		<article class="message is-warning"><div class="message-body">Debes iniciar sesión para ver el detalle.</div></article>
+				<div class="cuenta-vacio">
+					<i class="fas fa-lock" aria-hidden="true"></i>
+					<h1 class="title is-4 mb-0">Seguimiento de compra</h1>
+					<p>Inicia sesión para ver el detalle.</p>
+					<a class="cuenta-boton es-principal js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="reservasComprasCliente/">Iniciar sesión</a>
 				</div>
 			</div>
 		</div>
@@ -58,8 +66,11 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 	<?php } ?>
 
 	<?php if(!$data){ ?>
-		<article class="message is-danger"><div class="message-body">Compra no encontrada.</div></article>
-		<div class="buttons"><a class="button is-light" href="<?php echo APP_URL; ?>reservasComprasCliente/">Volver</a></div>
+				<div class="cuenta-vacio">
+					<i class="fas fa-search" aria-hidden="true"></i>
+					<h1 class="title is-4 mb-0">Compra no encontrada</h1>
+					<p>Revisa el enlace o búscala en tu lista de compras.</p>
+					<a class="cuenta-boton es-principal" href="<?php echo APP_URL; ?>reservasComprasCliente/#compras">Ver mis compras</a>
 				</div>
 			</div>
 		</div>
@@ -68,60 +79,63 @@ $mapsUrl = ($direccion !== '') ? ('https://www.google.com/maps/search/?api=1&que
 		<?php return; ?>
 	<?php } ?>
 
-	<?php $venta = (array)($data['venta'] ?? []); $detalle = (array)($data['detalle'] ?? []); ?>
-	<?php $ticketUrl = APP_URL.'app/pdf/ticket.php?code='.urlencode((string)($venta['venta_codigo'] ?? '')); ?>
+	<?php
+		$venta = (array)($data['venta'] ?? []);
+		$detalle = (array)($data['detalle'] ?? []);
+		$codigoVenta = (string)($venta['venta_codigo'] ?? '');
+		$ticketUrl = APP_URL.'app/pdf/ticket.php?code='.urlencode($codigoVenta);
+		$f = boutique_fecha_partes($venta['venta_fecha'] ?? '', $venta['venta_hora'] ?? '');
+		$unidades = 0;
+		foreach($detalle as $d){ $unidades += (int)($d['venta_detalle_cantidad'] ?? 0); }
+	?>
 
-	<div class="box">
-		<p><strong>Código:</strong> <?php echo htmlspecialchars((string)($venta['venta_codigo'] ?? ''),ENT_QUOTES,'UTF-8'); ?></p>
-		<p><strong>Fecha:</strong> <?php echo htmlspecialchars(trim((string)($venta['venta_fecha'] ?? '').' '.(string)($venta['venta_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?></p>
-		<p><strong>Total:</strong> <?php echo MONEDA_SIMBOLO.number_format((float)($venta['venta_total'] ?? 0),2); ?> <?php echo MONEDA_NOMBRE; ?></p>
-		<div class="buttons mt-3">
-			<a class="button is-link" href="<?php echo htmlspecialchars($ticketUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener"><i class="fas fa-receipt"></i> &nbsp; Ver ticket</a>
-			<a class="button is-light" href="<?php echo APP_URL; ?>reservasComprasCliente/">Volver</a>
-		</div>
-	</div>
+				<a class="cuenta-boton es-pequeno mb-4" href="<?php echo APP_URL; ?>reservasComprasCliente/#compras"><i class="fas fa-arrow-left" aria-hidden="true"></i> Mis compras</a>
 
-	<div class="table-container">
-		<table class="table is-bordered is-striped is-narrow is-hoverable is-fullwidth">
-			<thead>
-				<tr>
-					<th class="has-text-centered">#</th>
-					<th>Producto</th>
-					<th class="has-text-centered">Cant.</th>
-					<th class="has-text-centered">Precio</th>
-					<th class="has-text-centered">Subtotal</th>
-				</tr>
-			</thead>
-			<tbody>
-				<?php if(!empty($detalle)){ $i=1; foreach($detalle as $d){ ?>
-					<tr class="has-text-centered">
-						<td><?php echo $i; ?></td>
-						<td class="has-text-left"><?php echo htmlspecialchars((string)($d['venta_detalle_descripcion'] ?? ''),ENT_QUOTES,'UTF-8'); ?></td>
-						<td><?php echo (int)($d['venta_detalle_cantidad'] ?? 0); ?></td>
-						<td><?php echo MONEDA_SIMBOLO.number_format((float)($d['venta_detalle_precio_venta'] ?? 0),2); ?></td>
-						<td><?php echo MONEDA_SIMBOLO.number_format((float)($d['venta_detalle_total'] ?? 0),2); ?></td>
-					</tr>
-				<?php $i++; } }else{ ?>
-					<tr><td colspan="5" class="has-text-centered">Sin detalle.</td></tr>
-				<?php } ?>
-			</tbody>
-		</table>
-	</div>
+				<div class="cuenta-grilla">
+					<div class="cuenta-caja">
+						<p class="cuenta-saludo">Seguimiento de compra</p>
+						<h1 class="cuenta-titulo mb-3">Compra #<?php echo $e($codigoVenta); ?></h1>
 
-	<div class="box mt-5">
-		<h2 class="title is-6 mb-2 has-text-black"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
-		<?php if($direccion !== ''){ ?>
-			<p class="mb-3"><?php echo htmlspecialchars($direccion,ENT_QUOTES,'UTF-8'); ?></p>
-		<?php } ?>
-		<div class="buttons is-right">
-			<?php if($mapsUrl !== ''){ ?>
-				<a class="button is-light" href="<?php echo htmlspecialchars($mapsUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ver en Google Maps</a>
-			<?php } ?>
-			<?php if($waUrl !== ''){ ?>
-				<a class="button is-success" href="<?php echo htmlspecialchars($waUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> &nbsp; WhatsApp</a>
-			<?php } ?>
-		</div>
-	</div>
+						<dl class="seguimiento-detalles">
+							<div class="seguimiento-detalle"><dt>Fecha</dt><dd><?php echo $e(trim($f['semana'].' '.$f['dia'].' '.$f['mes'].' '.$f['anio'])); ?></dd></div>
+							<div class="seguimiento-detalle"><dt>Hora</dt><dd><?php echo $e($f['hora'] !== '' ? $f['hora'] : '—'); ?></dd></div>
+							<div class="seguimiento-detalle"><dt>Artículos</dt><dd><?php echo $unidades; ?></dd></div>
+							<?php $pagada = (float)($venta['venta_pagado'] ?? 0) + 0.005 >= (float)($venta['venta_total'] ?? 0); ?>
+							<div class="seguimiento-detalle es-oro"><dt>Estado</dt><dd><?php echo $pagada ? 'Pagada' : 'Con saldo pendiente'; ?></dd></div>
+						</dl>
+
+						<h2 class="cuenta-seccion-titulo">Lo que compraste</h2>
+						<?php if(!empty($detalle)){ ?>
+							<ul class="compra-items">
+								<?php foreach($detalle as $d){ $cant = (int)($d['venta_detalle_cantidad'] ?? 0); ?>
+									<li class="compra-item">
+										<span class="compra-cantidad"><?php echo $cant; ?>×</span>
+										<span>
+											<strong><?php echo $e($d['venta_detalle_descripcion'] ?? ''); ?></strong>
+											<small><?php echo $e(boutique_dinero($d['venta_detalle_precio_venta'] ?? 0)); ?> c/u</small>
+										</span>
+										<span class="compra-subtotal"><?php echo $e(boutique_dinero($d['venta_detalle_total'] ?? 0)); ?></span>
+									</li>
+								<?php } ?>
+							</ul>
+						<?php }else{ ?>
+							<div class="cuenta-vacio mb-4"><p>Esta compra no tiene detalle registrado.</p></div>
+						<?php } ?>
+
+						<div class="compra-total mb-4">
+							<span>Total</span>
+							<strong><?php echo $e(boutique_dinero($venta['venta_total'] ?? 0)); ?></strong>
+						</div>
+
+						<div class="cuenta-botones">
+							<a class="cuenta-boton es-principal" href="<?php echo $e($ticketUrl); ?>" target="_blank" rel="noopener"><i class="fas fa-receipt" aria-hidden="true"></i> Ver ticket</a>
+						</div>
+					</div>
+
+					<aside class="cuenta-lateral">
+						<?php boutique_caja_contacto($direccion, $mapsUrl, $waUrl, 'Para recoger tu pedido o hacer una consulta.'); ?>
+					</aside>
+				</div>
 			</div>
 		</div>
 	</div>

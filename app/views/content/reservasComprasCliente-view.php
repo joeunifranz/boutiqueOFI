@@ -66,7 +66,73 @@ $ventas = $clienteLogueado ? $insVenta->obtenerVentasPorClienteControlador($clie
 
 $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReservaClienteControlador($clienteId) : 0;
 
+require_once "./app/views/inc/cuenta_cliente.php";
+$e = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
+
+// Próximas citas (de la más cercana a la más lejana) y el resto como historial
+$hoy = date('Y-m-d');
+$proximas = [];
+$anteriores = [];
+$saldoPendiente = 0.0;
+foreach($reservas as $r){
+	$estado = strtolower(trim((string)($r['reserva_estado'] ?? '')));
+	$cerrada = in_array($estado, ['rechazada', 'completada'], true);
+	if(!$cerrada){
+		$saldoPendiente += max(0, (float)($r['reserva_total'] ?? 0) - (float)($r['reserva_abono'] ?? 0));
+	}
+	if(!$cerrada && (string)($r['reserva_fecha'] ?? '') >= $hoy){
+		$proximas[] = $r;
+	}else{
+		$anteriores[] = $r;
+	}
+}
+usort($proximas, fn($a, $b) => strcmp((string)$a['reserva_fecha'].(string)$a['reserva_hora'], (string)$b['reserva_fecha'].(string)$b['reserva_hora']));
+$nombreCliente = trim((string)($_SESSION['cliente_nombre'] ?? ''));
+
+// Tarjeta de una reserva (se usa en "próximas" y en "anteriores")
+$tarjetaReserva = function(array $r) use ($e){
+	$codigo = (string)($r['reserva_codigo'] ?? '');
+	$url = APP_URL.'seguimientoReservaCliente/'.urlencode($codigo).'/';
+	$notif = (int)($r['reserva_cliente_notificacion'] ?? 0);
+	$estado = boutique_estado_reserva((string)($r['reserva_estado'] ?? ''));
+	$f = boutique_fecha_partes($r['reserva_fecha'] ?? '', $r['reserva_hora'] ?? '');
+	$foto = boutique_foto_producto($r['producto_foto'] ?? '');
+	$total = (float)($r['reserva_total'] ?? 0);
+	$abono = min($total, max(0, (float)($r['reserva_abono'] ?? 0)));
+	$saldo = max(0, $total - $abono);
+	$pct = $total > 0 ? round($abono / $total * 100) : 0;
+	?>
+	<a class="cuenta-tarjeta<?php echo $notif > 0 ? ' es-nuevo' : ''; ?>" href="<?php echo $e($url); ?>">
+		<?php if($notif > 0){ ?><span class="cuenta-nuevo">NUEVO<?php echo $notif > 1 ? ' ×'.$notif : ''; ?></span><?php } ?>
+		<span class="cuenta-foto"><?php if($foto !== ''){ ?><img src="<?php echo $e($foto); ?>" alt="" loading="lazy"><?php }else{ ?><i class="fas fa-gem" aria-hidden="true"></i><?php } ?></span>
+		<span class="cuenta-fecha" aria-hidden="true"><small><?php echo $e($f['semana']); ?></small><strong><?php echo $e($f['dia']); ?></strong><small><?php echo $e($f['mes']); ?></small><em><?php echo $e($f['hora']); ?></em></span>
+		<span class="cuenta-info">
+			<strong class="cuenta-nombre"><?php echo $e($r['producto_nombre'] ?? 'Vestido'); ?></strong>
+			<span class="cuenta-meta">
+				<span class="cuenta-estado <?php echo $e($estado['clase']); ?>"><i class="fas <?php echo $e($estado['icono']); ?>" aria-hidden="true"></i><?php echo $e($estado['texto']); ?></span>
+				<span class="cuenta-fecha-movil"><i class="far fa-calendar" aria-hidden="true"></i><?php echo $e(trim($f['semana'].' '.$f['dia'].' '.$f['mes'].' '.$f['anio'].' · '.$f['hora'], ' ·')); ?></span>
+			</span>
+			<?php if($total > 0 && $estado['clase'] !== 'rechazada'){ ?>
+				<span class="cuenta-pago" aria-label="Pagado <?php echo $pct; ?> por ciento">
+					<span class="cuenta-pago-barra"><span style="width: <?php echo $pct; ?>%"></span></span>
+					<span class="cuenta-pago-texto">
+						<span>Pagado <b><?php echo $e(boutique_dinero($abono)); ?></b></span>
+						<span><?php echo $saldo > 0 ? 'Falta <b>'.$e(boutique_dinero($saldo)).'</b>' : '<b>Pago completo</b>'; ?></span>
+					</span>
+				</span>
+			<?php } ?>
+		</span>
+		<span class="cuenta-lado">
+			<span class="cuenta-total"><?php echo $e(boutique_dinero($total)); ?></span>
+			<span class="cuenta-ver">Ver seguimiento <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+		</span>
+	</a>
+	<?php
+};
+
 ?>
+
+<link rel="stylesheet" href="<?php echo APP_URL; ?>app/views/css/clienteCuenta.css">
 
 <section class="boutique-bg boutique-client-page">
 	<div class="boutique-bg-slider" aria-hidden="true">
@@ -81,21 +147,14 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
 	<div class="boutique-client-content">
 		<div class="container">
-			<div class="boutique-glass p-5">
-				<div class="has-text-centered mb-5">
-					<h1 class="title boutique-client-title">Reservas y compras</h1>
-					<p class="subtitle boutique-client-subtitle">Consulta tu seguimiento y detalles.</p>
-				</div>
+			<div class="boutique-glass p-5 cuenta">
 
 	<?php if(!$clienteLogueado){ ?>
-		<article class="message is-warning">
-			<div class="message-body">
-				Debes iniciar sesión para ver tus reservas y compras.
-				<div class="buttons mt-3">
-					<a class="button is-link js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="reservasComprasCliente/">Iniciar sesión</a>
-				</div>
-			</div>
-		</article>
+				<div class="cuenta-vacio">
+					<i class="fas fa-lock" aria-hidden="true"></i>
+					<h1 class="title is-4 mb-0">Reservas y compras</h1>
+					<p>Inicia sesión para ver tus reservas, tus pagos y tus compras.</p>
+					<a class="cuenta-boton es-principal js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="reservasComprasCliente/">Iniciar sesión</a>
 				</div>
 			</div>
 		</div>
@@ -104,155 +163,152 @@ $notifCountReservas = $clienteLogueado ? $insReserva->contarNotificacionesReserv
 		<?php return; ?>
 	<?php } ?>
 
+				<header class="cuenta-encabezado">
+					<div>
+						<p class="cuenta-saludo"><?php echo $nombreCliente !== '' ? 'Hola, '.$e($nombreCliente) : 'Tu cuenta'; ?></p>
+						<h1 class="cuenta-titulo">Reservas y compras</h1>
+					</div>
+					<div class="cuenta-resumen">
+						<div class="cuenta-dato"><span>Próximas citas</span><strong><?php echo count($proximas); ?></strong></div>
+						<div class="cuenta-dato es-oro"><span>Saldo pendiente</span><strong><?php echo $e(boutique_dinero($saldoPendiente)); ?></strong></div>
+						<div class="cuenta-dato"><span>Compras</span><strong><?php echo count($ventas); ?></strong></div>
+					</div>
+				</header>
+
 	<?php if($notifCountReservas > 0){ ?>
-		<article class="message is-info">
-			<div class="message-body has-text-centered">
-				Tienes <strong><?php echo (int)$notifCountReservas; ?></strong> actualización(es) en tus reservas. Revisa las marcadas como <strong>NUEVO</strong>.
-			</div>
-		</article>
+				<div class="cuenta-aviso" role="status">
+					<i class="fas fa-bell" aria-hidden="true"></i>
+					<span>Tienes <strong><?php echo (int)$notifCountReservas; ?></strong> <?php echo $notifCountReservas === 1 ? 'novedad' : 'novedades'; ?> en tus reservas. Búscalas con la etiqueta <strong>NUEVO</strong>.</span>
+				</div>
 	<?php } ?>
 
-	<div class="columns is-variable is-6">
-		<div class="column is-8">
-			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-calendar-check"></i> &nbsp; Reservas</h2>
-			<div class="box">
-				<div class="table-container">
-					<table class="table boutique-table-subtle is-hoverable is-fullwidth is-size-6">
-						<thead class="is-size-7">
-							<tr>
-								<th class="has-text-centered">Vestido</th>
-								<th class="has-text-centered">Día de tu cita</th>
-								<th class="has-text-centered">Ver más detalles</th>
-							</tr>
-						</thead>
-						<tbody>
-				<?php if(!empty($reservas)){ ?>
-					<?php foreach($reservas as $r){
-						$codigo = (string)($r['reserva_codigo'] ?? '');
-						$seguimientoUrl = APP_URL.'seguimientoReservaCliente/'.urlencode($codigo).'/';
-						$notifVeces = (int)($r['reserva_cliente_notificacion'] ?? 0);
-						$isNuevo = $notifVeces > 0;
-						$citaCorta = boutique_format_cita_corta(($r['reserva_fecha'] ?? ''), ($r['reserva_hora'] ?? ''));
-					?>
-						<tr class="has-text-centered">
-							<td class="has-text-left<?php echo $isNuevo ? ' is-success' : ''; ?>">
-								<?php if($isNuevo){ ?>
-									<span class="tag is-danger is-rounded is-small mb-1">NUEVO<?php echo ($notifVeces > 1) ? (' x'.(int)$notifVeces) : ''; ?></span><br>
-								<?php } ?>
-								<a class="has-text-weight-semibold is-size-5" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">
-									<?php echo htmlspecialchars((string)($r['producto_nombre'] ?? ''),ENT_QUOTES,'UTF-8'); ?>
-								</a>
-							</td>
-							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
-								<span class="tag <?php echo $isNuevo ? 'is-success' : 'is-light'; ?> is-rounded is-medium">
-									<?php echo htmlspecialchars($citaCorta,ENT_QUOTES,'UTF-8'); ?>
-								</span>
-							</td>
-							<td class="<?php echo $isNuevo ? 'is-success' : ''; ?>">
-								<div class="buttons is-centered">
-									<a class="button is-link is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
+				<div class="cuenta-grilla">
+					<div>
+						<div class="cuenta-pestanas" role="tablist" aria-label="Reservas o compras">
+							<button type="button" class="cuenta-pestana" role="tab" id="tabReservas" aria-controls="panelReservas" aria-selected="true"><i class="fas fa-calendar-check" aria-hidden="true"></i> Reservas <span class="cuenta-contador"><?php echo count($reservas); ?></span></button>
+							<button type="button" class="cuenta-pestana" role="tab" id="tabCompras" aria-controls="panelCompras" aria-selected="false" tabindex="-1"><i class="fas fa-shopping-bag" aria-hidden="true"></i> Compras <span class="cuenta-contador"><?php echo count($ventas); ?></span></button>
+						</div>
+
+						<!-- Reservas -->
+						<section class="cuenta-panel" id="panelReservas" role="tabpanel" aria-labelledby="tabReservas">
+	<?php if(empty($reservas)){ ?>
+							<div class="cuenta-vacio">
+								<i class="far fa-calendar" aria-hidden="true"></i>
+								<p>Aún no tienes reservas.</p>
+								<a class="cuenta-boton es-principal" href="<?php echo APP_URL; ?>productosCliente/">Ver vestidos</a>
+							</div>
+	<?php }else{ ?>
+							<h2 class="cuenta-seccion-titulo">Próximas citas</h2>
+		<?php if(empty($proximas)){ ?>
+							<div class="cuenta-vacio">
+								<i class="far fa-calendar-check" aria-hidden="true"></i>
+								<p>No tienes citas próximas.</p>
+								<a class="cuenta-boton es-principal" href="<?php echo APP_URL; ?>productosCliente/">Reservar otro vestido</a>
+							</div>
+		<?php }else{ ?>
+							<div class="cuenta-lista">
+								<?php foreach($proximas as $r){ $tarjetaReserva($r); } ?>
+							</div>
+		<?php } ?>
+
+		<?php if(!empty($anteriores)){ ?>
+							<details class="cuenta-mas"<?php echo empty($proximas) ? ' open' : ''; ?>>
+								<summary>Historial de reservas (<?php echo count($anteriores); ?>) <i class="fas fa-chevron-down" aria-hidden="true"></i></summary>
+								<div class="cuenta-lista">
+									<?php foreach($anteriores as $r){ $tarjetaReserva($r); } ?>
 								</div>
-							</td>
-						</tr>
-					<?php } ?>
-				<?php }else{ ?>
-					<tr>
-						<td colspan="3" class="has-text-centered">Aún no tienes reservas.</td>
-					</tr>
-				<?php } ?>
-						</tbody>
-					</table>
+							</details>
+		<?php } ?>
+	<?php } ?>
+						</section>
+
+						<?php
+							// Al entrar a esta pantalla, marcamos como vistas las notificaciones de reservas (best-effort)
+							if($clienteLogueado && $notifCountReservas > 0){
+								$insReserva->marcarNotificacionesReservaClienteVistasControlador($clienteId);
+							}
+						?>
+
+						<!-- Compras -->
+						<section class="cuenta-panel" id="panelCompras" role="tabpanel" aria-labelledby="tabCompras" hidden>
+	<?php if(empty($ventas)){ ?>
+							<div class="cuenta-vacio">
+								<i class="fas fa-shopping-bag" aria-hidden="true"></i>
+								<p>Aún no tienes compras registradas.</p>
+								<a class="cuenta-boton es-principal" href="<?php echo APP_URL; ?>productosCliente/">Ir a la tienda</a>
+							</div>
+	<?php }else{ ?>
+							<div class="cuenta-lista">
+		<?php foreach($ventas as $v){
+			$cod = (string)($v['venta_codigo'] ?? '');
+			$seguimientoUrl = APP_URL.'seguimientoCompraCliente/'.urlencode($cod).'/';
+			$ticketUrl = APP_URL.'app/pdf/ticket.php?code='.urlencode($cod);
+			$items = (int)($v['items'] ?? 0);
+			$lineas = (int)($v['lineas'] ?? 0);
+			$foto = boutique_foto_producto($v['producto_foto'] ?? '');
+			$f = boutique_fecha_partes($v['venta_fecha'] ?? '', $v['venta_hora'] ?? '');
+			$nombre = trim((string)($v['producto_nombre'] ?? '')) !== '' ? (string)$v['producto_nombre'] : 'Compra';
+		?>
+								<article class="cuenta-tarjeta es-compra">
+									<span class="cuenta-foto"><?php if($foto !== ''){ ?><img src="<?php echo $e($foto); ?>" alt="" loading="lazy"><?php }else{ ?><i class="fas fa-shopping-bag" aria-hidden="true"></i><?php } ?></span>
+									<span class="cuenta-info">
+										<strong class="cuenta-nombre"><?php echo $e($nombre); ?><?php echo $lineas > 1 ? ' <small class="has-text-weight-normal">y '.($lineas - 1).' más</small>' : ''; ?></strong>
+										<span class="cuenta-meta">
+											<span class="cuenta-codigo">#<?php echo $e($cod); ?></span>
+											<span><i class="far fa-calendar" aria-hidden="true"></i><?php echo $e(trim($f['dia'].' '.$f['mes'].' '.$f['anio'].' · '.$f['hora'], ' ·')); ?></span>
+											<span><i class="fas fa-box" aria-hidden="true"></i><?php echo $items; ?> <?php echo $items === 1 ? 'artículo' : 'artículos'; ?></span>
+										</span>
+									</span>
+									<span class="cuenta-lado">
+										<span class="cuenta-total"><?php echo $e(boutique_dinero($v['venta_total'] ?? 0)); ?></span>
+										<span class="cuenta-botones">
+											<a class="cuenta-boton es-pequeno" href="<?php echo $e($ticketUrl); ?>" target="_blank" rel="noopener"><i class="fas fa-receipt" aria-hidden="true"></i> Ticket</a>
+											<a class="cuenta-boton es-pequeno es-principal" href="<?php echo $e($seguimientoUrl); ?>">Ver detalle</a>
+										</span>
+									</span>
+								</article>
+		<?php } ?>
+							</div>
+	<?php } ?>
+						</section>
+					</div>
+
+					<aside class="cuenta-lateral">
+						<?php boutique_caja_contacto($direccion, $mapsUrl, $waUrl, 'Para recoger tu vestido o hacer una consulta.'); ?>
+						<div class="cuenta-caja">
+							<h2><i class="fas fa-magic" aria-hidden="true"></i> ¿Algo a tu medida?</h2>
+							<p>Diseña tu vestido eligiendo tela, encaje y talla, y agenda tu cita.</p>
+							<a class="cuenta-boton es-principal" href="<?php echo APP_URL; ?>telasCliente/">Personaliza tu vestido</a>
+						</div>
+						<a class="cuenta-boton" href="<?php echo APP_URL; ?>productosCliente/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Volver a la tienda</a>
+					</aside>
 				</div>
-			</div>
-
-			<?php
-				// Al entrar a esta pantalla, marcamos como vistas las notificaciones de reservas (best-effort)
-				if($clienteLogueado && $notifCountReservas > 0){
-					$insReserva->marcarNotificacionesReservaClienteVistasControlador($clienteId);
-				}
-			?>
-
-			<h2 class="title is-4 has-text-centered mt-6 mb-4"><i class="fas fa-shopping-bag"></i> &nbsp; Compras</h2>
-			<div class="box">
-				<div class="table-container">
-					<table class="table boutique-table-subtle is-hoverable is-fullwidth is-size-6">
-						<thead class="is-size-7">
-							<tr>
-								<th class="has-text-centered">Código</th>
-								<th class="has-text-centered">Fecha</th>
-								<th class="has-text-centered">Total</th>
-								<th class="has-text-centered">Ítems</th>
-								<th class="has-text-centered">Acción</th>
-							</tr>
-						</thead>
-						<tbody>
-				<?php if(!empty($ventas)){ ?>
-					<?php foreach($ventas as $v){
-						$cod = (string)($v['venta_codigo'] ?? '');
-						$seguimientoUrl = APP_URL.'seguimientoCompraCliente/'.urlencode($cod).'/';
-						$ticketUrl = APP_URL.'app/pdf/ticket.php?code='.urlencode($cod);
-						$items = (int)($v['items'] ?? 0);
-					?>
-						<tr class="has-text-centered">
-							<td>
-								<span class="tag is-dark is-light is-rounded is-medium">#<?php echo htmlspecialchars($cod,ENT_QUOTES,'UTF-8'); ?></span>
-							</td>
-							<td>
-								<span class="tag is-light is-rounded is-medium">
-									<?php echo htmlspecialchars(trim((string)($v['venta_fecha'] ?? '').' '.(string)($v['venta_hora'] ?? '')),ENT_QUOTES,'UTF-8'); ?>
-								</span>
-							</td>
-							<td><span class="tag is-light is-rounded is-medium"><?php echo MONEDA_SIMBOLO.number_format((float)($v['venta_total'] ?? 0),2); ?></span></td>
-							<td><span class="tag is-light is-rounded is-medium"><?php echo $items; ?></span></td>
-							<td>
-								<div class="buttons is-centered">
-									<a class="button is-link is-rounded" href="<?php echo htmlspecialchars($seguimientoUrl,ENT_QUOTES,'UTF-8'); ?>">Ver</a>
-									<a class="button is-light is-rounded" href="<?php echo htmlspecialchars($ticketUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Ticket</a>
-								</div>
-							</td>
-						</tr>
-					<?php } ?>
-				<?php }else{ ?>
-					<tr>
-						<td colspan="5" class="has-text-centered">Aún no tienes compras registradas.</td>
-					</tr>
-				<?php } ?>
-						</tbody>
-					</table>
-				</div>
-			</div>
-		</div>
-
-		<div class="column is-4">
-			<div class="box has-background-light">
-				<h2 class="title is-5 mb-2 has-text-black"><i class="fas fa-map-marker-alt"></i> &nbsp; Ubicación y contacto</h2>
-				<p class="mb-4 has-text-black">Para recoger tu vestido o consultar.</p>
-				<?php if($direccion !== ''){ ?>
-					<p class="mb-4">
-						<span class="tag is-light is-rounded">
-							<?php echo htmlspecialchars($direccion,ENT_QUOTES,'UTF-8'); ?>
-						</span>
-					</p>
-				<?php }else{ ?>
-					<p class="mb-4 has-text-black">Ubicación no configurada en el sistema.</p>
-				<?php } ?>
-
-				<div class="buttons is-right" style="flex-wrap:wrap;">
-					<?php if($mapsUrl !== ''){ ?>
-						<a class="button is-danger is-rounded" href="<?php echo htmlspecialchars($mapsUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener">Google Maps</a>
-					<?php } ?>
-					<?php if($waUrl !== ''){ ?>
-						<a class="button is-success is-rounded" href="<?php echo htmlspecialchars($waUrl,ENT_QUOTES,'UTF-8'); ?>" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> &nbsp; WhatsApp</a>
-					<?php } ?>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<div class="buttons is-centered mt-6">
-		<a class="button is-light" href="<?php echo APP_URL; ?>productosCliente/">Volver a la tienda</a>
-	</div>
 			</div>
 		</div>
 	</div>
 </section>
+
+<script>
+	// Pestañas Reservas | Compras (recuerda la elegida en la URL: #compras)
+	(function(){
+		var tabs = [document.getElementById('tabReservas'), document.getElementById('tabCompras')];
+		if(!tabs[0] || !tabs[1]) return;
+		function activar(i, enfocar){
+			tabs.forEach(function(t, j){
+				var activo = i === j;
+				t.setAttribute('aria-selected', activo ? 'true' : 'false');
+				t.tabIndex = activo ? 0 : -1;
+				document.getElementById(t.getAttribute('aria-controls')).hidden = !activo;
+			});
+			if(enfocar) tabs[i].focus();
+			try{ history.replaceState(null, '', i === 1 ? '#compras' : location.pathname + location.search); }catch(e){}
+		}
+		tabs.forEach(function(t, i){
+			t.addEventListener('click', function(){ activar(i); });
+			t.addEventListener('keydown', function(ev){
+				if(ev.key === 'ArrowRight' || ev.key === 'ArrowLeft'){ ev.preventDefault(); activar(1 - i, true); }
+			});
+		});
+		if(location.hash === '#compras') activar(1);
+	})();
+</script>

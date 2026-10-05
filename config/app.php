@@ -53,6 +53,16 @@
 	if(!defined('RECO_WEIGHT_TIPO')){ define('RECO_WEIGHT_TIPO', 0.65); }
 	if(!defined('RECO_WEIGHT_CINTURA')){ define('RECO_WEIGHT_CINTURA', 0.35); }
 
+	/*----------  Vestido personalizado: metros de tela por talla y altura  ----------*/
+	// metros = base de la talla × complejidad × ((1 - parte del largo) + parte del largo × altura / altura de referencia)
+	// Lo usan reservationController.php (precio que se guarda) y telasCliente.js (lo que ve el cliente).
+	const VESTIDO_METROS_BASE = ['XS'=>2.4, 'S'=>2.6, 'M'=>2.8, 'L'=>3.0, 'XL'=>3.2, 'XXL'=>3.4];
+	const VESTIDO_COMPLEJIDAD = 1.15;
+	const VESTIDO_ALTURA_MIN = 140;        // cm
+	const VESTIDO_ALTURA_MAX = 195;        // cm
+	const VESTIDO_ALTURA_REFERENCIA = 160; // cm: altura para la que están pensados los metros base
+	const VESTIDO_PARTE_LARGO = 0.6;       // qué parte de la tela depende del largo (falda, cola)
+
 	/*----------  Tabla de tallas (visor 3D del maniquí) ----------*/
 	// Coloca tu archivo en: app/views/models/maniqui.glb (por defecto)
 	// Si usas otro nombre/ruta, ajusta esta constante.

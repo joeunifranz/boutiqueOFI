@@ -1005,20 +1005,13 @@ class reservationController extends mainModel{
         }
     }
 
-    private function estimarMetrosPorTalla(string $talla): float{
+    // Fórmula en config/app.php (VESTIDO_*); telasCliente.js usa la misma para mostrar el precio.
+    private function estimarMetrosPorTalla(string $talla, ?int $alturaCm = null): float{
         $talla = strtoupper(trim($talla));
-        $baseBySize = [
-            'XS' => 2.4,
-            'S' => 2.6,
-            'M' => 2.8,
-            'L' => 3.0,
-            'XL' => 3.2,
-            'XXL' => 3.4,
-        ];
-        $base = $baseBySize[$talla] ?? $baseBySize['M'];
-        $mult = 1.15;
-        $metros = $base * $mult;
-        return round($metros, 1);
+        $base = VESTIDO_METROS_BASE[$talla] ?? VESTIDO_METROS_BASE['M'];
+        $altura = $alturaCm ?? VESTIDO_ALTURA_REFERENCIA;
+        $factorAltura = (1 - VESTIDO_PARTE_LARGO) + VESTIDO_PARTE_LARGO * ($altura / VESTIDO_ALTURA_REFERENCIA);
+        return round($base * VESTIDO_COMPLEJIDAD * $factorAltura, 1);
     }
 
     private function encajesPermitidos(): array{
@@ -1138,6 +1131,19 @@ class reservationController extends mainModel{
         $probadorIdIn = (int)($this->limpiarCadena($_POST['probador_id'] ?? '0'));
         $encajeKey = $this->limpiarCadena($_POST['encaje_key'] ?? '');
         $detalle = $this->limpiarCadena($_POST['vestido_detalle'] ?? '');
+        $altura = filter_var($_POST['altura'] ?? null, FILTER_VALIDATE_INT, [
+            'options' => ['min_range' => VESTIDO_ALTURA_MIN, 'max_range' => VESTIDO_ALTURA_MAX],
+        ]);
+
+        $talla = strtoupper($talla);
+        if(!array_key_exists($talla, VESTIDO_METROS_BASE)){
+            return json_encode(['ok'=>false,'mensaje'=>'Selecciona una talla válida']);
+        }
+        if($altura === false){
+            return json_encode(['ok'=>false,'mensaje'=>'Indica tu altura (entre '.VESTIDO_ALTURA_MIN.' y '.VESTIDO_ALTURA_MAX.' cm)']);
+        }
+        // La altura se guarda en vestido_detalle, delante del detalle que escriba el cliente
+        $detalle = mb_substr('Altura: '.$altura.' cm'.($detalle !== '' ? ' | '.$detalle : ''), 0, 500);
 
         if($fecha==='' || !$this->fechaYmdValida($fecha)){
             return json_encode(['ok'=>false,'mensaje'=>'Fecha inválida']);
@@ -1221,7 +1227,7 @@ class reservationController extends mainModel{
 
         $telaNombre = (string)($telaRow['tela_nombre'] ?? '');
         $telaPrecio = (float)($telaRow['tela_precio'] ?? 0);
-        $metros = $this->estimarMetrosPorTalla($talla);
+        $metros = $this->estimarMetrosPorTalla($talla, $altura);
 
 
         if(!$this->crearTablaSolicitudPersonalizadaSiNoExiste()){

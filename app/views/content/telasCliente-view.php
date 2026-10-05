@@ -4,539 +4,8 @@
 	$redirectTo = 'telasCliente/';
 ?>
 
-<section class="boutique-bg boutique-client-page">
-	<div class="boutique-bg-slider" aria-hidden="true">
-		<div class="boutique-bg-slide s1"></div>
-		<div class="boutique-bg-slide s2"></div>
-		<div class="boutique-bg-slide s3"></div>
-		<div class="boutique-bg-slide s4"></div>
-		<div class="boutique-bg-slide s5"></div>
-		<div class="boutique-bg-slide s6"></div>
-	</div>
-	<div class="boutique-bg-overlay" aria-hidden="true"></div>
-	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
-	<div class="boutique-client-content">
-		<div class="container">
-			<div class="boutique-glass p-5">
-				<h1 class="title has-text-centered boutique-client-title">Personaliza tu vestido</h1>
-				<p class="has-text-centered mb-5 boutique-client-subtitle">
-		<?php if($clienteLogueado){ ?>
-			<?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".($_SESSION['cliente_apellido'] ?? '')); ?>, completa los pasos para agendar tu cita.
-		<?php }else{ ?>
-			Completa los pasos. Para enviar la solicitud necesitas iniciar sesión.
-		<?php } ?>
-				</p>
-
-	<?php if($clienteLogueado){ ?>
-		<div class="wizard-history-bar mb-3">
-			<button id="btnSolicitudesAnteriores" type="button" class="button is-rounded js-modal-trigger wizard-history-btn" data-target="modalSolicitudesAnteriores">
-				Ver solicitudes anteriores
-				<span id="solicitudesBadge" class="tag is-danger is-rounded is-size-7" style="display:none;">Nuevo</span>
-			</button>
-		</div>
-	<?php } ?>
-
-	<div class="box wizard-float">
-	<div class="tabs is-boxed is-fullwidth" id="wizardTabs">
-		<ul>
-			<li class="is-active" data-step="1"><a><span class="has-text-weight-semibold">Paso 1</span>&nbsp;Vestido</a></li>
-			<li data-step="2"><a><span class="has-text-weight-semibold">Paso 2</span>&nbsp;Telas</a></li>
-			<li data-step="3"><a><span class="has-text-weight-semibold">Paso 3</span>&nbsp;Encaje</a></li>
-			<li data-step="4"><a><span class="has-text-weight-semibold">Paso 4</span>&nbsp;Cita</a></li>
-		</ul>
-	</div>
-
-	<div id="wizardMsg" class="notification is-light" style="display:none;"></div>
-
-	<!-- Paso 1: Vestido personalizado (placeholder) -->
-	<section id="wizardStep1" class="wizard-step">
-		<div class="box">
-			<h2 class="subtitle">Paso 1: Elección de vestido personalizado</h2>
-			<script>
-				window.TELAS_CLIENTE_ID = <?php echo json_encode($clienteLogueado ? (int)$_SESSION['cliente_id'] : 0); ?>;
-			</script>
-			<div class="buttons is-centered mt-5">
-				<button id="bridal-btn" type="button" class="button is-link is-rounded is-medium">
-					Probador Virtual
-				</button>
-			</div>
-
-			<div id="probadorVirtualOverlay" class="probador-virtual-overlay" aria-hidden="true" style="display:none;">
-				<div class="probador-stage">
-					<div class="probador-slide active" data-slide="0">
-						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80');"></div>
-						<div class="probador-caption">Madam, tómate una foto de cuerpo completo y sin fondo blanco, por favor.</div>
-					</div>
-					<div class="probador-slide" data-slide="1">
-						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80');"></div>
-						<div class="probador-caption">Mírame de frente con buena iluminación.</div>
-					</div>
-					<div class="probador-slide" data-slide="2">
-						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80');"></div>
-						<div class="probador-caption">Usa ropa ajustada y mantén el fondo despejado.</div>
-					</div>
-				</div>
-			</div>
-
-			<script>
-				const bridalBtn = document.getElementById('bridal-btn');
-				const probadorOverlay = document.getElementById('probadorVirtualOverlay');
-				const bridalBaseUrl = 'http://127.0.0.1:5000/bridal.html';
-				const clienteIdForProbador = Number(window.TELAS_CLIENTE_ID || window.BOUTIQUE_CLIENTE_ID || 0);
-				const slides = Array.from(document.querySelectorAll('.probador-slide'));
-				let slideIndex = 0;
-				let guideTimers = [];
-
-				const buildProbadorUrl = () => {
-					const url = new URL(bridalBaseUrl);
-					if(Number.isFinite(clienteIdForProbador) && clienteIdForProbador > 0){
-						url.searchParams.set('cliente_id', String(Math.trunc(clienteIdForProbador)));
-					}
-					url.searchParams.set('return_url', window.location.href);
-					return url.toString();
-				};
-
-				const hideOverlay = () => {
-					probadorOverlay.style.display = 'none';
-					probadorOverlay.setAttribute('aria-hidden', 'true');
-					slides.forEach((slide) => slide.classList.remove('active'));
-					guideTimers.forEach((timer) => clearTimeout(timer));
-					guideTimers = [];
-				};
-
-				const showSlide = (index) => {
-					slides.forEach((slide, i) => {
-						slide.classList.toggle('active', i === index);
-					});
-				};
-
-				const startGuideSequence = () => {
-					guideTimers.forEach((timer) => clearTimeout(timer));
-					guideTimers = [];
-					slideIndex = 0;
-					showSlide(slideIndex);
-
-					guideTimers.push(setTimeout(() => {
-						slideIndex = 1;
-						showSlide(slideIndex);
-					}, 5000));
-
-					guideTimers.push(setTimeout(() => {
-						slideIndex = 2;
-						showSlide(slideIndex);
-					}, 7000));
-
-					guideTimers.push(setTimeout(() => {
-						hideOverlay();
-						window.location.href = buildProbadorUrl();
-					}, 9300));
-				};
-
-				const openProbadorOverlay = () => {
-					if (probadorOverlay.parentElement !== document.body) {
-						document.body.appendChild(probadorOverlay);
-					}
-					hideOverlay();
-					probadorOverlay.style.display = 'flex';
-					probadorOverlay.setAttribute('aria-hidden', 'false');
-					startGuideSequence();
-				};
-
-				// Nunca visible al cargar la página: solo aparece al clicar el botón.
-				hideOverlay();
-				bridalBtn.addEventListener('click', openProbadorOverlay);
-			</script>
-		</div>
-	</section>
-
-	<style>
-		#tallaVestido,
-		#cita_fecha_personalizada,
-		#cita_hora_personalizada {
-			color: #111827;
-			-webkit-text-fill-color: #111827;
-		}
-
-		#tallaVestido option,
-		#cita_hora_personalizada option {
-			color: #111827;
-			background-color: #fff;
-		}
-
-		.probador-virtual-overlay {
-			position: fixed;
-			inset: 0;
-			width: 100vw;
-			height: 100vh;
-			z-index: 2147483647;
-			display: none;
-			align-items: center;
-			justify-content: center;
-			background: rgba(12, 8, 10, 0.58);
-			backdrop-filter: blur(3px);
-			pointer-events: auto;
-			margin: 0;
-		}
-
-		.probador-stage {
-			position: relative;
-			width: 100vw;
-			height: 100vh;
-			overflow: hidden;
-			background: radial-gradient(circle at center, rgba(32, 19, 22, 0.38), rgba(12, 8, 10, 0.78));
-			pointer-events: auto !important;
-			margin: 0;
-		}
-
-		.probador-slide {
-			position: absolute;
-			inset: 0;
-			display: none;
-			opacity: 0;
-			transform: translateY(26px) scale(0.96);
-			transition: opacity 1.1s ease, transform 1.1s ease;
-			pointer-events: none;
-			flex-direction: column;
-			justify-content: center;
-			align-items: center;
-			padding: 4vh 4vw 7vh;
-		}
-
-		.probador-slide.active {
-			display: flex;
-			opacity: 1;
-			transform: translateY(0) scale(1);
-		}
-
-		.probador-image {
-			position: relative;
-			height: min(76vh, 760px);
-			width: min(78vw, 980px);
-			background-size: cover;
-			background-position: center;
-			border-radius: 30px;
-			border: 1px solid rgba(255,255,255,0.12);
-			box-shadow: 0 35px 90px rgba(0,0,0,0.48);
-			animation: probadorFloat 4s ease-in-out infinite;
-		}
-
-		.probador-caption {
-			position: absolute;
-			left: 50%;
-			bottom: 6vh;
-			transform: translateX(-50%);
-			width: min(760px, 78vw);
-			font-size: clamp(1rem, 2vw, 1.45rem);
-			line-height: 1.45;
-			font-weight: 700;
-			color: #fff;
-			text-align: center;
-			text-shadow: 0 4px 14px rgba(0,0,0,0.55);
-			background: rgba(15, 10, 12, 0.12);
-			padding: 0.85rem 1.2rem;
-			border-radius: 999px;
-		}
-
-		@keyframes probadorFloat {
-			0%, 100% {
-				transform: translateY(0px) rotate(0deg);
-			}
-			50% {
-				transform: translateY(-10px) rotate(-0.5deg);
-			}
-		}
-
-		@media (max-width: 768px) {
-			.probador-slide {
-				padding: 3vh 4vw 10vh;
-			}
-
-			.probador-image {
-				height: min(60vh, 520px);
-				width: min(90vw, 620px);
-			}
-
-			.probador-caption {
-				bottom: 4vh;
-				width: min(90vw, 620px);
-				border-radius: 18px;
-			}
-		}
-	</style>
-
-	<!-- Paso 2: Telas (existente) -->
-	<section id="wizardStep2" class="wizard-step" style="display:none;">
-		<div class="columns is-variable is-5">
-			<div class="column is-7">
-				<div class="box">
-					<div class="is-flex is-justify-content-space-between is-align-items-center">
-						<h2 class="subtitle" style="margin-bottom:0;"><i class="fas fa-cube"></i> &nbsp; Vestido en 3D</h2>
-						<button
-							id="openDressPreviewModal"
-							type="button"
-							class="button is-link is-light is-rounded is-small js-modal-trigger"
-							data-target="modalDressPreview"
-						>
-							Ver grande
-						</button>
-					</div>
-					<div id="dress3dContainer" style="width:100%; min-height:420px;">
-						<div class="notification is-light">
-							Aquí se aplicará la tela seleccionada al modelo 3D.
-						</div>
-						<canvas id="dress3dCanvas" style="width:100%; height:360px; display:block;"></canvas>
-					</div>
-				</div>
-			</div>
-
-			<div class="column is-5">
-				<div class="box">
-					<h2 class="subtitle"><i class="fas fa-layer-group"></i> &nbsp; Tipos de tela (precio por metro)</h2>
-
-					<div id="telasEstado" class="notification is-info is-light" style="display:none;"></div>
-					<div id="telasList"></div>
-
-					<hr>
-					<div class="is-flex is-justify-content-space-between is-align-items-center">
-						<h3 class="subtitle is-6" style="margin-bottom:0;">Previsualización 3D de la tela</h3>
-						<button
-							id="openFabricPreviewModal"
-							type="button"
-							class="button is-link is-light is-rounded is-small js-modal-trigger"
-							data-target="modalFabricPreview"
-						>
-							Ver grande
-						</button>
-					</div>
-					<div class="fabric-preview-wrap mt-3">
-						<canvas id="fabricPreviewCanvas" style="width:100%; display:block;"></canvas>
-					</div>
-
-					<p class="mt-4 mb-2">
-						<strong>Metros estimados:</strong>
-						<span id="telaMetrosTexto">—</span>
-					</p>
-					<p class="mb-4">
-						<strong>Total (metros × precio por metro):</strong>
-						<span id="telaTotalTexto">—</span>
-					</p>
-
-					<div class="field">
-						<label class="label" style="margin-bottom:0.35rem;">Talla</label>
-						<div class="select is-fullwidth">
-							<select id="tallaVestido" name="talla_vestido">
-								<option value="XS">XS</option>
-								<option value="S">S</option>
-								<option value="M" selected>M</option>
-								<option value="L">L</option>
-								<option value="XL">XL</option>
-								<option value="XXL">XXL</option>
-							</select>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="buttons is-right">
-			<button type="button" class="button is-light is-rounded" data-prev-step="1">Atrás</button>
-			<button type="button" class="button is-link is-rounded" data-next-step="3">Continuar</button>
-		</div>
-	</section>
-
-	<!-- Paso 3: Encaje (carrusel) -->
-	<section id="wizardStep3" class="wizard-step" style="display:none;">
-		<div class="box">
-			<h2 class="subtitle">Paso 3: Selección de encaje (precio por metro y medio)</h2>
-			<p class="has-text-grey mb-4">Elige el tipo de encaje para el diseño de arriba.</p>
-
-			<div class="encaje-carousel-toolbar">
-				<button type="button" class="button is-light is-rounded" id="encajePrev">&larr;</button>
-				<button type="button" class="button is-light is-rounded" id="encajeNext">&rarr;</button>
-			</div>
-			<div id="encajeCarousel" class="encaje-carousel" aria-label="Carrusel de encajes"></div>
-
-			<hr>
-			<p class="mb-1"><strong>Encaje seleccionado:</strong> <span id="encajeSeleccionTexto">—</span></p>
-
-			<div class="buttons is-right mt-4">
-				<button type="button" class="button is-light is-rounded" data-prev-step="2">Atrás</button>
-				<button type="button" class="button is-link is-rounded" data-next-step="4">Continuar</button>
-			</div>
-		</div>
-	</section>
-
-	<!-- Paso 4: Cita + envío al admin -->
-	<section id="wizardStep4" class="wizard-step" style="display:none;">
-		<div class="box">
-			<h2 class="subtitle">Paso 4: Selecciona tu cita</h2>
-
-			<?php if(!$clienteLogueado){ ?>
-				<article class="message is-warning">
-					<div class="message-body">
-						Debes iniciar sesión para enviar la solicitud.
-						<div class="buttons mt-3">
-							<a class="button is-link is-light is-rounded js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Iniciar sesión</a>
-							<a class="button is-info is-rounded js-cliente-auth-open" href="#" data-auth-intent="register" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Registrarme</a>
-						</div>
-					</div>
-				</article>
-			<?php } ?>
-
-			<div class="columns is-multiline">
-				<div class="column is-6">
-					<div class="field">
-						<label class="label">Fecha de cita</label>
-						<div class="control">
-							<input id="cita_fecha_personalizada" class="input" type="date" <?php echo $clienteLogueado ? 'required' : ''; ?> >
-						</div>
-						<p class="help">Disponible de lunes a sábado (no domingos ni feriados).</p>
-					</div>
-				</div>
-				<div class="column is-6">
-					<div class="field">
-						<label class="label">Hora</label>
-						<div class="control">
-							<div class="select is-fullwidth">
-								<select id="cita_hora_personalizada" <?php echo $clienteLogueado ? 'required' : ''; ?> disabled>
-									<option value="">Selecciona una fecha primero</option>
-								</select>
-							</div>
-						</div>
-						<p id="cita_help_personalizada" class="help">Horario: 10:00 am a 07:00 pm</p>
-					</div>
-				</div>
-			</div>
-
-			<hr>
-			<h3 class="title is-6">Resumen</h3>
-			<div class="content">
-				<ul>
-					<li><strong>Talla:</strong> <span id="resumenTalla">—</span></li>
-					<li><strong>Tela:</strong> <span id="resumenTela">—</span></li>
-					<li><strong>Encaje:</strong> <span id="resumenEncaje">—</span></li>
-				</ul>
-			</div>
-
-			<div class="buttons is-right">
-				<button type="button" class="button is-light is-rounded" data-prev-step="3">Atrás</button>
-				<button id="btnEnviarSolicitud" type="button" class="button is-danger is-rounded" <?php echo $clienteLogueado ? '' : 'disabled'; ?> >
-					Enviar solicitud al administrador
-				</button>
-			</div>
-			<p class="help">Se enviará: detalle del vestido, tela, encaje y tu cita.</p>
-		</div>
-	</section>
-
-	</div>
-
-			</div>
-		</div>
-	</div>
-</section>
-
-<!-- Modal: Solicitudes anteriores -->
-<div id="modalSolicitudesAnteriores" class="modal">
-	<div class="modal-background"></div>
-	<div class="modal-card" style="width: min(94vw, 980px);">
-		<header class="modal-card-head">
-			<p class="modal-card-title">Mis solicitudes personalizadas</p>
-			<button class="delete" aria-label="close"></button>
-		</header>
-		<section class="modal-card-body">
-			<div id="solicitudesAnterioresEstado" class="notification is-light">Cargando...</div>
-			<div class="table-container" id="solicitudesAnterioresWrap" style="display:none;">
-				<table class="table is-fullwidth is-striped is-hoverable">
-					<thead>
-						<tr>
-							<th>ID</th>
-							<th>Cita</th>
-							<th>Estado</th>
-							<th>Creado</th>
-							<th></th>
-						</tr>
-					</thead>
-					<tbody id="solicitudesAnterioresTbody"></tbody>
-				</table>
-			</div>
-		</section>
-		<footer class="modal-card-foot" style="justify-content:flex-end;">
-			<button class="button is-link is-light is-rounded">Cerrar</button>
-		</footer>
-	</div>
-</div>
-
-<!-- Modal: Detalle de solicitud personalizada -->
-<div id="modalSolicitudDetalle" class="modal">
-	<div class="modal-background"></div>
-	<div class="modal-card" style="width: min(92vw, 760px);">
-		<header class="modal-card-head">
-			<p class="modal-card-title">Detalle de tu solicitud</p>
-			<button class="delete" aria-label="close"></button>
-		</header>
-		<section class="modal-card-body">
-			<div class="content">
-				<ul>
-					<li><strong>Fecha:</strong> <span id="solDetalleFecha">—</span></li>
-					<li><strong>Hora:</strong> <span id="solDetalleHora">—</span></li>
-					<li><strong>Talla:</strong> <span id="solDetalleTalla">—</span></li>
-					<li><strong>Tela:</strong> <span id="solDetalleTela">—</span></li>
-					<li><strong>Encaje:</strong> <span id="solDetalleEncaje">—</span></li>
-				</ul>
-				<hr>
-				<p class="mb-2"><strong>Descripción del vestido</strong></p>
-				<p id="solDetalleVestido" style="white-space: pre-wrap;">—</p>
-			</div>
-		</section>
-		<footer class="modal-card-foot" style="justify-content:flex-end;">
-			<button class="button is-link is-light is-rounded">Cerrar</button>
-		</footer>
-	</div>
-</div>
-
-<!-- Modal: Previsualización 3D grande -->
-<div id="modalFabricPreview" class="modal">
-	<div class="modal-background"></div>
-	<div class="modal-card" style="width: min(92vw, 980px);">
-		<header class="modal-card-head">
-			<p class="modal-card-title">Previsualización 3D de la tela</p>
-			<button class="delete" aria-label="close"></button>
-		</header>
-		<section class="modal-card-body">
-			<canvas id="fabricPreviewCanvasModal" class="fabric-preview-canvas-modal"></canvas>
-		</section>
-		<footer class="modal-card-foot" style="justify-content:flex-end;">
-			<button class="button is-link is-light is-rounded">Cerrar</button>
-		</footer>
-	</div>
-</div>
-
-<!-- Modal: Vestido 3D grande -->
-<div id="modalDressPreview" class="modal">
-	<div class="modal-background"></div>
-	<div class="modal-card" style="width: min(92vw, 980px);">
-		<header class="modal-card-head">
-			<p class="modal-card-title">Vestido en 3D</p>
-			<button class="delete" aria-label="close"></button>
-		</header>
-		<section class="modal-card-body">
-			<canvas id="dress3dCanvasModal" class="fabric-preview-canvas-modal"></canvas>
-		</section>
-		<footer class="modal-card-foot" style="justify-content:flex-end;">
-			<button class="button is-link is-light is-rounded">Cerrar</button>
-		</footer>
-	</div>
-</div>
-
-<script>
-	window.APP_URL = "<?php echo APP_URL; ?>";
-	window.MONEDA_SIMBOLO = "<?php echo MONEDA_SIMBOLO; ?>";
-	window.CLIENTE_LOGUEADO = <?php echo $clienteLogueado ? 'true' : 'false'; ?>;
-</script>
-
-<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<script src="<?php echo APP_URL; ?>app/views/js/telasCliente.js"></script>
-
+<link rel="stylesheet" href="<?php echo APP_URL; ?>app/views/css/medidasVestido.css">
+<!-- Estilos del personalizador: antes del contenido para que no se vean primero los botones azules de Bulma -->
 <style>
 
 /* Contenedor flotante del personalizador */
@@ -709,3 +178,582 @@
 .encaje-card{ min-width: 240px; max-width: 240px; scroll-snap-align: start; }
 .encaje-card .image img{ object-fit: cover; height: 140px; width: 100%; }
 </style>
+
+<section class="boutique-bg boutique-client-page">
+	<div class="boutique-bg-slider" aria-hidden="true">
+		<div class="boutique-bg-slide s1"></div>
+		<div class="boutique-bg-slide s2"></div>
+		<div class="boutique-bg-slide s3"></div>
+		<div class="boutique-bg-slide s4"></div>
+		<div class="boutique-bg-slide s5"></div>
+		<div class="boutique-bg-slide s6"></div>
+	</div>
+	<div class="boutique-bg-overlay" aria-hidden="true"></div>
+	<?php require_once "./app/views/inc/navbar_cliente.php"; ?>
+	<div class="boutique-client-content">
+		<div class="container">
+			<div class="boutique-glass p-5">
+				<h1 class="title has-text-centered boutique-client-title">Personaliza tu vestido</h1>
+				<p class="has-text-centered mb-5 boutique-client-subtitle">
+		<?php if($clienteLogueado){ ?>
+			<?php echo htmlspecialchars($_SESSION['cliente_nombre']." ".($_SESSION['cliente_apellido'] ?? '')); ?>, completa los pasos para agendar tu cita.
+		<?php }else{ ?>
+			Completa los pasos. Para enviar la solicitud necesitas iniciar sesión.
+		<?php } ?>
+				</p>
+
+	<?php if($clienteLogueado){ ?>
+		<div class="wizard-history-bar mb-3">
+			<button id="btnSolicitudesAnteriores" type="button" class="button is-rounded js-modal-trigger wizard-history-btn" data-target="modalSolicitudesAnteriores">
+				Ver solicitudes anteriores
+				<span id="solicitudesBadge" class="tag is-danger is-rounded is-size-7" style="display:none;">Nuevo</span>
+			</button>
+		</div>
+	<?php } ?>
+
+	<div class="box wizard-float">
+	<div class="tabs is-boxed is-fullwidth" id="wizardTabs">
+		<ul>
+			<li class="is-active" data-step="1"><a><span class="has-text-weight-semibold">Paso 1</span>&nbsp;Vestido</a></li>
+			<li data-step="2"><a><span class="has-text-weight-semibold">Paso 2</span>&nbsp;Telas</a></li>
+			<li data-step="3"><a><span class="has-text-weight-semibold">Paso 3</span>&nbsp;Encaje</a></li>
+			<li data-step="4"><a><span class="has-text-weight-semibold">Paso 4</span>&nbsp;Cita</a></li>
+		</ul>
+	</div>
+
+	<div id="wizardMsg" class="notification is-light" style="display:none;"></div>
+
+	<!-- Paso 1: Vestido personalizado (placeholder) -->
+	<section id="wizardStep1" class="wizard-step">
+		<div class="box">
+			<h2 class="subtitle">Paso 1: Elección de vestido personalizado</h2>
+			<script>
+				window.TELAS_CLIENTE_ID = <?php echo json_encode($clienteLogueado ? (int)$_SESSION['cliente_id'] : 0); ?>;
+			</script>
+			<div class="buttons is-centered mt-5">
+				<button id="bridal-btn" type="button" class="button is-link is-rounded is-medium">
+					Probador Virtual
+				</button>
+			</div>
+
+			<div id="probadorVirtualOverlay" class="probador-virtual-overlay" aria-hidden="true" style="display:none;">
+				<div class="probador-stage">
+					<div class="probador-slide active" data-slide="0">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Madam, tómate una foto de cuerpo completo y sin fondo blanco, por favor.</div>
+					</div>
+					<div class="probador-slide" data-slide="1">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1529139574466-a303027c1d8b?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Mírame de frente con buena iluminación.</div>
+					</div>
+					<div class="probador-slide" data-slide="2">
+						<div class="probador-image" style="background-image:url('https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80');"></div>
+						<div class="probador-caption">Usa ropa ajustada y mantén el fondo despejado.</div>
+					</div>
+				</div>
+			</div>
+
+			<script>
+				const bridalBtn = document.getElementById('bridal-btn');
+				const probadorOverlay = document.getElementById('probadorVirtualOverlay');
+				const bridalBaseUrl = 'http://127.0.0.1:5000/bridal.html';
+				const clienteIdForProbador = Number(window.TELAS_CLIENTE_ID || window.BOUTIQUE_CLIENTE_ID || 0);
+				const slides = Array.from(document.querySelectorAll('.probador-slide'));
+				let slideIndex = 0;
+				let guideTimers = [];
+
+				const buildProbadorUrl = () => {
+					const url = new URL(bridalBaseUrl);
+					if(Number.isFinite(clienteIdForProbador) && clienteIdForProbador > 0){
+						url.searchParams.set('cliente_id', String(Math.trunc(clienteIdForProbador)));
+					}
+					url.searchParams.set('return_url', window.location.href);
+					return url.toString();
+				};
+
+				const hideOverlay = () => {
+					probadorOverlay.style.display = 'none';
+					probadorOverlay.setAttribute('aria-hidden', 'true');
+					slides.forEach((slide) => slide.classList.remove('active'));
+					guideTimers.forEach((timer) => clearTimeout(timer));
+					guideTimers = [];
+				};
+
+				const showSlide = (index) => {
+					slides.forEach((slide, i) => {
+						slide.classList.toggle('active', i === index);
+					});
+				};
+
+				const startGuideSequence = () => {
+					guideTimers.forEach((timer) => clearTimeout(timer));
+					guideTimers = [];
+					slideIndex = 0;
+					showSlide(slideIndex);
+
+					guideTimers.push(setTimeout(() => {
+						slideIndex = 1;
+						showSlide(slideIndex);
+					}, 5000));
+
+					guideTimers.push(setTimeout(() => {
+						slideIndex = 2;
+						showSlide(slideIndex);
+					}, 7000));
+
+					guideTimers.push(setTimeout(() => {
+						hideOverlay();
+						window.location.href = buildProbadorUrl();
+					}, 9300));
+				};
+
+				const openProbadorOverlay = () => {
+					if (probadorOverlay.parentElement !== document.body) {
+						document.body.appendChild(probadorOverlay);
+					}
+					hideOverlay();
+					probadorOverlay.style.display = 'flex';
+					probadorOverlay.setAttribute('aria-hidden', 'false');
+					startGuideSequence();
+				};
+
+				// Nunca visible al cargar la página: solo aparece al clicar el botón.
+				hideOverlay();
+				bridalBtn.addEventListener('click', openProbadorOverlay);
+			</script>
+		</div>
+	</section>
+
+	<style>
+		/* Fecha y hora de la cita: texto claro sobre la caja oscura (calendario del navegador en modo oscuro) */
+		#cita_fecha_personalizada,
+		#cita_hora_personalizada {
+			color: rgba(255,255,255,0.92);
+			-webkit-text-fill-color: rgba(255,255,255,0.92);
+			color-scheme: dark;
+		}
+		#cita_hora_personalizada:disabled {
+			color: rgba(255,255,255,0.5);
+			-webkit-text-fill-color: rgba(255,255,255,0.5);
+		}
+
+		/* La lista desplegable de horas se abre con fondo propio: texto oscuro sobre blanco */
+		#cita_hora_personalizada option {
+			color: #111827;
+			-webkit-text-fill-color: #111827;
+			background-color: #fff;
+		}
+
+		.wizard-step .select:not(.is-multiple):not(.is-loading)::after { border-color: #f2d29b; }
+
+		/* Avisos del personalizador con la paleta de la tienda en vez del azul/verde de Bulma */
+		#wizardMsg.notification {
+			border: 1px solid rgba(255,221,150,0.32);
+			border-radius: 14px;
+			background: linear-gradient(140deg, rgba(58,36,24,0.92), rgba(122,74,44,0.88));
+			color: #f6e8d2;
+			font-weight: 600;
+		}
+		#wizardMsg.notification.is-success { border-color: rgba(150,220,170,0.55); }
+		#wizardMsg.notification.is-warning,
+		#wizardMsg.notification.is-danger { border-color: rgba(255,170,140,0.7); }
+
+		.probador-virtual-overlay {
+			position: fixed;
+			inset: 0;
+			width: 100vw;
+			height: 100vh;
+			z-index: 2147483647;
+			display: none;
+			align-items: center;
+			justify-content: center;
+			background: rgba(12, 8, 10, 0.58);
+			backdrop-filter: blur(3px);
+			pointer-events: auto;
+			margin: 0;
+		}
+
+		.probador-stage {
+			position: relative;
+			width: 100vw;
+			height: 100vh;
+			overflow: hidden;
+			background: radial-gradient(circle at center, rgba(32, 19, 22, 0.38), rgba(12, 8, 10, 0.78));
+			pointer-events: auto !important;
+			margin: 0;
+		}
+
+		.probador-slide {
+			position: absolute;
+			inset: 0;
+			display: none;
+			opacity: 0;
+			transform: translateY(26px) scale(0.96);
+			transition: opacity 1.1s ease, transform 1.1s ease;
+			pointer-events: none;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			padding: 4vh 4vw 7vh;
+		}
+
+		.probador-slide.active {
+			display: flex;
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
+
+		.probador-image {
+			position: relative;
+			height: min(76vh, 760px);
+			width: min(78vw, 980px);
+			background-size: cover;
+			background-position: center;
+			border-radius: 30px;
+			border: 1px solid rgba(255,255,255,0.12);
+			box-shadow: 0 35px 90px rgba(0,0,0,0.48);
+			animation: probadorFloat 4s ease-in-out infinite;
+		}
+
+		.probador-caption {
+			position: absolute;
+			left: 50%;
+			bottom: 6vh;
+			transform: translateX(-50%);
+			width: min(760px, 78vw);
+			font-size: clamp(1rem, 2vw, 1.45rem);
+			line-height: 1.45;
+			font-weight: 700;
+			color: #fff;
+			text-align: center;
+			text-shadow: 0 4px 14px rgba(0,0,0,0.55);
+			background: rgba(15, 10, 12, 0.12);
+			padding: 0.85rem 1.2rem;
+			border-radius: 999px;
+		}
+
+		@keyframes probadorFloat {
+			0%, 100% {
+				transform: translateY(0px) rotate(0deg);
+			}
+			50% {
+				transform: translateY(-10px) rotate(-0.5deg);
+			}
+		}
+
+		@media (max-width: 768px) {
+			.probador-slide {
+				padding: 3vh 4vw 10vh;
+			}
+
+			.probador-image {
+				height: min(60vh, 520px);
+				width: min(90vw, 620px);
+			}
+
+			.probador-caption {
+				bottom: 4vh;
+				width: min(90vw, 620px);
+				border-radius: 18px;
+			}
+		}
+	</style>
+
+	<!-- Paso 2: Telas (existente) -->
+	<section id="wizardStep2" class="wizard-step" style="display:none;">
+		<div class="columns is-variable is-5">
+			<div class="column is-7">
+				<!-- Un solo estudio 3D (js/estudio3d.js): el vestido y la muestra de tela en la misma escena -->
+				<div class="box estudio3d-caja">
+					<div class="estudio3d-cabecera">
+						<h2 class="subtitle" style="margin-bottom:0;"><i class="fas fa-cube"></i> &nbsp; Tu vestido en 3D</h2>
+						<div class="estudio3d-vistas" role="tablist" aria-label="Qué ver en 3D">
+							<button type="button" role="tab" class="estudio3d-vista" data-vista="vestido" aria-selected="true">Vestido</button>
+							<button type="button" role="tab" class="estudio3d-vista" data-vista="tela" aria-selected="false">Tela</button>
+						</div>
+						<button
+							id="openDressPreviewModal"
+							type="button"
+							class="button is-link is-light is-rounded is-small js-modal-trigger"
+							data-target="modalDressPreview"
+						>
+							Ver grande
+						</button>
+					</div>
+					<div class="estudio3d-escenario">
+						<canvas id="dress3dCanvas" aria-label="Vista 3D del vestido con la tela elegida"></canvas>
+						<p class="estudio3d-etiqueta" id="estudio3dEtiqueta" aria-live="polite"></p>
+						<p class="estudio3d-ayuda"><i class="fas fa-hand-pointer"></i> Arrastra para girar</p>
+					</div>
+				</div>
+			</div>
+
+			<div class="column is-5">
+				<div class="box">
+					<h2 class="subtitle"><i class="fas fa-layer-group"></i> &nbsp; Tipos de tela (precio por metro)</h2>
+
+					<div id="telasEstado" class="notification is-info is-light" style="display:none;"></div>
+					<div id="telasList"></div>
+
+					<!-- Talla + altura -> metros de tela -> precio (estilos en css/medidasVestido.css) -->
+					<div class="medidas-vestido mt-4">
+						<p class="medidas-titulo">Talla</p>
+						<div class="talla-chips" role="radiogroup" aria-label="Talla del vestido">
+							<?php foreach(array_keys(VESTIDO_METROS_BASE) as $t){ ?>
+								<button type="button" class="talla-chip" role="radio" data-talla="<?php echo $t; ?>" aria-checked="<?php echo $t==='M' ? 'true' : 'false'; ?>"><?php echo $t; ?></button>
+							<?php } ?>
+						</div>
+						<!-- El select sigue siendo la fuente del valor para telasCliente.js -->
+						<select id="tallaVestido" name="talla_vestido" class="is-sr-only" tabindex="-1" aria-hidden="true">
+							<?php foreach(array_keys(VESTIDO_METROS_BASE) as $t){ ?>
+								<option value="<?php echo $t; ?>" <?php echo $t==='M' ? 'selected' : ''; ?>><?php echo $t; ?></option>
+							<?php } ?>
+						</select>
+
+						<p class="medidas-titulo mt-4">Tu altura</p>
+						<div class="altura-medidor">
+							<div class="altura-escena" aria-hidden="true">
+								<div class="altura-regla" id="alturaRegla"></div>
+								<svg class="altura-figura" id="alturaFigura" viewBox="0 6 100 290" preserveAspectRatio="xMidYMax meet">
+									<defs>
+										<linearGradient id="vestidoDegradado" x1="0" y1="0" x2="0" y2="1">
+											<stop offset="0" stop-color="#f6e8d2" />
+											<stop offset="1" stop-color="#c99a5b" />
+										</linearGradient>
+										<pattern id="vestidoTextura" patternUnits="userSpaceOnUse" x="0" y="6" width="100" height="290">
+											<image id="vestidoTexturaImg" href="" x="0" y="6" width="100" height="290" preserveAspectRatio="xMidYMid slice" />
+										</pattern>
+									</defs>
+									<circle class="figura-piel" cx="50" cy="18" r="12" />
+									<rect class="figura-piel" x="46" y="28" width="8" height="12" rx="3" />
+									<path class="figura-piel figura-brazo" d="M35 46 Q25 72 30 114" />
+									<path class="figura-piel figura-brazo" d="M65 46 Q75 72 70 114" />
+									<path id="figuraVestido" class="figura-vestido" d="M34 44 Q50 37 66 44 L62 92 C70 160 86 240 95 296 L5 296 C14 240 30 160 38 92 Z" />
+									<path class="figura-cintura" d="M38 92 Q50 99 62 92" />
+								</svg>
+								<div class="altura-marcador" id="alturaMarcador"><span id="alturaBurbuja">160 cm</span></div>
+							</div>
+
+							<div class="altura-controles">
+								<p class="altura-valor"><span id="alturaValor">160</span><small>cm</small></p>
+								<div class="altura-ajuste">
+									<button type="button" class="altura-paso" data-altura-paso="-1" aria-label="Restar 1 cm">−</button>
+									<input id="alturaVestido" type="range" min="<?php echo VESTIDO_ALTURA_MIN; ?>" max="<?php echo VESTIDO_ALTURA_MAX; ?>" step="1" value="<?php echo VESTIDO_ALTURA_REFERENCIA; ?>" aria-label="Altura en centímetros">
+									<button type="button" class="altura-paso" data-altura-paso="1" aria-label="Sumar 1 cm">+</button>
+								</div>
+								<p class="altura-ayuda">Mídete descalza, de los talones a la coronilla. Con tu altura calculamos el largo del vestido.</p>
+							</div>
+						</div>
+
+						<div class="tela-calculo">
+							<div class="tela-rollo" aria-hidden="true">
+								<div class="tela-rollo-cilindro"></div>
+								<div class="tela-rollo-pista"><div class="tela-rollo-tira" id="telaRolloTira"></div></div>
+							</div>
+							<div class="tela-rollo-escala" aria-hidden="true"><span>0</span><span>1 m</span><span>2 m</span><span>3 m</span><span>4 m</span><span>5 m</span></div>
+							<p class="tela-metros"><strong>Tela necesaria:</strong> <span id="telaMetrosTexto">—</span></p>
+							<div class="precio-real" aria-live="polite">
+								<span class="precio-real-etiqueta">Precio de la tela</span>
+								<span class="precio-real-monto" id="telaTotalTexto">—</span>
+								<span class="precio-real-formula" id="telaFormulaTexto">Elige una tela para ver el precio</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="buttons is-right">
+			<button type="button" class="button is-light is-rounded" data-prev-step="1">Atrás</button>
+			<button type="button" class="button is-link is-rounded" data-next-step="3">Continuar</button>
+		</div>
+	</section>
+
+	<!-- Paso 3: Encaje (carrusel) -->
+	<section id="wizardStep3" class="wizard-step" style="display:none;">
+		<div class="box">
+			<h2 class="subtitle">Paso 3: Selección de encaje (precio por metro y medio)</h2>
+			<p class="has-text-grey mb-4">Elige el tipo de encaje para el diseño de arriba.</p>
+
+			<div class="encaje-carousel-toolbar">
+				<button type="button" class="button is-light is-rounded" id="encajePrev">&larr;</button>
+				<button type="button" class="button is-light is-rounded" id="encajeNext">&rarr;</button>
+			</div>
+			<div id="encajeCarousel" class="encaje-carousel" aria-label="Carrusel de encajes"></div>
+
+			<hr>
+			<p class="mb-1"><strong>Encaje seleccionado:</strong> <span id="encajeSeleccionTexto">—</span></p>
+
+			<div class="buttons is-right mt-4">
+				<button type="button" class="button is-light is-rounded" data-prev-step="2">Atrás</button>
+				<button type="button" class="button is-link is-rounded" data-next-step="4">Continuar</button>
+			</div>
+		</div>
+	</section>
+
+	<!-- Paso 4: Cita + envío al admin -->
+	<section id="wizardStep4" class="wizard-step" style="display:none;">
+		<div class="box">
+			<h2 class="subtitle">Paso 4: Selecciona tu cita</h2>
+
+			<?php if(!$clienteLogueado){ ?>
+				<article class="message is-warning">
+					<div class="message-body">
+						Debes iniciar sesión para enviar la solicitud.
+						<div class="buttons mt-3">
+							<a class="button is-link is-light is-rounded js-cliente-auth-open" href="#" data-auth-intent="login" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Iniciar sesión</a>
+							<a class="button is-info is-rounded js-cliente-auth-open" href="#" data-auth-intent="register" data-redirect-to="<?php echo htmlspecialchars($redirectTo,ENT_QUOTES,'UTF-8'); ?>">Registrarme</a>
+						</div>
+					</div>
+				</article>
+			<?php } ?>
+
+			<div class="columns is-multiline">
+				<div class="column is-6">
+					<div class="field">
+						<label class="label">Fecha de cita</label>
+						<div class="control">
+							<input id="cita_fecha_personalizada" class="input" type="date" <?php echo $clienteLogueado ? 'required' : ''; ?> >
+						</div>
+						<p class="help">Disponible de lunes a sábado (no domingos ni feriados).</p>
+					</div>
+				</div>
+				<div class="column is-6">
+					<div class="field">
+						<label class="label">Hora</label>
+						<div class="control">
+							<div class="select is-fullwidth">
+								<select id="cita_hora_personalizada" <?php echo $clienteLogueado ? 'required' : ''; ?> disabled>
+									<option value="">Selecciona una fecha primero</option>
+								</select>
+							</div>
+						</div>
+						<p id="cita_help_personalizada" class="help">Horario: 10:00 am a 07:00 pm</p>
+					</div>
+				</div>
+			</div>
+
+			<hr>
+			<h3 class="title is-6">Resumen</h3>
+			<div class="content">
+				<ul>
+					<li><strong>Talla:</strong> <span id="resumenTalla">—</span></li>
+					<li><strong>Altura:</strong> <span id="resumenAltura">—</span></li>
+					<li><strong>Tela:</strong> <span id="resumenTela">—</span></li>
+					<li><strong>Encaje:</strong> <span id="resumenEncaje">—</span></li>
+					<li><strong>Total estimado (tela + encaje):</strong> <span id="resumenTotal">—</span></li>
+				</ul>
+			</div>
+
+			<div class="buttons is-right">
+				<button type="button" class="button is-light is-rounded" data-prev-step="3">Atrás</button>
+				<button id="btnEnviarSolicitud" type="button" class="button is-danger is-rounded" <?php echo $clienteLogueado ? '' : 'disabled'; ?> >
+					Enviar solicitud al administrador
+				</button>
+			</div>
+			<p class="help">Se enviará: detalle del vestido, tela, encaje y tu cita.</p>
+		</div>
+	</section>
+
+	</div>
+
+			</div>
+		</div>
+	</div>
+</section>
+
+<!-- Modal: Solicitudes anteriores -->
+<div id="modalSolicitudesAnteriores" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(94vw, 980px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Mis solicitudes personalizadas</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<div id="solicitudesAnterioresEstado" class="notification is-light">Cargando...</div>
+			<div class="table-container" id="solicitudesAnterioresWrap" style="display:none;">
+				<table class="table is-fullwidth is-striped is-hoverable">
+					<thead>
+						<tr>
+							<th>ID</th>
+							<th>Cita</th>
+							<th>Estado</th>
+							<th>Creado</th>
+							<th></th>
+						</tr>
+					</thead>
+					<tbody id="solicitudesAnterioresTbody"></tbody>
+				</table>
+			</div>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Modal: Detalle de solicitud personalizada -->
+<div id="modalSolicitudDetalle" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(92vw, 760px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Detalle de tu solicitud</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<div class="content">
+				<ul>
+					<li><strong>Fecha:</strong> <span id="solDetalleFecha">—</span></li>
+					<li><strong>Hora:</strong> <span id="solDetalleHora">—</span></li>
+					<li><strong>Talla:</strong> <span id="solDetalleTalla">—</span></li>
+					<li><strong>Tela:</strong> <span id="solDetalleTela">—</span></li>
+					<li><strong>Encaje:</strong> <span id="solDetalleEncaje">—</span></li>
+				</ul>
+				<hr>
+				<p class="mb-2"><strong>Descripción del vestido</strong></p>
+				<p id="solDetalleVestido" style="white-space: pre-wrap;">—</p>
+			</div>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
+</div>
+
+<!-- Modal: estudio 3D grande (misma vista que en la página) -->
+<div id="modalDressPreview" class="modal">
+	<div class="modal-background"></div>
+	<div class="modal-card" style="width: min(92vw, 980px);">
+		<header class="modal-card-head">
+			<p class="modal-card-title">Tu vestido en 3D</p>
+			<button class="delete" aria-label="close"></button>
+		</header>
+		<section class="modal-card-body">
+			<canvas id="dress3dCanvasModal" class="fabric-preview-canvas-modal"></canvas>
+		</section>
+		<footer class="modal-card-foot" style="justify-content:flex-end;">
+			<button class="button is-link is-light is-rounded">Cerrar</button>
+		</footer>
+	</div>
+</div>
+
+<script>
+	window.APP_URL = "<?php echo APP_URL; ?>";
+	window.MONEDA_SIMBOLO = "<?php echo MONEDA_SIMBOLO; ?>";
+	window.CLIENTE_LOGUEADO = <?php echo $clienteLogueado ? 'true' : 'false'; ?>;
+	// Misma fórmula que el servidor (config/app.php)
+	window.VESTIDO_MEDIDAS = <?php echo json_encode([
+		'metrosBase' => VESTIDO_METROS_BASE,
+		'complejidad' => VESTIDO_COMPLEJIDAD,
+		'alturaMin' => VESTIDO_ALTURA_MIN,
+		'alturaMax' => VESTIDO_ALTURA_MAX,
+		'alturaReferencia' => VESTIDO_ALTURA_REFERENCIA,
+		'parteLargo' => VESTIDO_PARTE_LARGO,
+	]); ?>;
+</script>
+
+<script defer src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script defer src="<?php echo APP_URL; ?>app/views/js/estudio3d.js"></script>
+<script defer src="<?php echo APP_URL; ?>app/views/js/telasCliente.js"></script>
+

@@ -1,0 +1,563 @@
+/* ==========================================================
+   Personaliza tu vestido · Paso 2: talla, altura y precio
+   (telasCliente-view.php + telasCliente.js)
+   ========================================================== */
+.medidas-vestido{
+	--oro: #f2d29b;
+	--oro-fuerte: #c99a5b;
+	--crema: #f6e8d2;
+	--texto: rgba(255,255,255,0.92);
+	--texto-suave: rgba(255,255,255,0.68);
+	--linea: rgba(255,221,150,0.26);
+	--rebote: cubic-bezier(0.34, 1.4, 0.64, 1);
+	--suave: cubic-bezier(0.23, 1, 0.32, 1);
+	color: var(--texto);
+}
+
+.medidas-titulo{
+	margin: 0 0 .5rem;
+	font-size: .8rem;
+	font-weight: 800;
+	letter-spacing: .14em;
+	text-transform: uppercase;
+	color: var(--oro);
+}
+
+/* ---------- Estudio 3D (js/estudio3d.js) ---------- */
+@media (min-width: 769px){
+	/* se queda a la vista mientras se eligen tela, talla y altura */
+	.estudio3d-caja{ position: sticky; top: 76px; }
+}
+
+.estudio3d-cabecera{
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .6rem;
+	margin-bottom: .8rem;
+}
+.estudio3d-cabecera .subtitle{ flex: 1 1 auto; }
+
+.estudio3d-vistas{
+	display: inline-flex;
+	padding: 3px;
+	border: 1px solid rgba(255,221,150,0.26);
+	border-radius: 999px;
+	background: rgba(0,0,0,0.25);
+}
+
+.estudio3d-vista{
+	min-height: 32px;
+	padding: 0 .95rem;
+	border: 0;
+	border-radius: 999px;
+	background: transparent;
+	color: rgba(255,255,255,0.75);
+	font-family: inherit;
+	font-size: .8rem;
+	font-weight: 800;
+	cursor: pointer;
+	transition: background-color .25s cubic-bezier(0.23, 1, 0.32, 1), color .2s;
+}
+.estudio3d-vista[aria-selected="true"]{
+	background: linear-gradient(160deg, #f6e8d2, #c99a5b);
+	color: #2a1a10;
+}
+.estudio3d-vista:focus-visible{ outline: 2px solid #f2d29b; outline-offset: 2px; }
+
+.estudio3d-escenario{
+	position: relative;
+	overflow: hidden;
+	border-radius: 14px;
+	background: #1b1411;
+	box-shadow: inset 0 0 0 1px rgba(255,221,150,0.14);
+}
+
+#dress3dCanvas{
+	display: block;
+	width: 100%;
+	height: clamp(380px, 62vh, 560px);
+}
+
+.estudio3d-etiqueta,
+.estudio3d-ayuda{
+	position: absolute;
+	margin: 0;
+	padding: .3rem .7rem;
+	border-radius: 999px;
+	background: rgba(20,14,11,0.72);
+	backdrop-filter: blur(6px);
+	-webkit-backdrop-filter: blur(6px);
+	font-size: .72rem;
+	pointer-events: none;
+}
+.estudio3d-etiqueta{
+	top: 12px;
+	left: 12px;
+	border: 1px solid rgba(255,221,150,0.3);
+	color: #f2d29b;
+	font-weight: 800;
+	letter-spacing: .03em;
+}
+.estudio3d-ayuda{
+	right: 12px;
+	bottom: 12px;
+	color: rgba(255,255,255,0.7);
+}
+
+@media (max-width: 768px){
+	#dress3dCanvas{ height: 400px; }
+}
+
+/* ---------- Tipos de tela (cuadrícula compacta) ---------- */
+.telas-grilla{
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: .5rem;
+}
+
+.tela-opcion{
+	display: flex;
+	align-items: center;
+	gap: .6rem;
+	min-height: 58px;
+	padding: .45rem .55rem;
+	border: 1px solid rgba(255,221,150,0.18);
+	border-radius: 12px;
+	background: rgba(255,255,255,0.04);
+	color: rgba(255,255,255,0.92);
+	cursor: pointer;
+	transition: border-color .2s, background-color .2s, transform .15s cubic-bezier(0.23, 1, 0.32, 1), box-shadow .25s;
+}
+
+@media (hover: hover){
+	.tela-opcion:hover{ border-color: rgba(255,221,150,0.55); background: rgba(255,221,150,0.07); }
+}
+.tela-opcion:active{ transform: scale(.97); }
+
+.tela-opcion:has(input:checked){
+	border-color: #f2d29b;
+	background: linear-gradient(140deg, rgba(246,232,210,0.16), rgba(201,154,91,0.12));
+	box-shadow: 0 8px 22px -12px rgba(201,154,91,0.9);
+}
+
+.tela-opcion:has(input:focus-visible){
+	outline: 2px solid #f2d29b;
+	outline-offset: 2px;
+}
+
+.tela-muestra{
+	position: relative;
+	flex: none;
+	width: 40px;
+	height: 40px;
+	border-radius: 10px;
+	background: linear-gradient(160deg, #f6e8d2, #c99a5b) center / cover;
+	box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+}
+
+/* check dorado sobre la muestra elegida */
+.tela-muestra::after{
+	content: "✓";
+	position: absolute;
+	right: -5px;
+	bottom: -5px;
+	display: grid;
+	place-items: center;
+	width: 18px;
+	height: 18px;
+	border-radius: 50%;
+	background: #f2d29b;
+	color: #2a1a10;
+	font-size: .65rem;
+	font-weight: 900;
+	transform: scale(0);
+	transition: transform .25s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.tela-opcion:has(input:checked) .tela-muestra::after{ transform: scale(1); }
+
+.tela-texto{
+	display: grid;
+	min-width: 0;
+	line-height: 1.2;
+}
+
+.tela-nombre{
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	font-size: .76rem;
+	font-weight: 800;
+	letter-spacing: .01em;
+	color: #fff !important;
+}
+
+.tela-precio{
+	margin-top: .15rem;
+	font-size: .74rem;
+	color: #f2d29b;
+	font-variant-numeric: tabular-nums;
+}
+
+/* Celular: muestra arriba, nombre debajo con todo el ancho */
+@media (max-width: 480px){
+	.tela-opcion{
+		flex-direction: column;
+		align-items: stretch;
+		gap: .4rem;
+		padding: .45rem;
+	}
+	.tela-muestra{ width: 100%; height: 34px; border-radius: 8px; }
+	.tela-muestra::after{ right: 4px; bottom: auto; top: 8px; }
+	.tela-nombre{ font-size: .72rem; overflow-wrap: anywhere; }
+}
+
+.tela-detalle{
+	min-height: 1.4em;
+	margin: .6rem 0 0;
+	font-size: .8rem;
+	color: rgba(255,255,255,0.68);
+}
+.tela-detalle strong{ color: #f2d29b !important; }
+
+/* ---------- Talla ---------- */
+.talla-chips{
+	display: grid;
+	grid-template-columns: repeat(6, minmax(0, 1fr));
+	gap: .4rem;
+}
+
+.talla-chip{
+	min-height: 44px;
+	padding: 0;
+	border: 1px solid var(--linea);
+	border-radius: 12px;
+	background: rgba(255,255,255,0.06);
+	color: var(--texto);
+	font-family: inherit;
+	font-size: .95rem;
+	font-weight: 800;
+	line-height: 1;
+	cursor: pointer;
+	transition: background-color .2s var(--suave), border-color .2s, color .2s, transform .15s var(--suave), box-shadow .25s;
+}
+
+@media (hover: hover){
+	.talla-chip:hover{ border-color: var(--oro); background: rgba(255,221,150,0.12); }
+}
+
+.talla-chip:active{ transform: scale(.94); }
+
+.talla-chip:focus-visible{
+	outline: 2px solid var(--oro);
+	outline-offset: 2px;
+}
+
+.talla-chip[aria-checked="true"]{
+	background: linear-gradient(160deg, var(--crema), var(--oro-fuerte));
+	border-color: transparent;
+	color: #2a1a10;
+	box-shadow: 0 8px 22px -8px rgba(201,154,91,0.75);
+}
+
+/* ---------- Altura ---------- */
+.altura-medidor{
+	display: grid;
+	grid-template-columns: 150px 1fr;
+	gap: 1rem;
+	align-items: center;
+	padding: .9rem;
+	border: 1px solid var(--linea);
+	border-radius: 16px;
+	background: rgba(0,0,0,0.22);
+}
+
+.altura-escena{
+	--escala: 0.76; /* altura / 210 cm, lo pone telasCliente.js */
+	position: relative;
+	height: 260px;
+	overflow: hidden;
+}
+
+.altura-regla{
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: 46px;
+	border-right: 1px solid var(--linea);
+}
+
+.altura-regla .marca{
+	position: absolute;
+	right: 0;
+	height: 1px;
+	width: 8px;
+	background: rgba(255,221,150,0.35);
+}
+
+.altura-regla .marca.larga{ width: 14px; background: rgba(255,221,150,0.7); }
+
+.altura-regla .marca span{
+	position: absolute;
+	right: 18px;
+	top: -.5em;
+	font-size: .62rem;
+	line-height: 1;
+	color: var(--texto-suave);
+	font-variant-numeric: tabular-nums;
+}
+
+.altura-figura{
+	position: absolute;
+	left: 56px;
+	right: 0;
+	bottom: 0;
+	height: calc(var(--escala) * 100%);
+	width: calc(100% - 56px);
+	overflow: visible;
+	transition: height .7s var(--rebote);
+	filter: drop-shadow(0 10px 18px rgba(0,0,0,0.45));
+}
+
+.figura-piel{ fill: #f3dcc0; }
+.figura-brazo{ fill: none; stroke: #f3dcc0; stroke-width: 6; stroke-linecap: round; }
+.figura-vestido{ fill: url(#vestidoDegradado); transition: opacity .3s; }
+.figura-vestido.con-textura{ fill: url(#vestidoTextura); }
+.figura-cintura{ fill: none; stroke: rgba(255,255,255,0.65); stroke-width: 1.5; }
+
+.altura-marcador{
+	position: absolute;
+	left: 40px;
+	right: 0;
+	bottom: calc(var(--escala) * 100%);
+	height: 0;
+	border-top: 1px dashed var(--oro);
+	transition: bottom .7s var(--rebote);
+}
+
+.altura-marcador span{
+	position: absolute;
+	right: 0;
+	bottom: 4px;
+	padding: .2rem .5rem;
+	border-radius: 999px;
+	background: var(--oro);
+	color: #2a1a10;
+	font-size: .72rem;
+	font-weight: 800;
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+}
+
+.altura-controles{ min-width: 0; }
+
+.altura-valor{
+	margin: 0;
+	font-size: 2.6rem;
+	font-weight: 800;
+	line-height: 1;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+}
+
+.altura-valor small{
+	margin-left: .3rem;
+	font-size: .95rem;
+	font-weight: 700;
+	color: var(--oro);
+}
+
+.altura-ajuste{
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	margin: .9rem 0 .6rem;
+}
+
+.altura-paso{
+	flex: none;
+	width: 36px;
+	height: 36px;
+	border: 1px solid var(--linea);
+	border-radius: 50%;
+	background: rgba(255,255,255,0.06);
+	color: var(--oro);
+	font-size: 1.2rem;
+	font-weight: 700;
+	line-height: 1;
+	cursor: pointer;
+	transition: background-color .2s, transform .15s var(--suave);
+}
+.altura-paso:active{ transform: scale(.9); }
+@media (hover: hover){ .altura-paso:hover{ background: rgba(255,221,150,0.14); } }
+
+/* Deslizador */
+#alturaVestido{
+	flex: 1;
+	min-width: 0;
+	height: 28px;
+	margin: 0;
+	background: transparent;
+	-webkit-appearance: none;
+	appearance: none;
+	cursor: pointer;
+	--llenado: 36%;
+}
+#alturaVestido::-webkit-slider-runnable-track{
+	height: 6px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, var(--oro-fuerte) 0 var(--llenado), rgba(255,255,255,0.14) var(--llenado) 100%);
+}
+#alturaVestido::-moz-range-track{
+	height: 6px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, var(--oro-fuerte) 0 var(--llenado), rgba(255,255,255,0.14) var(--llenado) 100%);
+}
+#alturaVestido::-webkit-slider-thumb{
+	-webkit-appearance: none;
+	width: 22px;
+	height: 22px;
+	margin-top: -8px;
+	border: 3px solid #2a1a10;
+	border-radius: 50%;
+	background: var(--crema);
+	box-shadow: 0 0 0 3px rgba(242,210,155,0.35);
+	transition: transform .15s var(--suave);
+}
+#alturaVestido::-moz-range-thumb{
+	width: 16px;
+	height: 16px;
+	border: 3px solid #2a1a10;
+	border-radius: 50%;
+	background: var(--crema);
+	box-shadow: 0 0 0 3px rgba(242,210,155,0.35);
+}
+#alturaVestido:active::-webkit-slider-thumb{ transform: scale(1.15); }
+#alturaVestido:focus-visible{ outline: 2px solid var(--oro); outline-offset: 4px; border-radius: 6px; }
+
+.altura-ayuda{
+	margin: 0;
+	font-size: .75rem;
+	line-height: 1.45;
+	color: var(--texto-suave);
+}
+
+/* ---------- Rollo de tela y precio ---------- */
+.tela-calculo{ margin-top: 1rem; }
+
+.tela-rollo{
+	display: flex;
+	align-items: center;
+	height: 34px;
+}
+
+.tela-rollo-cilindro{
+	flex: none;
+	position: relative;
+	z-index: 1;
+	width: 20px;
+	height: 34px;
+	border-radius: 7px;
+	background: linear-gradient(90deg, #8a5a33, var(--crema) 45%, #8a5a33);
+	box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+}
+
+.tela-rollo-pista{
+	flex: 1;
+	height: 22px;
+	margin-left: -2px;
+	overflow: hidden;
+}
+
+.tela-rollo-tira{
+	--avance: 0; /* metros / 5, lo pone telasCliente.js */
+	position: relative;
+	height: 100%;
+	width: calc(var(--avance) * 100%);
+	border-radius: 0 4px 4px 0;
+	background:
+		repeating-linear-gradient(90deg, transparent 0 18px, rgba(0,0,0,0.08) 18px 19px),
+		var(--tela-fondo, linear-gradient(180deg, var(--crema), var(--oro-fuerte)));
+	background-size: auto, 60px 60px;
+	box-shadow: inset 0 -3px 6px rgba(0,0,0,0.18);
+	transition: width .9s var(--suave);
+	overflow: hidden;
+}
+
+/* brillo que recorre la tela cuando cambia el largo */
+.tela-rollo-tira::after{
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+	transform: translateX(-100%);
+}
+.tela-rollo-tira.brilla::after{ animation: tela-brillo .9s var(--suave); }
+
+.tela-rollo-escala{
+	display: flex;
+	justify-content: space-between;
+	margin: .3rem 0 0 18px;
+	font-size: .62rem;
+	color: var(--texto-suave);
+}
+
+.tela-metros{ margin: .7rem 0 .6rem; font-size: .9rem; }
+.tela-metros strong{ color: var(--texto) !important; }
+
+.precio-real{
+	display: grid;
+	gap: .15rem;
+	padding: .85rem 1rem;
+	border-radius: 14px;
+	background: linear-gradient(140deg, rgba(246,232,210,0.16), rgba(201,154,91,0.10));
+	border: 1px solid rgba(255,221,150,0.32);
+}
+
+.precio-real-etiqueta{
+	font-size: .7rem;
+	font-weight: 800;
+	letter-spacing: .14em;
+	text-transform: uppercase;
+	color: var(--oro);
+}
+
+.precio-real-monto{
+	font-size: 1.9rem;
+	font-weight: 800;
+	line-height: 1.1;
+	color: #fff;
+	font-variant-numeric: tabular-nums;
+}
+
+.precio-real-monto.cambia{ animation: precio-pulso .5s var(--suave); }
+
+.precio-real-formula{
+	font-size: .78rem;
+	color: var(--texto-suave);
+	font-variant-numeric: tabular-nums;
+}
+
+@keyframes tela-brillo{ to{ transform: translateX(100%); } }
+@keyframes precio-pulso{
+	0%{ transform: scale(1); }
+	40%{ transform: scale(1.06); color: var(--oro); }
+	100%{ transform: scale(1); }
+}
+
+@media (max-width: 480px){
+	.altura-medidor{ grid-template-columns: 1fr; gap: .75rem; padding: .7rem; }
+	.altura-escena{ height: 230px; }
+	.altura-controles{ text-align: center; }
+	.altura-ayuda{ text-align: left; }
+	.altura-valor{ font-size: 2.1rem; }
+	.talla-chips{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce){
+	.altura-figura,
+	.altura-marcador,
+	.tela-rollo-tira{ transition: none; }
+	.tela-rollo-tira.brilla::after,
+	.precio-real-monto.cambia{ animation: none; }
+}

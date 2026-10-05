@@ -15,11 +15,22 @@
 	const listWrap = qs('#telasList');
 	const metrosTexto = qs('#telaMetrosTexto');
 	const totalTexto = qs('#telaTotalTexto');
-	const canvasPreview = qs('#fabricPreviewCanvas');
 	const dressCanvas = qs('#dress3dCanvas');
-	const modalCanvas = qs('#fabricPreviewCanvasModal');
 	const dressModalCanvas = qs('#dress3dCanvasModal');
 	const tallaSel = qs('#tallaVestido');
+	const alturaInput = qs('#alturaVestido');
+	const formulaTexto = qs('#telaFormulaTexto');
+	const resumenAltura = qs('#resumenAltura');
+	const resumenTotal = qs('#resumenTotal');
+	// Fórmula de metros enviada por el servidor (config/app.php)
+	const MEDIDAS = Object.assign({
+		metrosBase: { XS: 2.4, S: 2.6, M: 2.8, L: 3.0, XL: 3.2, XXL: 3.4 },
+		complejidad: 1.15,
+		alturaMin: 140,
+		alturaMax: 195,
+		alturaReferencia: 160,
+		parteLargo: 0.6
+	}, window.VESTIDO_MEDIDAS || {});
 
 	const wizardMsg = qs('#wizardMsg');
 	const wizardTabs = qs('#wizardTabs');
@@ -108,6 +119,64 @@
 		}catch(e){}
 	}
 
+	/* ---------- Borrador: lo que la clienta eligió sobrevive a una recarga ----------
+	 * Solo con sesión iniciada; se guarda por cliente en este navegador y se borra
+	 * al enviar la solicitud o a los 30 días. */
+	const BORRADOR_KEY = (CLIENTE_LOGUEADO && CLIENTE_ID > 0) ? ('boutique_personaliza_borrador_cliente_' + String(CLIENTE_ID)) : '';
+	const BORRADOR_DIAS = 30;
+
+	function leerBorrador(){
+		if(!BORRADOR_KEY) return null;
+		try{
+			const d = JSON.parse(localStorage.getItem(BORRADOR_KEY) || 'null');
+			if(!d || d.v !== 1) return null;
+			if(Date.now() - Number(d.guardado || 0) > BORRADOR_DIAS * 864e5){
+				localStorage.removeItem(BORRADOR_KEY);
+				return null;
+			}
+			return d;
+		}catch(e){
+			return null;
+		}
+	}
+
+	const BORRADOR_INICIAL = leerBorrador();
+	let borradorTimer = 0;
+	let borradorListo = false; // no guardar hasta terminar de restaurar
+
+	function guardarBorradorAhora(){
+		if(!BORRADOR_KEY || !borradorListo) return;
+		const previo = leerBorrador() || {};
+		const telaSel = currentSelection();
+		const encajeSel = document.querySelector('input[type="radio"][name="encaje_id"]:checked');
+		// Si una lista todavía no cargó, se conserva lo que ya estaba guardado
+		const horaLista = citaHora && !citaHora.disabled;
+		const datos = {
+			v: 1,
+			guardado: Date.now(),
+			paso: currentStep,
+			telaId: telaSel ? String(telaSel.value) : (previo.telaId || ''),
+			talla: tallaSel ? String(tallaSel.value || '') : (previo.talla || ''),
+			altura: getAltura(),
+			encajeId: encajeSel ? String(encajeSel.value) : (previo.encajeId || ''),
+			vista: vistaEstudio,
+			citaFecha: citaFecha ? String(citaFecha.value || '') : '',
+			citaHora: horaLista ? String(citaHora.value || '') : (previo.citaHora || ''),
+		};
+		try{ localStorage.setItem(BORRADOR_KEY, JSON.stringify(datos)); }catch(e){}
+	}
+
+	function guardarBorrador(){
+		clearTimeout(borradorTimer);
+		borradorTimer = setTimeout(guardarBorradorAhora, 250);
+	}
+
+	function borrarBorrador(){
+		clearTimeout(borradorTimer);
+		if(!BORRADOR_KEY) return;
+		try{ localStorage.removeItem(BORRADOR_KEY); }catch(e){}
+	}
+
 	function clearProbadorIdState(){
 		CURRENT_PROBADOR_ID = 0;
 		try{ localStorage.removeItem(PROBADOR_STORAGE_KEY); }catch(e){}
@@ -129,14 +198,16 @@
 
 	function buildSolicitudSnapshot(){
 		const talla = tallaSel ? String(tallaSel.value || 'M') : 'M';
+		const altura = getAltura();
 		const tela = getSelectedTela();
 		const encaje = getSelectedEncaje();
-		const metros = estimateMeters(talla || 'M');
+		const metros = estimateMeters(talla || 'M', altura);
 		const total = (tela && isFinite(tela.precio) && isFinite(metros)) ? (tela.precio * metros) : NaN;
 		return {
 			fecha: citaFecha ? String(citaFecha.value || '') : '',
 			hora: citaHora ? String(citaHora.value || '') : '',
 			talla,
+			altura,
 			telaNombre: tela ? String(tela.nombre || '') : '',
 			telaPrecio: tela ? Number(tela.precio) : NaN,
 			metros,
@@ -273,36 +344,30 @@
 		return n.toFixed(1) + ' m';
 	}
 
-	function getAutoComplexityMultiplier(){
-		// Complejidad automática (sin selector): ajusta este factor si deseas.
-		return 1.15;
+	function getAltura(){
+		const n = alturaInput ? parseInt(alturaInput.value, 10) : NaN;
+		if(!isFinite(n)) return MEDIDAS.alturaReferencia;
+		return Math.min(MEDIDAS.alturaMax, Math.max(MEDIDAS.alturaMin, n));
 	}
 
-	function estimateMeters(talla){
-		// Estimación simple (puedes ajustar los números a tu criterio)
-		const baseBySize = {
-			'XS': 2.4,
-			'S': 2.6,
-			'M': 2.8,
-			'L': 3.0,
-			'XL': 3.2,
-			'XXL': 3.4
-		};
-		const base = baseBySize[String(talla || '').toUpperCase()] ?? baseBySize['M'];
-		const mult = getAutoComplexityMultiplier();
+	// Igual que reservationController::estimarMetrosPorTalla (el servidor recalcula al guardar)
+	function estimateMeters(talla, altura){
+		const bases = MEDIDAS.metrosBase;
+		const base = bases[String(talla || '').toUpperCase()] ?? bases['M'];
+		const h = isFinite(altura) ? altura : MEDIDAS.alturaReferencia;
+		const factorAltura = (1 - MEDIDAS.parteLargo) + MEDIDAS.parteLargo * (h / MEDIDAS.alturaReferencia);
 		// Redondeo al 0.1
-		return Math.round((base * mult) * 10) / 10;
+		return Math.round((base * MEDIDAS.complejidad * factorAltura) * 10) / 10;
 	}
 
 	function getSelectedTela(){
 		const sel = listWrap ? listWrap.querySelector('input[type="radio"][name="tela_id"]:checked') : null;
 		if(!sel) return null;
-		const nombreStrong = sel.closest('.box') ? sel.closest('.box').querySelector('strong') : null;
 		return {
 			id: String(sel.value || ''),
 			precio: Number(sel.getAttribute('data-precio')),
 			textura: sel.getAttribute('data-textura') || '',
-			nombre: nombreStrong ? (nombreStrong.textContent || '') : '',
+			nombre: sel.getAttribute('data-nombre') || '',
 		};
 	}
 
@@ -315,13 +380,21 @@
 
 	function updateResumen(){
 		const talla = tallaSel ? String(tallaSel.value || '') : '';
+		const altura = getAltura();
 		const tela = getSelectedTela();
 		const encaje = getSelectedEncaje();
 
 		if(resumenTalla) resumenTalla.textContent = talla || '—';
+		if(resumenAltura) resumenAltura.textContent = altura + ' cm';
+		if(resumenTotal){
+			const metrosTot = estimateMeters(talla || 'M', altura);
+			const totalTela = (tela && isFinite(tela.precio)) ? tela.precio * metrosTot : NaN;
+			const totalEncaje = encaje ? Number(encaje.encaje_precio) : 0;
+			resumenTotal.textContent = isFinite(totalTela) ? formatMoney(totalTela + (isFinite(totalEncaje) ? totalEncaje : 0)) : '—';
+		}
 		if(resumenTela){
 			if(tela && tela.id){
-				const metros = estimateMeters(talla || 'M');
+				const metros = estimateMeters(talla || 'M', altura);
 				const precioTxt = isFinite(tela.precio) ? (formatMoney(tela.precio) + ' / m') : '—';
 				resumenTela.textContent = (tela.nombre ? (tela.nombre + ' — ') : '') + precioTxt + (isFinite(metros) ? (' — ' + metros.toFixed(1) + ' m aprox.') : '');
 			}else{
@@ -374,7 +447,6 @@
 		// Recalcular renders al mostrar el paso 2 (canvas suele medir 0 si estaba oculto)
 		if(s === 2){
 			setTimeout(() => {
-				if(fabricPreview) fabricPreview.resize();
 				if(dressScene) dressScene.resize();
 			}, 60);
 		}
@@ -387,6 +459,7 @@
 		}
 		updateResumen();
 		refreshSubmitState();
+		guardarBorrador();
 	}
 
 	function resolveTextureUrl(url){
@@ -442,169 +515,40 @@
 		return tex;
 	}
 
-	function createScene3D(targetCanvas, mode){
-		if(!window.THREE || !targetCanvas) return null;
+	/* ---------- Estudio 3D (js/estudio3d.js): vestido y tela en una sola escena ---------- */
+	const OPCIONES_ESTUDIO = { resolverUrl: resolveTextureUrl, texturaRespaldo: generateWeaveTexture };
+	const dressScene = window.crearEstudio3D ? window.crearEstudio3D(dressCanvas, OPCIONES_ESTUDIO) : null;
+	let dressPreviewModal = null;
+	let vistaEstudio = 'vestido';
 
-		const renderer = new THREE.WebGLRenderer({ canvas: targetCanvas, antialias: true, alpha: true });
-		renderer.setPixelRatio(window.devicePixelRatio || 1);
-
-		const scene = new THREE.Scene();
-		const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-		// Objetivo para mantener el 3D centrado (se ajusta por modo)
-		const lookAtTarget = new THREE.Vector3(0, 0, 0);
-		camera.position.set(0, 0.85, 2.2);
-
-		const ambient = new THREE.AmbientLight(0xffffff, 1.0);
-		scene.add(ambient);
-		const dir = new THREE.DirectionalLight(0xffffff, 0.8);
-		dir.position.set(2, 3, 2);
-		scene.add(dir);
-
-		const group = new THREE.Group();
-		scene.add(group);
-
-		const material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.85, metalness: 0.0 });
-		// Importante: que la tela se vea por ambos lados al rotar
-		material.side = THREE.DoubleSide;
-		let clothMesh = null;
-		let dressMeshes = [];
-
-		if(mode === 'cloth'){
-			// Paño ondulante (más "3D" que un plano fijo)
-			const geometry = new THREE.PlaneGeometry(1.9, 1.3, 80, 60);
-			clothMesh = new THREE.Mesh(geometry, material);
-			clothMesh.rotation.x = -0.55;
-			clothMesh.position.y = 0.02;
-			group.add(clothMesh);
-			lookAtTarget.set(0, 0.05, 0);
-			camera.position.set(0, 0.65, 2.05);
-		}else{
-			// Vestido placeholder (sin assets externos)
-			const dress = new THREE.Group();
-			dress.position.y = 0.08;
-			group.add(dress);
-
-			const skirtGeo = new THREE.ConeGeometry(0.85, 1.55, 64, 32, true);
-			const skirt = new THREE.Mesh(skirtGeo, material);
-			skirt.position.y = -0.1;
-			skirt.rotation.y = 0.2;
-			dress.add(skirt);
-
-			const topGeo = new THREE.CylinderGeometry(0.38, 0.48, 0.7, 48, 24, true);
-			const top = new THREE.Mesh(topGeo, material);
-			top.position.y = 0.7;
-			dress.add(top);
-
-			const beltGeo = new THREE.TorusGeometry(0.48, 0.06, 16, 64);
-			const beltMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9, metalness: 0.0 });
-			const belt = new THREE.Mesh(beltGeo, beltMat);
-			belt.position.y = 0.35;
-			belt.rotation.x = Math.PI/2;
-			dress.add(belt);
-
-			dressMeshes = [skirt, top];
-
-			// Centrado del vestido en el canvas
-			lookAtTarget.set(0, 0.45, 0);
-			camera.position.set(0, 0.95, 2.6);
-		}
-
-		const textureLoader = new THREE.TextureLoader();
-		let currentTexture = null;
-		let currentProcedural = null;
-
-		function resize(){
-			const rect = targetCanvas.getBoundingClientRect();
-			const w = Math.max(1, Math.floor(rect.width));
-			const h = Math.max(1, Math.floor(rect.height));
-			renderer.setSize(w, h, false);
-			camera.aspect = w / h;
-			camera.updateProjectionMatrix();
-		}
-
-		function applyMaterialMap(tex){
-			material.map = tex;
-			material.needsUpdate = true;
-		}
-
-		function clearTextures(){
-			if(currentTexture){
-				currentTexture.dispose();
-				currentTexture = null;
-			}
-			if(currentProcedural){
-				currentProcedural.dispose();
-				currentProcedural = null;
-			}
-			applyMaterialMap(null);
-			material.color.setHex(0xffffff);
-		}
-
-		function setFabricByUrlOrSeed(url, seed){
-			clearTextures();
-			const resolved = resolveTextureUrl(url);
-			if(!resolved){
-				currentProcedural = generateWeaveTexture(seed || 'tela');
-				applyMaterialMap(currentProcedural);
-				return;
-			}
-
-			textureLoader.load(
-				resolved,
-				(tex) => {
-					tex.wrapS = THREE.RepeatWrapping;
-					tex.wrapT = THREE.RepeatWrapping;
-					tex.repeat.set(mode === 'cloth' ? 2.2 : 1.4, mode === 'cloth' ? 2.0 : 1.4);
-					tex.anisotropy = 4;
-					currentTexture = tex;
-					applyMaterialMap(tex);
-				},
-				undefined,
-				() => {
-					// Si falla la textura, caer a procedimental.
-					currentProcedural = generateWeaveTexture(seed || 'tela');
-					applyMaterialMap(currentProcedural);
-				}
-			);
-		}
-
-		let animId = 0;
-		let t0 = performance.now();
-		function animate(){
-			animId = requestAnimationFrame(animate);
-			const t = (performance.now() - t0) * 0.001;
-			camera.lookAt(lookAtTarget);
-			if(mode === 'cloth' && clothMesh){
-				// ondas suaves para simular tela
-				const pos = clothMesh.geometry.attributes.position;
-				for(let i=0;i<pos.count;i++){
-					const x = pos.getX(i);
-					const y = pos.getY(i);
-					const wave = Math.sin((x*2.2) + t*2.2) * 0.04 + Math.cos((y*2.0) + t*1.6) * 0.03;
-					pos.setZ(i, wave);
-				}
-				pos.needsUpdate = true;
-				clothMesh.geometry.computeVertexNormals();
-				group.rotation.y += 0.003;
-			}
-			if(mode === 'dress'){
-				group.rotation.y += 0.004;
-			}
-			renderer.render(scene, camera);
-		}
-
-		resize();
-		animate();
-
-		window.addEventListener('resize', resize);
-
-		return { setFabric: setFabricByUrlOrSeed, resize, stop: () => cancelAnimationFrame(animId) };
+	function telaParaEstudio(){
+		const sel = currentSelection();
+		if(!sel) return null;
+		return {
+			textura: sel.getAttribute('data-textura'),
+			seed: sel.value || 'tela',
+			nombre: sel.getAttribute('data-nombre') || '',
+			precio: Number(sel.getAttribute('data-precio')),
+		};
 	}
 
-	const fabricPreview = createScene3D(canvasPreview, 'cloth');
-	const dressScene = createScene3D(dressCanvas, 'dress');
-	let fabricPreviewModal = null;
-	let dressPreviewModal = null;
+	function actualizarEtiquetaEstudio(){
+		const etiqueta = qs('#estudio3dEtiqueta');
+		const tela = telaParaEstudio();
+		if(!etiqueta) return;
+		etiqueta.textContent = tela ? (tela.nombre + (isFinite(tela.precio) ? ' · ' + formatMoney(tela.precio) + ' / m' : '')) : '';
+		etiqueta.hidden = !tela;
+	}
+
+	function cambiarVistaEstudio(vista){
+		vistaEstudio = vista;
+		qsa('.estudio3d-vista').forEach(b => b.setAttribute('aria-selected', b.getAttribute('data-vista') === vista ? 'true' : 'false'));
+		if(dressScene) dressScene.setVista(vista);
+		if(dressPreviewModal) dressPreviewModal.setVista(vista);
+		guardarBorrador();
+	}
+
+	qsa('.estudio3d-vista').forEach(b => b.addEventListener('click', () => cambiarVistaEstudio(b.getAttribute('data-vista'))));
 
 	function currentSelection(){
 		return listWrap ? listWrap.querySelector('input[type="radio"][name="tela_id"]:checked') : null;
@@ -612,40 +556,169 @@
 
 	function refreshSummary(precioPorMetro){
 		const talla = tallaSel ? tallaSel.value : 'M';
-		const metros = estimateMeters(talla);
+		const metros = estimateMeters(talla, getAltura());
 		if(metrosTexto) metrosTexto.textContent = formatMeters(metros);
 		const p = Number(precioPorMetro);
-		if(totalTexto) totalTexto.textContent = (isFinite(p) ? formatMoney(metros * p) : '—');
+		animarPrecio(isFinite(p) ? metros * p : NaN);
+		if(formulaTexto){
+			formulaTexto.textContent = isFinite(p)
+				? (metros.toFixed(1) + ' m × ' + formatMoney(p) + ' por metro')
+				: 'Elige una tela para ver el precio';
+		}
+		actualizarRollo(metros);
 		updateResumen();
 		refreshSubmitState();
 	}
 
-	function syncModalFabric(){
-		if(!modalCanvas) return;
-		if(!fabricPreviewModal){
-			fabricPreviewModal = createScene3D(modalCanvas, 'cloth');
+	/* ---------- Medidor de talla y altura (animaciones) ---------- */
+	const reducirMovimiento = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+	const ALTURA_ESCALA_CM = 210; // la escena del medidor representa 0-210 cm (deja ver la marca de 200)
+	let precioMostrado = NaN;
+	let precioAnim = 0;
+
+	function animarPrecio(destino){
+		if(!totalTexto) return;
+		cancelAnimationFrame(precioAnim);
+		if(!isFinite(destino)){
+			precioMostrado = NaN;
+			totalTexto.textContent = '—';
+			return;
 		}
-		const sel = currentSelection();
-		if(sel && fabricPreviewModal){
-			const textura = sel.getAttribute('data-textura');
-			const seed = sel.value || sel.getAttribute('value') || 'tela';
-			fabricPreviewModal.setFabric(textura, seed);
-			setTimeout(() => fabricPreviewModal && fabricPreviewModal.resize(), 50);
+		const desde = isFinite(precioMostrado) ? precioMostrado : 0;
+		if(Math.abs(desde - destino) < 0.005 || reducirMovimiento){
+			precioMostrado = destino;
+			totalTexto.textContent = formatMoney(destino);
+			return;
+		}
+		totalTexto.classList.remove('cambia');
+		void totalTexto.offsetWidth; // reinicia la animación de pulso
+		totalTexto.classList.add('cambia');
+		const inicio = performance.now();
+		const dura = 650;
+		const paso = (ahora) => {
+			const k = Math.min(1, (ahora - inicio) / dura);
+			const suave = 1 - Math.pow(1 - k, 3);
+			precioMostrado = desde + (destino - desde) * suave;
+			totalTexto.textContent = formatMoney(precioMostrado);
+			if(k < 1) precioAnim = requestAnimationFrame(paso);
+			else precioMostrado = destino;
+		};
+		precioAnim = requestAnimationFrame(paso);
+	}
+
+	let metrosAnteriores = NaN;
+	function actualizarRollo(metros){
+		const tira = qs('#telaRolloTira');
+		if(!tira) return;
+		tira.style.setProperty('--avance', String(Math.min(1, Math.max(0, metros / 5))));
+		if(isFinite(metrosAnteriores) && metros !== metrosAnteriores){
+			tira.classList.remove('brilla');
+			void tira.offsetWidth;
+			tira.classList.add('brilla');
+		}
+		metrosAnteriores = metros;
+		// La tira y el vestido de la silueta usan la textura de la tela elegida
+		const tela = getSelectedTela();
+		const url = tela ? resolveTextureUrl(tela.textura) : null;
+		const vestido = qs('#figuraVestido');
+		const img = qs('#vestidoTexturaImg');
+		if(url){
+			tira.style.setProperty('--tela-fondo', 'url("' + url.replace(/"/g, '%22') + '")');
+			if(img) img.setAttribute('href', url);
+			if(vestido) vestido.classList.add('con-textura');
+		}else{
+			tira.style.removeProperty('--tela-fondo');
+			if(vestido) vestido.classList.remove('con-textura');
 		}
 	}
 
-	function syncModalDress(){
-		if(!dressModalCanvas) return;
-		if(!dressPreviewModal){
-			dressPreviewModal = createScene3D(dressModalCanvas, 'dress');
+	function pintarAltura(){
+		const altura = getAltura();
+		const escena = qs('.altura-escena');
+		if(escena) escena.style.setProperty('--escala', String(altura / ALTURA_ESCALA_CM));
+		const valor = qs('#alturaValor');
+		if(valor) valor.textContent = String(altura);
+		const burbuja = qs('#alturaBurbuja');
+		if(burbuja) burbuja.textContent = altura + ' cm';
+		if(alturaInput){
+			const k = (altura - MEDIDAS.alturaMin) / (MEDIDAS.alturaMax - MEDIDAS.alturaMin);
+			alturaInput.style.setProperty('--llenado', (k * 100).toFixed(1) + '%');
+			alturaInput.setAttribute('aria-valuetext', altura + ' centímetros');
 		}
+	}
+
+	function alCambiarMedidas(){
+		pintarAltura();
 		const sel = currentSelection();
-		if(sel && dressPreviewModal){
-			const textura = sel.getAttribute('data-textura');
-			const seed = sel.value || sel.getAttribute('value') || 'tela';
-			dressPreviewModal.setFabric(textura, seed);
-			setTimeout(() => dressPreviewModal && dressPreviewModal.resize(), 50);
+		if(sel) refreshSummary(sel.getAttribute('data-precio'));
+		else refreshSummary(NaN);
+	}
+
+	function initMedidor(){
+		// Regla: marcas cada 5 cm desde 100 cm, con número cada 20 cm
+		const regla = qs('#alturaRegla');
+		if(regla){
+			for(let cm = 100; cm <= 200; cm += 5){
+				const marca = document.createElement('div');
+				const larga = cm % 20 === 0;
+				marca.className = 'marca' + (larga ? ' larga' : '');
+				marca.style.bottom = (cm / ALTURA_ESCALA_CM * 100) + '%';
+				if(larga) marca.innerHTML = '<span>' + cm + '</span>';
+				regla.appendChild(marca);
+			}
 		}
+
+		// Botones de talla -> select oculto (que es el que lee el resto del código)
+		const chips = qsa('.talla-chip');
+		const marcarChip = (valor) => {
+			chips.forEach(c => {
+				const activo = c.getAttribute('data-talla') === valor;
+				c.setAttribute('aria-checked', activo ? 'true' : 'false');
+				c.tabIndex = activo ? 0 : -1;
+			});
+		};
+		chips.forEach((chip, i) => {
+			chip.addEventListener('click', () => {
+				if(!tallaSel) return;
+				tallaSel.value = chip.getAttribute('data-talla');
+				marcarChip(tallaSel.value);
+				tallaSel.dispatchEvent(new Event('change', { bubbles: true }));
+			});
+			// Flechas para moverse entre tallas (patrón radiogroup)
+			chip.addEventListener('keydown', (e) => {
+				const dir = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1 : (e.key === 'ArrowLeft' || e.key === 'ArrowUp') ? -1 : 0;
+				if(!dir) return;
+				e.preventDefault();
+				const sig = chips[(i + dir + chips.length) % chips.length];
+				sig.focus();
+				sig.click();
+			});
+		});
+		if(tallaSel) marcarChip(tallaSel.value);
+
+		if(alturaInput){
+			alturaInput.addEventListener('input', alCambiarMedidas);
+		}
+		qsa('[data-altura-paso]').forEach(btn => {
+			btn.addEventListener('click', () => {
+				if(!alturaInput) return;
+				alturaInput.value = String(getAltura() + Number(btn.getAttribute('data-altura-paso')));
+				alCambiarMedidas();
+			});
+		});
+		pintarAltura();
+	}
+
+	function syncModalDress(){
+		if(!dressModalCanvas || !window.crearEstudio3D) return;
+		if(!dressPreviewModal){
+			dressPreviewModal = window.crearEstudio3D(dressModalCanvas, OPCIONES_ESTUDIO);
+		}
+		if(!dressPreviewModal) return;
+		dressPreviewModal.setVista(vistaEstudio);
+		const tela = telaParaEstudio();
+		if(tela) dressPreviewModal.setFabric(tela.textura, tela.seed, tela.nombre);
+		setTimeout(() => dressPreviewModal && dressPreviewModal.resize(), 50);
 	}
 
 	// Cuando se abre el modal, sincronizar la tela y ajustar el renderer
@@ -655,7 +728,6 @@
 		if(!btn) return;
 		const targetId = btn.getAttribute('data-target') || '';
 		// Dar tiempo a que Bulma muestre el modal
-		if(targetId === 'modalFabricPreview') setTimeout(syncModalFabric, 80);
 		if(targetId === 'modalDressPreview') setTimeout(syncModalDress, 80);
 		if(targetId === 'modalSolicitudesAnteriores') setTimeout(cargarSolicitudesAnteriores, 80);
 	});
@@ -713,35 +785,46 @@
 			estado.style.display = 'none';
 			listWrap.innerHTML = '';
 
+			// Cuadrícula compacta: miniatura de la textura + nombre + precio.
+			// La descripción se muestra una sola vez, debajo, para la tela elegida.
+			const telaGuardada = BORRADOR_INICIAL ? String(BORRADOR_INICIAL.telaId || '') : '';
+			const telaInicial = telas.some(x => String(x.tela_id) === telaGuardada) ? telaGuardada : String(telas[0].tela_id);
 			const form = document.createElement('div');
-			form.className = 'content';
+			form.className = 'telas-grilla';
+			form.setAttribute('role', 'radiogroup');
+			form.setAttribute('aria-label', 'Tipo de tela');
 			telas.forEach((t, idx) => {
 				const id = String(t.tela_id);
 				const nombre = t.tela_nombre || 'Tela';
 				const precio = t.tela_precio;
 				const desc = t.tela_descripcion || '';
 				const textura = t.tela_textura_imagen || '';
+				const texturaUrl = resolveTextureUrl(textura);
 
-				const box = document.createElement('div');
-				box.className = 'box';
-				box.style.padding = '0.9rem';
+				const opcion = document.createElement('label');
+				opcion.className = 'tela-opcion';
+				opcion.title = desc ? (nombre + ' — ' + desc) : nombre;
+				opcion.innerHTML =
+					'<input type="radio" class="is-sr-only" name="tela_id" value="' + id.replace(/"/g,'') + '" ' + (id === telaInicial ? 'checked' : '') +
+					' data-precio="' + String(precio).replace(/"/g,'') + '" data-textura="' + textura.replace(/"/g,'') + '"' +
+					' data-nombre="' + escapeHtml(nombre) + '" data-descripcion="' + escapeHtml(desc) + '">' +
+					'<span class="tela-muestra"' + (texturaUrl ? ' style="background-image:url(&quot;' + escapeHtml(texturaUrl) + '&quot;)"' : '') + '></span>' +
+					'<span class="tela-texto">' +
+						'<strong class="tela-nombre">' + escapeHtml(nombre) + '</strong>' +
+						'<span class="tela-precio">' + escapeHtml(formatMoney(precio)) + ' / m</span>' +
+					'</span>';
 
-				box.innerHTML =
-					'<label class="radio" style="display:block;">' +
-						'<input type="radio" name="tela_id" value="' + id.replace(/"/g,'') + '" ' + (idx===0 ? 'checked' : '') +
-						' data-precio="' + String(precio).replace(/"/g,'') + '" data-textura="' + textura.replace(/"/g,'') + '">' +
-						' <strong>' + escapeHtml(nombre) + '</strong>' +
-						' <span class="is-pulled-right">' + escapeHtml(formatMoney(precio)) + '</span>' +
-					'</label>' +
-					(desc ? ('<p class="mt-2 mb-0">' + escapeHtml(desc) + '</p>') : '');
-
-				form.appendChild(box);
+				form.appendChild(opcion);
 			});
 
 			listWrap.appendChild(form);
+			const detalle = document.createElement('p');
+			detalle.className = 'tela-detalle';
+			detalle.id = 'telaDetalle';
+			listWrap.appendChild(detalle);
 
-			// set initial selection
-			const first = listWrap.querySelector('input[type="radio"][name="tela_id"]');
+			// Selección inicial (la del borrador si existe)
+			const first = listWrap.querySelector('input[type="radio"][name="tela_id"]:checked');
 			if(first){
 				applySelection(first);
 			}
@@ -788,14 +871,20 @@
 	}
 
 	function applySelection(radio){
+		const detalle = qs('#telaDetalle');
+		if(detalle){
+			const nombre = radio.getAttribute('data-nombre') || '';
+			const desc = radio.getAttribute('data-descripcion') || '';
+			detalle.innerHTML = '<strong>' + escapeHtml(nombre) + '</strong>' + (desc ? (' · ' + escapeHtml(desc)) : '');
+		}
 		const textura = radio.getAttribute('data-textura');
 		const precio = radio.getAttribute('data-precio');
 		const seed = radio.value || radio.getAttribute('value') || 'tela';
+		const nombreTela = radio.getAttribute('data-nombre') || '';
 		refreshSummary(precio);
-		if(fabricPreview) fabricPreview.setFabric(textura, seed);
-		if(dressScene) dressScene.setFabric(textura, seed);
-		if(fabricPreviewModal) fabricPreviewModal.setFabric(textura, seed);
-		if(dressPreviewModal) dressPreviewModal.setFabric(textura, seed);
+		actualizarEtiquetaEstudio();
+		if(dressScene) dressScene.setFabric(textura, seed, nombreTela);
+		if(dressPreviewModal) dressPreviewModal.setFabric(textura, seed, nombreTela);
 	}
 
 	function renderEncajes(){
@@ -812,6 +901,8 @@
 			return;
 		}
 
+		const encajeGuardado = BORRADOR_INICIAL ? String(BORRADOR_INICIAL.encajeId || '') : '';
+		const encajeInicial = ENCAJES.some(x => String(x.encaje_id) === encajeGuardado) ? encajeGuardado : String(ENCAJES[0].encaje_id || '');
 		ENCAJES.forEach((e, idx) => {
 			const card = document.createElement('div');
 			card.className = 'card encaje-card';
@@ -830,7 +921,7 @@
 				'</div>' +
 				'<div class="card-content" style="padding: .9rem;">' +
 					'<label class="radio" style="display:block;">' +
-						'<input type="radio" name="encaje_id" value="' + id.replace(/"/g,'') + '" ' + (idx===0 ? 'checked' : '') + '> ' +
+						'<input type="radio" name="encaje_id" value="' + id.replace(/"/g,'') + '" ' + (id === encajeInicial ? 'checked' : '') + '> ' +
 						'<strong>' + escapeHtml(nombre) + '</strong>' +
 						'<span class="is-pulled-right">' + escapeHtml(formatMoney(precio)) + '</span>' +
 					'</label>' +
@@ -947,6 +1038,8 @@
 				citaHora.innerHTML = '<option value="">Selecciona una hora</option>' +
 					available.map(h => `<option value="${h}">${h}</option>`).join('');
 				citaHora.disabled = false;
+				if(horaPendiente && available.includes(horaPendiente)) citaHora.value = horaPendiente;
+				horaPendiente = '';
 				citaHelp.textContent = 'Horario: 10:00 am a 07:00 pm';
 				refreshSubmitState();
 			}catch(e){
@@ -957,7 +1050,10 @@
 
 		citaFecha.addEventListener('change', loadTimes);
 		citaHora.addEventListener('change', refreshSubmitState);
+		return loadTimes;
 	}
+
+	let horaPendiente = '';
 
 	async function enviarSolicitud(){
 		if(!CLIENTE_LOGUEADO){
@@ -991,6 +1087,7 @@
 			fd.append('cita_fecha', citaFecha.value);
 			fd.append('cita_hora', citaHora.value);
 			fd.append('talla', tallaSel ? String(tallaSel.value || 'M') : 'M');
+			fd.append('altura', String(getAltura()));
 			fd.append('tela_id', tela.id);
 			fd.append('encaje_id', String(encaje.encaje_id || ''));
 			if(CURRENT_PROBADOR_ID > 0){
@@ -1010,6 +1107,7 @@
 			}
 
 			showWizardMsg('Se realizó correctamente.', 'success');
+			borrarBorrador();
 			lastSolicitudSnapshot = buildSolicitudSnapshot();
 			if(CURRENT_PROBADOR_ID > 0){
 				clearProbadorIdState();
@@ -1037,8 +1135,32 @@
 		cargarEncajes();
 		initCarouselControls();
 		initWizardNav();
-		initCita();
-		showStep(1);
+		const cargarHorarios = initCita();
+
+		const b = BORRADOR_INICIAL;
+		if(b){
+			if(tallaSel && b.talla && MEDIDAS.metrosBase[b.talla] !== undefined) tallaSel.value = b.talla;
+			if(alturaInput && b.altura) alturaInput.value = String(b.altura);
+		}
+		initMedidor();
+
+		const hoyIso = new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+		if(b && b.citaFecha && b.citaFecha >= hoyIso && citaFecha && cargarHorarios){
+			citaFecha.value = b.citaFecha;
+			horaPendiente = String(b.citaHora || '');
+			cargarHorarios();
+		}
+		if(b && (b.vista === 'tela' || b.vista === 'vestido')) cambiarVistaEstudio(b.vista);
+		showStep(b && steps[b.paso] ? b.paso : 1);
+		borradorListo = true;
+		if(b){
+			showWizardMsg('Recuperamos lo que habías elegido. Puedes seguir donde lo dejaste.', 'info');
+		}
+
+		// Cualquier cambio dentro del personalizador actualiza el borrador
+		const wizard = qs('#wizardStep1') ? qs('#wizardStep1').parentElement : document;
+		wizard.addEventListener('change', guardarBorrador);
+		if(alturaInput) alturaInput.addEventListener('input', guardarBorrador);
 		if(btnEnviar){
 			btnEnviar.addEventListener('click', enviarSolicitud);
 		}

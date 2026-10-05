@@ -1,9 +1,5 @@
 
-/* --- Telas (cliente): previsualización 3D tamaño normal / grande --- */
-.fabric-preview-wrap #fabricPreviewCanvas{
-    height: 240px;
-}
-
+/* --- Telas (cliente): estudio 3D en tamaño grande (modal) --- */
 .fabric-preview-canvas-modal{
     width: 100%;
     height: 600px;

@@ -124,6 +124,17 @@ class probadorVirtualController extends mainModel{
         }
     }
 
+    private function columnaExiste(string $tabla, string $columna): bool{
+        try{
+            $stmt = $this->conectar()->prepare("SHOW COLUMNS FROM {$tabla} LIKE :columna");
+            $stmt->bindValue(':columna', $columna);
+            $stmt->execute();
+            return (bool)$stmt->fetch(\PDO::FETCH_ASSOC);
+        }catch(\Throwable $e){
+            return false;
+        }
+    }
+
     public function registrarProbadorDesdeApi(): array{
         if($_SERVER['REQUEST_METHOD'] !== 'POST'){
             return ['status'=>405, 'body'=>['success'=>false, 'error'=>'method_not_allowed']];
@@ -147,6 +158,7 @@ class probadorVirtualController extends mainModel{
         $sesion = trim((string)($data['sesion'] ?? ''));
         $fechaIn = trim((string)($data['fecha'] ?? ''));
         $clienteId = (int)($data['cliente_id'] ?? 0);
+        $imagenBase64 = trim((string)($data['imagen_base64'] ?? ''));
 
         if($sesion === '' || strlen($sesion) > 255){
             return ['status'=>422, 'body'=>['success'=>false, 'error'=>'sesion_invalida']];
@@ -169,12 +181,37 @@ class probadorVirtualController extends mainModel{
             return ['status'=>404, 'body'=>['success'=>false, 'error'=>'cliente_no_encontrado']];
         }
 
+        if($imagenBase64 !== ''){
+            if(strlen($imagenBase64) > 12 * 1024 * 1024 || !preg_match('/^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+\/=\r\n]+$/', $imagenBase64)){
+                return ['status'=>422, 'body'=>['success'=>false, 'error'=>'imagen_base64_invalida']];
+            }
+        }
+
         try{
             $pdo = $this->conectar();
-            $stmt = $pdo->prepare('INSERT INTO probador_virtual (fecha, sesion, cliente_id) VALUES (:fecha, :sesion, :cliente_id)');
+            $tieneImagen = $this->columnaExiste('probador_virtual', 'probador_imagen_base64');
+            if(!$tieneImagen){
+                try{
+                    $pdo->exec('ALTER TABLE probador_virtual ADD COLUMN probador_imagen_base64 LONGTEXT NULL');
+                    $tieneImagen = true;
+                }catch(\Throwable $e){
+                    $tieneImagen = false;
+                }
+            }
+
+            $columns = 'fecha, sesion, cliente_id';
+            $values = ':fecha, :sesion, :cliente_id';
+            if($tieneImagen){
+                $columns .= ', probador_imagen_base64';
+                $values .= ', :imagen_base64';
+            }
+            $stmt = $pdo->prepare("INSERT INTO probador_virtual ({$columns}) VALUES ({$values})");
             $stmt->bindValue(':fecha', $fecha);
             $stmt->bindValue(':sesion', $sesion);
             $stmt->bindValue(':cliente_id', $clienteId, \PDO::PARAM_INT);
+            if($tieneImagen){
+                $stmt->bindValue(':imagen_base64', $imagenBase64 !== '' ? $imagenBase64 : null, $imagenBase64 !== '' ? \PDO::PARAM_STR : \PDO::PARAM_NULL);
+            }
             $stmt->execute();
 
             $probadorId = (int)$pdo->lastInsertId();
@@ -189,6 +226,7 @@ class probadorVirtualController extends mainModel{
 
             return ['status'=>201, 'body'=>['success'=>true, 'probador_id'=>$probadorId]];
         }catch(\Throwable $e){
+            error_log('[BOUTIQUE][PROBADOR] Error insertando sesión: '.$e->getMessage());
             return ['status'=>500, 'body'=>['success'=>false, 'error'=>'db_insert_error']];
         }
     }
